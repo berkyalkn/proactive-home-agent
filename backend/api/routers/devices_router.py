@@ -1,59 +1,55 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, Any
 import os
 from dotenv import load_dotenv
-from tapo import ApiClient
-import asyncio
 import logging
 
+from api.drivers import tapo_driver
+
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/devices", tags=["Real Devices"])
+router = APIRouter(prefix="/api/devices", tags=["Devices (Real & Abstracted)"])
 load_dotenv()
 
 TAPO_USERNAME = os.getenv("TAPO_USERNAME")
 TAPO_PASSWORD = os.getenv("TAPO_PASSWORD")
 
-REAL_DEVICES = {
+
+DEVICE_REGISTRY = {
     "living_room_light": {
-        "ip": os.getenv("LIVING_ROOM_LIGHT_IP"),
         "name": "Living Room Light",
-        "type": "light"
+        "type": "light",
+        "protocol": "tapo", 
+        "ip_env": "LIVING_ROOM_LIGHT_IP" 
     },
     "bedroom_light": {
-        "ip": os.getenv("BEDROOM_LIGHT_IP"),
         "name": "Bedroom Light",
-        "type": "light"
+        "type": "light",
+        "protocol": "tapo",
+        "ip_env": "BEDROOM_LIGHT_IP"
     }
+ 
 }
 
-MOCK_DEVICES_STATE = {
-    "kitchen_light": {"name": "Kitchen Light", "on": False, "type": "light"}
-}
+CONNECTED_DEVICES: Dict[str, Any] = {}
 
-tapo_device_objects: Dict[str, ApiClient] = {}
+async def initialize_devices():
+    """Reads the device registry and connects to all devices using their respective drivers."""
+    logger.info("Device Manager: Devices are starting...")
 
-async def initialize_tapo_devices():
-    """When the server starts, it connects to all Tapo devices."""
-    if not all([TAPO_USERNAME, TAPO_PASSWORD]):
-        logger.error("TAPO credentials are missing in the .env file. Devices cannot be started.")
-        return
+    for device_id, config in DEVICE_REGISTRY.items():
+        protocol = config.get("protocol")
+        ip = os.getenv(config.get("ip_env"))
 
-    client = ApiClient(TAPO_USERNAME, TAPO_PASSWORD)
-    
-    for device_id, config in REAL_DEVICES.items():
-        ip = config["ip"]
         if not ip:
-            logger.warning(f"⚠️ '{device_id}' IP address is not set in the .env file. Skipping.")
+            logger.warning(f"'{device_id}' IP address not found in the .env file. Skipping.")
             continue
-        
-        try:
-            device = await client.p110(ip)
-            tapo_device_objects[device_id] = device
-            logger.info(f"'{config['name']}' ({ip}) connected successfully.")
-        except Exception as e:
-            logger.error(f"'{config['name']}' ({ip}) connection failed: {e}")
-            pass
+
+        if protocol == "tapo":
+            device_obj = await tapo_driver.connect_tapo_device(ip, TAPO_USERNAME, TAPO_PASSWORD)
+            if device_obj:
+                CONNECTED_DEVICES[device_id] = {"protocol": "tapo", "object": device_obj}
+
 
 class DeviceControl(BaseModel):
     on: bool
@@ -61,51 +57,51 @@ class DeviceControl(BaseModel):
 
 @router.get("/")
 async def get_all_devices() -> Dict[str, dict]:
-    """Returns the current state of all *connected* real devices."""
+    """Gets the current state of all *connected* devices from their respective drivers."""
     
     response_state = {}
     
-    for device_id, device in tapo_device_objects.items():
-        try:
-            info = await device.get_device_info()
-            is_on = info.to_dict().get("device_on", False)
+    for device_id, conn in CONNECTED_DEVICES.items():
+        base_config = DEVICE_REGISTRY[device_id]
+        
+        if conn["protocol"] == "tapo":
+            status = await tapo_driver.get_tapo_status(conn["object"])
             
             response_state[device_id] = {
-                "name": REAL_DEVICES[device_id]["name"],
-                "on": is_on,
-                "type": REAL_DEVICES[device_id]["type"]
+                "name": base_config["name"] + (" (ERROR: Offline)" if status["error"] else ""),
+                "on": status["on"],
+                "type": base_config["type"]
             }
-        except Exception as e:
-            logger.error(f"'{device_id}' status reading failed: {e}")
-            response_state[device_id] = {
-                "name": REAL_DEVICES[device_id]["name"] + " (ERROR: Offline)",
-                "on": False,
-                "type": REAL_DEVICES[device_id]["type"]
-            }
-            
+
     return response_state
+
+
+
 
 @router.post("/{device_id}")
 async def control_device(device_id: str, control: DeviceControl):
-    """Turns a specific real device on or off."""
+    """Controls a device (independent of the protocol) using its respective driver."""
     
-    if device_id not in tapo_device_objects:
+    if device_id not in CONNECTED_DEVICES:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found or offline.")
 
-    device = tapo_device_objects[device_id]
+    conn = CONNECTED_DEVICES[device_id]
+    base_config = DEVICE_REGISTRY[device_id]
     
     try:
-        if control.on:
-            await device.on()
-        else:
-            await device.off()
+        if conn["protocol"] == "tapo":
+            await tapo_driver.set_tapo_status(conn["object"], control.on)
         
-        logger.info(f"Real device '{device_id}' status set to: {control.on}")
+   
+        else:
+            raise HTTPException(status_code=500, detail="Unknown device protocol")
+
+        logger.info(f"Device '{device_id}' status set to: {control.on}")
         
         return {
-            "name": REAL_DEVICES[device_id]["name"],
+            "name": base_config["name"],
             "on": control.on,
-            "type": REAL_DEVICES[device_id]["type"]
+            "type": base_config["type"]
         }
     except Exception as e:
         logger.error(f"'{device_id}' control failed: {e}")

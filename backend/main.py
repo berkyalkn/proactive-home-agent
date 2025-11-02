@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Application is starting... ")
-    await devices_router.initialize_tapo_devices()
+    await devices_router.initialize_devices()
     yield
     logger.info("Application is closing...")
 

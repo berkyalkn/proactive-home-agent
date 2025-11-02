@@ -1,13 +1,21 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+from contextlib import asynccontextmanager
 
 from api.routers import sensors_router, devices_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Smart Home AI API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Application is starting... ")
+    await devices_router.initialize_tapo_devices()
+    yield
+    logger.info("Application is closing...")
+
+app = FastAPI(title="Smart Home AI API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

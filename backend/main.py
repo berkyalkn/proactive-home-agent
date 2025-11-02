@@ -1,9 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
 
 from api.routers import sensors_router, devices_router
 
-app = FastAPI(title="Smart Home AI API v2")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Smart Home AI API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,4 +22,5 @@ app.include_router(devices_router.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "HOMIFY API v2 is running"}
+    logger.info("API root endpoint was hit!")
+    return {"message": "HOMIFY API is running"}

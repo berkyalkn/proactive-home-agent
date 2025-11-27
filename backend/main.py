@@ -4,6 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from api.routers import sensors_router, devices_router
+from api.drivers import mqtt_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Application is starting... ")
     await devices_router.initialize_devices()
+    mqtt_service.start_mqtt_service()
     yield
     logger.info("Application is closing...")
 
@@ -21,7 +23,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -30,5 +32,5 @@ app.include_router(devices_router.router)
 
 @app.get("/")
 def read_root():
-    logger.info("API root endpoint was hit!")
-    return {"message": "HOMIFY API is running"}
+    logger.info("Root endpoint accessed.")
+    return {"message": "Smart Home AI API is running with MQTT Support"}

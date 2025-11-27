@@ -7,3 +7,7 @@ frontend/.next/
 
 backend/.env
 .env*
+
+# MicroPython Secrets
+firmware/**/secrets.py
+firmware/secrets.py

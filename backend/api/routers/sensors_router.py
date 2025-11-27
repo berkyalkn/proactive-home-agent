@@ -1,18 +1,18 @@
 from fastapi import APIRouter
-import random
+from api.drivers.mqtt_service import LATEST_SENSOR_DATA
 
-router = APIRouter(prefix="/api/sensors", tags=["Mock Sensors"])
-
-def get_mock_sensor_data():
-    return {
-        "temperature": round(random.uniform(22.0, 26.0), 1),
-        "humidity": round(random.uniform(40.0, 60.0), 1),
-        "pressure": round(random.uniform(1010.0, 1015.0), 1),
-        "motion_detected": random.choice([True, False]),
-        "light_level": round(random.uniform(100.0, 800.0), 1)
-    }
+router = APIRouter(prefix="/api/sensors", tags=["Real Sensors"])
 
 @router.get("/all")
 async def get_all_sensors():
-    """Returns the most current mock data for all sensors"""
-    return get_mock_sensor_data()
+    """
+    Returns the latest sensor data received via MQTT.
+    """
+    if not LATEST_SENSOR_DATA:
+        return {
+            "status": "waiting_for_data",
+            "message": "No sensor data received yet. Please wait...",
+            "data": {}
+        }
+    
+    return LATEST_SENSOR_DATA

@@ -76,8 +76,6 @@ async def get_all_devices() -> Dict[str, dict]:
     return response_state
 
 
-
-
 @router.post("/{device_id}")
 async def control_device(device_id: str, control: DeviceControl):
     """Controls a device (independent of the protocol) using its respective driver."""

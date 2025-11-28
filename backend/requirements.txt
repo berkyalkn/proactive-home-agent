@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlmodel
+psycopg2-binary
+python-dotenv
+
+## pip install -r requirements.txt (cd backend first)
+## DB yapısı değişebileceği için alembic eklenebilir ileride

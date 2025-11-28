@@ -11,3 +11,5 @@ backend/.env
 # MicroPython Secrets
 firmware/**/secrets.py
 firmware/secrets.py
+
+backend/.env

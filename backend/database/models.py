@@ -3,13 +3,11 @@ from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship
 import uuid
 
-# --- ODALAR ---
 class Room(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     devices: List["Device"] = Relationship(back_populates="room")
 
-# --- CİHAZLAR ---
 class Device(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
@@ -21,7 +19,6 @@ class Device(SQLModel, table=True):
     readings: List["SensorReading"] = Relationship(back_populates="device")
     decisions: List["AgentDecision"] = Relationship(back_populates="target_device")
 
-# --- SENSÖR VERİLERİ ---
 class SensorReading(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
@@ -31,7 +28,6 @@ class SensorReading(SQLModel, table=True):
     value: float
     unit: str
 
-# --- AJAN KARARLARI ---
 class AgentDecision(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -43,7 +39,6 @@ class AgentDecision(SQLModel, table=True):
     confidence: float
     feedback: Optional["UserFeedback"] = Relationship(back_populates="decision")
 
-# --- KULLANICI GERİ BİLDİRİMİ ---
 class UserFeedback(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -52,7 +47,6 @@ class UserFeedback(SQLModel, table=True):
     is_positive: bool
     correction: Optional[str] = None
 
-# --- SİSTEM LOGLARI ---
 class SystemLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow)

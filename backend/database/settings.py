@@ -2,8 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlmodel import create_engine, Session
 
-# .env dosyasını backend klasöründen bulup yükler
-# Python kodu ile PostgreSQL bağlantı ayarlarını yönetmek için
+
 load_dotenv()
 
 DB_SERVER = os.getenv("DB_SERVER", "localhost")
@@ -14,7 +13,6 @@ DB_PORT = os.getenv("DB_PORT", "5432")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_SERVER}:{DB_PORT}/{DB_NAME}"
 
-# Bağlantı motoru
 engine = create_engine(DATABASE_URL, echo=True)
 
 def get_session():

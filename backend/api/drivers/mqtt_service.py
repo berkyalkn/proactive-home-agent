@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 import json
 import logging
 import os
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -34,6 +35,28 @@ def on_message(client, userdata, msg):
         
         LATEST_SENSOR_DATA[device_id] = data
     
+    except json.JSONDecodeError:
+        logger.error(f"Incorrect JSON format: {msg.payload}")
+    except Exception as e:
+        logger.error(f"Message processing error: {e}")
+
+
+def on_message(client, userdata, msg):
+    try:
+        payload_str = msg.payload.decode("utf-8")
+        data = json.loads(payload_str)
+        
+        topic_parts = msg.topic.split("/")
+        if len(topic_parts) >= 2:
+            room_name = topic_parts[1]
+        else:
+            room_name = "unknown"
+
+        device_id = data.get("device_id", f"esp32_{room_name}")
+        
+        data["last_seen"] = time.time()        
+        LATEST_SENSOR_DATA[device_id] = data
+
     except json.JSONDecodeError:
         logger.error(f"Incorrect JSON format: {msg.payload}")
     except Exception as e:

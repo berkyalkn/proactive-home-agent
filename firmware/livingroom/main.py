@@ -1,4 +1,4 @@
-#LIVINGROOM
+#Livingroom
 
 import network
 import time
@@ -9,14 +9,13 @@ import bme280
 from bh1750 import BH1750
 from pir import PIR
 
-import secrets
 
 CLIENT_ID = "esp32_livingroom" 
 TOPIC = b"home/livingroom/sensors"
 
-WIFI_SSID = secrets.WIFI_SSID
-WIFI_PASS = secrets.WIFI_PASS
-MQTT_BROKER = secrets.MQTT_BROKER
+WIFI_SSID = "TURKSAT-KABLONET-E602-2.4G" 
+WIFI_PASS = "c05f2c96"
+MQTT_BROKER = "192.168.0.36"
 
 I2C_SCL = 22
 I2C_SDA = 21
@@ -43,41 +42,68 @@ def main():
     client = connect_mqtt()
     
     i2c = I2C(0, scl=Pin(I2C_SCL), sda=Pin(I2C_SDA), freq=400000)
-    bme = bme280.BME280(i2c=i2c,address=0x76)
-    bh = BH1750(i2c)
+    
+    try:
+        bme = bme280.BME280(i2c=i2c)
+    except Exception as e:
+        print("BME280 Error:", e)
+        bme = None
+
+    try:
+        bh = BH1750(i2c)
+    except Exception as e:
+        print("BH1750 Error:", e)
+        bh = None
+        
     pir = PIR(PIR_PIN)
 
-    print(f"{CLIENT_ID} starts reading sensor...")
+    print(f"{CLIENT_ID} is starting to read...")
 
     while True:
-        try:
-            temp, pressure, hum = bme.read_compensated_data()
-            t = temp / 100
-            h = hum / 1024
-            p = pressure / 256
-            lux = bh.luminance(BH1750.ONCE_HIRES_1)
-            motion = pir.motion_detected()
+        t, h, p, lux, motion = None, None, None, None, False
 
+        if bme:
+            try:
+                temp, pressure, hum = bme.read_compensated_data()
+                t = round(temp , 2)
+                h = round(hum / 1024, 2)
+                p = round(pressure / 256, 2)
+            except Exception as e:
+                print("BME Read Error:", e)
+
+        if bh:
+            try:
+                lux = round(bh.luminance(BH1750.ONCE_HIRES_1), 2)
+            except Exception as e:
+                print("BH1750 Read Error:", e)
+
+        try:
+            motion = pir.motion_detected()
+        except:
+            pass
+
+  
+        try:
             payload = ujson.dumps({
                 "device_id": CLIENT_ID,
-                "temperature": round(t, 2),
-                "humidity": round(h, 2),
-                "pressure": round(p, 2),
-                "light_level": round(lux, 2),
+                "temperature": t,
+                "humidity": h,
+                "pressure": p,
+                "light_level": lux,
                 "motion_detected": motion
             })
 
-            print(f"Sending ({TOPIC}): {payload}")
+            print(f"Sending: {payload}")
             client.publish(TOPIC, payload)
-            time.sleep(5)
-
-        except OSError as e:
-            print('Error, reconnecting...', e)
-            time.sleep(10)
+        except Exception as e:
+            print("Error, reconnecting...", e)
             try:
                 client = connect_mqtt()
             except:
                 pass
+        
+        time.sleep(2)
+
 
 if __name__ == "__main__":
     main()

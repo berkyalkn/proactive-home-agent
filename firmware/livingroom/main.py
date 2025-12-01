@@ -20,7 +20,7 @@ MQTT_BROKER = secrets.MQTT_BROKER
 
 I2C_SCL = 22
 I2C_SDA = 21
-PIR_PIN = 13
+PIR_PIN = 27
 
 def connect_wifi():
     wlan = network.WLAN(network.STA_IF)
@@ -43,7 +43,7 @@ def main():
     client = connect_mqtt()
     
     i2c = I2C(0, scl=Pin(I2C_SCL), sda=Pin(I2C_SDA), freq=400000)
-    bme = bme280.BME280(i2c=i2c)
+    bme = bme280.BME280(i2c=i2c,address=0x76)
     bh = BH1750(i2c)
     pir = PIR(PIR_PIN)
 

@@ -21,7 +21,7 @@ async def get_tapo_status(device: ApiClient) -> dict:
         is_on = info.to_dict().get("device_on", False)
         return {"on": is_on, "error": None}
     except Exception as e:
-        logger.error(f"'{ip}' status reading failed: {e}")
+        logger.error(f"Tapo device status reading failed: {e}")
         return {"on": False, "error": "Offline"}
 
 async def set_tapo_status(device: ApiClient, set_on: bool):
@@ -32,5 +32,5 @@ async def set_tapo_status(device: ApiClient, set_on: bool):
         else:
             await device.off()
     except Exception as e:
-        logger.error(f"'{ip}' control failed: {e}")
+        logger.error(f"Tapo device control failed: {e}")
         raise e

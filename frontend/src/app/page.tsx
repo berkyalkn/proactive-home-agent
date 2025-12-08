@@ -14,7 +14,7 @@ import {
   WifiOff
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface RoomSensorData {
   device_id: string;
@@ -31,6 +31,7 @@ interface Device {
   name: string;
   on: boolean;
   type: "light" | "outlet";
+  power: number;
 }
 
 type DeviceState = Record<string, Device>;
@@ -76,7 +77,7 @@ export default function SmartHomeDashboard() {
   useEffect(() => {
     const fetchDeviceData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/devices`);
+        const response = await fetch(`${API_BASE_URL}/api/devices/`);
         if (response.ok) {
           const data = await response.json();
           setDevices(data);
@@ -85,7 +86,10 @@ export default function SmartHomeDashboard() {
         console.error("Device error:", error);
       }
     };
+
     fetchDeviceData();
+    const interval = setInterval(fetchDeviceData, 5000); 
+    return () => clearInterval(interval);
   }, []);
 
   const handleToggleDevice = async (deviceId: string, newStatus: boolean) => {
@@ -138,6 +142,7 @@ export default function SmartHomeDashboard() {
                   name={device.name}
                   type={device.type}
                   isOn={device.on}
+                  power={device.power}
                   onToggle={handleToggleDevice}
                   isLoading={isLoading}
                 />

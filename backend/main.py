@@ -31,9 +31,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Smart Home AI API", lifespan=lifespan)
 
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://100.105.136.5:3000",
+    "http://raspberrypi.local:3000"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],

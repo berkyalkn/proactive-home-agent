@@ -1,52 +1,78 @@
-print("🚀 Script başlatılıyor... (Eğer bunu görüyorsan Python çalışıyor)")
-
 from sqlmodel import SQLModel, Session, select
 from database.settings import engine
-from database.models import Room, Device
+from database.models import Device, SensorReading, AgentDecision, UserFeedback, SystemLog
+
+INITIAL_DEVICES = [
+    {
+        "name": "Living Room Light",
+        "device_type": "light",
+        "protocol": "tapo",
+        "location": "living_room",
+        "ip_address": "192.168.0.44", 
+        "is_active": True
+    },
+    {
+        "name": "Bedroom Light",
+        "device_type": "light",
+        "protocol": "tapo",
+        "location": "bedroom",
+        "ip_address": "192.168.0.43",
+        "is_active": True
+    },
+    {
+        "name": "esp32_guestroom",  
+        "device_type": "sensor_node",
+        "protocol": "mqtt",
+        "location": "guestroom",
+        "ip_address": "192.168.0.19", 
+        "is_active": True
+    },
+    {
+        "name": "esp32_livingroom",
+        "device_type": "sensor_node",
+        "protocol": "mqtt",
+        "location": "living_room",
+        "ip_address": "192.168.0.18",
+        "is_active": True
+    },
+    {
+        "name": "esp32_bedroom",
+        "device_type": "sensor_node",
+        "protocol": "mqtt",
+        "location": "bedroom",
+        "ip_address": "192.168.0.17",
+        "is_active": True
+    }
+]
 
 def init_db():
-    print("⏳ Veritabanı bağlantısı deneniyor ve tablolar oluşturuluyor...")
+    print("Creating database tables...")
     
     try:
-        # Tabloları oluştur
         SQLModel.metadata.create_all(engine)
-        print("✅ Tablolar başarıyla oluşturuldu (veya zaten vardı).")
+        print("Tables have been created successfully.")
     except Exception as e:
-        print(f"❌ KRİTİK HATA (Tablo Oluşturma): {e}")
+        print(f"ERROR (Creating Table): {e}")
         return
 
-    # Örnek Verileri Ekle
     try:
         with Session(engine) as session:
-            # 1. Odaları Kontrol Et / Ekle
-            rooms = ["Living Room", "Guest Room", "Bedroom"]
-            for room_name in rooms:
-                statement = select(Room).where(Room.name == room_name)
+            for device_data in INITIAL_DEVICES:
+                statement = select(Device).where(Device.name == device_data["name"])
                 results = session.exec(statement)
+                
                 if not results.first():
-                    room = Room(name=room_name)
-                    session.add(room)
-                    print(f"➕ Oda eklendi: {room_name}")
-            
-            # 2. Örnek Cihaz Ekle
-            statement = select(Device).where(Device.name == "ESP32_Main")
-            if not session.exec(statement).first():
-                # Önce Living Room'u bulalım
-                living_room = session.exec(select(Room).where(Room.name == "Living Room")).first()
-                if living_room:
-                    dev = Device(
-                        name="ESP32_Main", 
-                        device_type="sensor_node", 
-                        room_id=living_room.id
-                    )
+                    dev = Device(**device_data)
                     session.add(dev)
-                    print("➕ Cihaz eklendi: ESP32_Main")
+                    print(f"Device added: {device_data['name']}")
+                else:
+                    print(f"The device already exists: {device_data['name']}")
             
             session.commit()
-            print("💾 Tüm veriler kaydedildi.")
+            print("Initial data was recorded.")
 
     except Exception as e:
-        print(f"❌ HATA (Veri Ekleme): {e}")
+        print(f"ERROR (Data Insertion): {e}")
 
 if __name__ == "__main__":
     init_db()

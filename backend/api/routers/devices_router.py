@@ -67,53 +67,59 @@ async def initialize_devices():
 
 @router.get("/")
 async def get_all_devices() -> Dict[str, dict]:
-    """
-    Returns all devices. If an error occurs, it automatically retries (retry).
-    """
+
     response_state = {}
     
     for device_id, config in DEVICE_REGISTRY.items():
         is_online = False
         is_on = False
+        current_power = 0.0
         
+        active_conn = None
+
         if device_id in CONNECTED_DEVICES:
             conn = CONNECTED_DEVICES[device_id]
             if conn["protocol"] == "tapo":
                 status = await tapo_driver.get_tapo_status(conn["object"])
-                
                 if not status["error"]:
                     is_online = True
                     is_on = status["on"]
-                else:
-                
-                    if await ensure_connection(device_id):
-                        new_conn = CONNECTED_DEVICES[device_id]
-                        new_status = await tapo_driver.get_tapo_status(new_conn["object"])
-                        if not new_status["error"]:
-                            is_online = True
-                            is_on = new_status["on"]
+                    active_conn = conn 
 
-        elif await ensure_connection(device_id):
-             new_conn = CONNECTED_DEVICES[device_id]
-             new_status = await tapo_driver.get_tapo_status(new_conn["object"])
-             if not new_status["error"]:
-                is_online = True
-                is_on = new_status["on"]
+        if not is_online:
+            if await ensure_connection(device_id):
+                conn = CONNECTED_DEVICES[device_id]
+                status = await tapo_driver.get_tapo_status(conn["object"])
+                if not status["error"]:
+                    is_online = True
+                    is_on = status["on"]
+                    active_conn = conn 
+
+        if is_online and active_conn and config["protocol"] == "tapo":
+            try:
+                power_data = await active_conn["object"].get_current_power()
+                current_power = power_data.to_dict().get("current_power", 0) / 1000
+            except Exception as e:
+                logger.warning(f"Failed to read power data ({device_id}): {e}")
+                current_power = 0.0
 
         if is_online:
             response_state[device_id] = {
                 "name": config["name"],
                 "on": is_on,
-                "type": config["type"]
+                "type": config["type"],
+                "power": round(current_power, 2)
             }
         else:
             response_state[device_id] = {
                 "name": f"{config['name']} (Offline)",
                 "on": False,
-                "type": config["type"]
+                "type": config["type"],
+                "power": 0.0
             }
             
     return response_state
+       
 
 @router.post("/{device_id}")
 async def control_device(device_id: str, control: DeviceControl):

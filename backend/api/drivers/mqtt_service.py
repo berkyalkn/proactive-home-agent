@@ -5,6 +5,8 @@ import os
 import time
 from dotenv import load_dotenv
 
+from api.services.db_service import save_sensor_data
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,8 @@ def on_message(client, userdata, msg):
         
         data["last_seen"] = time.time()        
         LATEST_SENSOR_DATA[device_id] = data
+
+        save_sensor_data(data)
 
     except json.JSONDecodeError:
         logger.error(f"Incorrect JSON format: {msg.payload}")

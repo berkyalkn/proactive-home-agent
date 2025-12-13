@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { SensorCard } from "@/components/SensorCard";
 import { DeviceCard } from "@/components/DeviceCard";
+import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
 import {
   Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft
 } from "lucide-react";
@@ -127,6 +128,8 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
       </header>
 
       <main className="container mx-auto px-4 space-y-10">
+
+      <VoiceCommandCenter />
         
         <section>
           <div className="flex items-center gap-2 mb-4">

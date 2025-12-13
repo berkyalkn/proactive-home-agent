@@ -5,8 +5,9 @@ import Link from "next/link";
 import { SensorCard } from "@/components/SensorCard";
 import { DeviceCard } from "@/components/DeviceCard";
 import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
+import { CameraFeed } from "@/components/CameraFeed";
 import {
-  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft
+  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -181,6 +182,17 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
               <p className="text-muted-foreground font-medium">No sensor data available for {roomId}.</p>
             </div>
           )}
+        </section>
+
+        <section className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
+          <div className="flex items-center gap-2 mb-4">
+            <Cctv className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold text-foreground">Live Camera Feed</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+             <CameraFeed roomId={roomId} />
+          </div>
         </section>
 
       </main>

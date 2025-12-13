@@ -2,6 +2,7 @@
 
 import { Home } from "lucide-react";
 import { FloorPlan } from "@/components/FloorPlan";
+import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
 
 export default function LandingPage() {
   return (
@@ -23,7 +24,7 @@ export default function LandingPage() {
           <h2 className="text-3xl font-bold tracking-tight">Floor Plan View</h2>
           <p className="text-muted-foreground">Select a room from the layout below to view controls.</p>
         </div>
-
+        <VoiceCommandCenter />
         <FloorPlan />
       </main>
     </div>

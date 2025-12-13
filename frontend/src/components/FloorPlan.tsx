@@ -6,9 +6,9 @@ import Image from "next/image";
 
 
 const rooms = [
-  { id: "livingroom", name: "Living Room", top: "76%", left: "34.5%" },
-  { id: "guestroom", name: "Guest Room", top: "42%", left: "33.5%" },
-  { id: "bedroom", name: "Bedroom", top: "20%", left: "32.5%" },
+  { id: "livingroom", name: "Living Room", top: "73%", left: "35.5%" },
+  { id: "guestroom", name: "Guest Room", top: "42%", left: "34%" },
+  { id: "bedroom", name: "Bedroom", top: "20%", left: "33%" },
 ];
 
 export function FloorPlan() {

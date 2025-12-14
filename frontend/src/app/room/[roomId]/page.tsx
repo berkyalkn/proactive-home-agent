@@ -66,11 +66,7 @@ useEffect(() => {
       const response = await fetch(`${API_BASE_URL}/api/devices/`);
       if (response.ok) {
         const data: DeviceState = await response.json();
-        
-        // DOĞRU YAKLAŞIM:
-        // Sonuna "_plug" veya "_light" EKLEMİYORUZ.
-        // Sadece odanın "kök ismini" (root name) arıyoruz.
-        // Böylece living_room_plug, living_room_heater, living_room_fan... hepsi gelir.
+
         const roomPrefix = roomId === "livingroom" ? "living_room" : roomId;
         
         const filteredDevices: DeviceState = {};
@@ -174,15 +170,18 @@ useEffect(() => {
           </section>
 
           <section className="flex flex-col gap-3">
-             <div className="flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">Smart Lighting</h2>
-             </div>
-             <BulbControl 
-                deviceId={mainLightId} 
-                roomName={formatTitle(roomId)}
-              />
-          </section>
+       <div className="flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">Smart Lighting</h2>
+       </div>
+       
+       <div className="flex flex-col gap-3">
+          <BulbControl 
+             deviceId={mainLightId} 
+             roomName={`${formatTitle(roomId)} Light`}
+          />
+       </div>
+    </section>
 
         </div>
 

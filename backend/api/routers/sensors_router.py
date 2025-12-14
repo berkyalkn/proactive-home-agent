@@ -4,7 +4,7 @@ import time
 
 router = APIRouter(prefix="/api/sensors", tags=["Real Sensors"])
 
-TIMEOUT_SECONDS = 15
+TIMEOUT_SECONDS = 5
 
 @router.get("/all")
 async def get_all_sensors():

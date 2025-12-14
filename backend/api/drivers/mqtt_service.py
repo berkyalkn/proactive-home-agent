@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 LATEST_SENSOR_DATA = {}
 
-MQTT_BROKER = "localhost"  
+MQTT_BROKER = "127.0.0.1"  
 MQTT_PORT = 1883
 MQTT_TOPIC = "home/+/sensors" 
 
@@ -26,22 +26,6 @@ def on_connect(client, userdata, flags, rc):
     else:
         logger.error(f"MQTT Connection Error. Code: {rc}")
 
-def on_message(client, userdata, msg):
-    """Works when a new message arrives."""
-    try:
-
-        payload_str = msg.payload.decode("utf-8")
-        data = json.loads(payload_str)
-        
-        device_id = data.get("device_id", "unknown_device")
-        
-        LATEST_SENSOR_DATA[device_id] = data
-    
-    except json.JSONDecodeError:
-        logger.error(f"Incorrect JSON format: {msg.payload}")
-    except Exception as e:
-        logger.error(f"Message processing error: {e}")
-
 
 def on_message(client, userdata, msg):
     try:
@@ -49,6 +33,7 @@ def on_message(client, userdata, msg):
         data = json.loads(payload_str)
         
         topic_parts = msg.topic.split("/")
+
         if len(topic_parts) >= 2:
             room_name = topic_parts[1]
         else:

@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from api.routers.devices_router import CONNECTED_DEVICES
-# db_service importunu fonksiyon içine aldık (Circular Import riskine karşı)
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ async def poll_tapo_devices():
                     except Exception as e:
                         logger.error(f"{device_id} data reading error: {e}")
 
-            await asyncio.sleep(10)
+            await asyncio.sleep(3)
             
         except asyncio.CancelledError:
             logger.info("Tapo Poller has been stopped.")

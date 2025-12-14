@@ -5,13 +5,13 @@ import Link from "next/link";
 import { SensorCard } from "@/components/SensorCard";
 import { DeviceCard } from "@/components/DeviceCard";
 import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
+import { BulbControl } from "@/components/BulbControl";
 import { CameraFeed } from "@/components/CameraFeed";
 import {
-  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv
+  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 
 interface RoomSensorData {
   device_id: string;
@@ -22,16 +22,17 @@ interface RoomSensorData {
   motion_detected: boolean;
 }
 type SensorResponse = Record<string, RoomSensorData>;
+
 interface Device {
   name: string;
   on: boolean;
-  type: "light" | "outlet";
+  type: "outlet";
   power: number;
 }
 type DeviceState = Record<string, Device>;
 
 const formatTitle = (roomId: string) => {
-  return roomId.charAt(0).toUpperCase() + roomId.slice(1) + " Control";
+  return roomId.charAt(0).toUpperCase() + roomId.slice(1);
 };
 
 export default function RoomDetailPage({ params }: { params: Promise<{ roomId: string }> }) {
@@ -42,6 +43,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   const [devices, setDevices] = useState<DeviceState>({});
   const [isLoading, setIsLoading] = useState(false);
 
+
   useEffect(() => {
     const fetchSensors = async () => {
       try {
@@ -49,12 +51,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
         if (response.ok) {
           const data = await response.json();
           const targetId = `esp32_${roomId}`;
-          
-          if (data && data[targetId]) {
-            setSensorData(data[targetId]);
-          } else {
-            setSensorData(null);
-          }
+          setSensorData(data && data[targetId] ? data[targetId] : null);
         }
       } catch (error) { console.error("Sensor error:", error); }
     };
@@ -63,29 +60,35 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
     return () => clearInterval(interval);
   }, [roomId]);
 
-  useEffect(() => {
-    const fetchDevices = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/devices/`);
-        if (response.ok) {
-          const data: DeviceState = await response.json();
-          
-          const searchKey = roomId === "livingroom" ? "living_room" : roomId;
+useEffect(() => {
+  const fetchDevices = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/devices/`);
+      if (response.ok) {
+        const data: DeviceState = await response.json();
+        
+        // DOĞRU YAKLAŞIM:
+        // Sonuna "_plug" veya "_light" EKLEMİYORUZ.
+        // Sadece odanın "kök ismini" (root name) arıyoruz.
+        // Böylece living_room_plug, living_room_heater, living_room_fan... hepsi gelir.
+        const roomPrefix = roomId === "livingroom" ? "living_room" : roomId;
+        
+        const filteredDevices: DeviceState = {};
+        
+        Object.entries(data).forEach(([key, val]) => {
+          if (key.toLowerCase().includes(roomPrefix)) {
+            filteredDevices[key] = val;
+          }
+        });
+        setDevices(filteredDevices);
+      }
+    } catch (error) { console.error("Device error:", error); }
+  };
+  fetchDevices();
+  const interval = setInterval(fetchDevices, 5000);
+  return () => clearInterval(interval);
+}, [roomId]);
 
-          const filteredDevices: DeviceState = {};
-          Object.entries(data).forEach(([key, val]) => {
-            if (key.includes(searchKey)) {
-              filteredDevices[key] = val;
-            }
-          });
-          setDevices(filteredDevices);
-        }
-      } catch (error) { console.error("Device error:", error); }
-    };
-    fetchDevices();
-    const interval = setInterval(fetchDevices, 5000);
-    return () => clearInterval(interval);
-  }, [roomId]);
 
   const handleToggleDevice = async (deviceId: string, newStatus: boolean) => {
     setIsLoading(true);
@@ -106,41 +109,92 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
 
   const formatValue = (val: number | null) => (val === null ? "N/A" : val);
 
+
+  const mainLightId = roomId === "livingroom" ? "living_room_light" : `${roomId}_light`;
+  const secondaryDevices = Object.entries(devices).filter(([id]) => id !== mainLightId);
+
   return (
     <div className="min-h-screen bg-background pb-12">
       
-      <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-10 mb-8">
+      <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-30 mb-6">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Link 
             href="/" 
             className="p-2 bg-secondary hover:bg-secondary/80 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
           >
             <ArrowLeft className="h-5 w-5" />
-            Back to Map
+            Back
           </Link>
           <div className="h-6 w-[1px] bg-border mx-2"></div>
           <div>
             <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
               <Home className="h-5 w-5 text-primary" />
-              {formatTitle(roomId)}
+              {formatTitle(roomId)} Control
             </h1>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 space-y-10">
+      <main className="container mx-auto px-4 space-y-8">
 
-      <VoiceCommandCenter />
+        <VoiceCommandCenter />
         
         <section>
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
             <Activity className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Device Control</h2>
+            <h2 className="text-lg font-semibold text-foreground">Environment Status</h2>
           </div>
+
+          {sensorData ? (
+             <div className="bg-card/40 p-4 rounded-2xl border border-border/50 shadow-sm">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <SensorCard title="Temp" value={formatValue(sensorData.temperature)} unit="°C" icon={Thermometer} />
+                  <SensorCard title="Humidity" value={formatValue(sensorData.humidity)} unit="%" icon={Droplets} />
+                  <SensorCard title="Motion" value={sensorData.motion_detected ? "Active" : "Clear"} unit="" icon={Eye} />
+                  <SensorCard title="Light" value={formatValue(sensorData.light_level)} unit="lx" icon={Sun} />
+                  <SensorCard title="Pressure" value={formatValue(sensorData.pressure)} unit="hPa" icon={Gauge} />
+                </div>
+             </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl bg-muted/5">
+              <WifiOff className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">Searching for sensors...</p>
+            </div>
+          )}
+        </section>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           
+          <section className="flex flex-col gap-3">
+             <div className="flex items-center gap-2">
+                <Cctv className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Live Feed</h2>
+             </div>
+             <CameraFeed roomId={roomId} />
+          </section>
+
+          <section className="flex flex-col gap-3">
+             <div className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Smart Lighting</h2>
+             </div>
+             <BulbControl 
+                deviceId={mainLightId} 
+                roomName={formatTitle(roomId)}
+              />
+          </section>
+
+        </div>
+
+        <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="flex items-center gap-2 mb-3">
+            <Zap className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Other Devices</h2>
+          </div>
+      
+          {Object.keys(devices).length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.keys(devices).length > 0 ? (
-              Object.entries(devices).map(([id, dev]) => (
+              {Object.entries(devices).map(([id, dev]) => (
                 <DeviceCard 
                   key={id} 
                   deviceId={id} 
@@ -151,48 +205,19 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                   onToggle={handleToggleDevice} 
                   isLoading={isLoading} 
                 />
-              ))
-            ) : (
-              <div className="col-span-full py-8 text-center text-muted-foreground bg-muted/5 rounded-lg border border-dashed border-border/50">
-                No controllable devices found in {roomId}.
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Environment Monitoring</h2>
-          </div>
-
-          {sensorData ? (
-             <div className="bg-card/40 p-5 rounded-xl border border-border/50 shadow-sm">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <SensorCard title="Temp" value={formatValue(sensorData.temperature)} unit="°C" icon={Thermometer} />
-                  <SensorCard title="Humidity" value={formatValue(sensorData.humidity)} unit="%" icon={Droplets} />
-                  <SensorCard title="Motion" value={sensorData.motion_detected ? "Active" : "Clear"} unit="" icon={Eye} />
-                  <SensorCard title="Light" value={formatValue(sensorData.light_level)} unit="lx" icon={Sun} />
-                  <SensorCard title="Pressure" value={formatValue(sensorData.pressure)} unit="hPa" icon={Gauge} />
-                </div>
-             </div>
+              ))}
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-border rounded-xl bg-muted/5">
-              <WifiOff className="h-10 w-10 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground font-medium">No sensor data available for {roomId}.</p>
+        <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-border rounded-xl bg-muted/5 text-center">
+              <div className="p-3 bg-muted rounded-full mb-3">
+                <PlugZap className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">No other devices connected</p>
+              <p className="text-xs text-muted-foreground/60 mt-1 max-w-xs">
+                Smart plugs, fans, or heaters connected to this room will appear here.
+              </p>
             </div>
           )}
-        </section>
-
-        <section className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-          <div className="flex items-center gap-2 mb-4">
-            <Cctv className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Live Camera Feed</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-             <CameraFeed roomId={roomId} />
-          </div>
         </section>
 
       </main>

@@ -2,12 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Zap, Power, Activity} from "lucide-react";
+import { Plug, Power, Activity, Zap } from "lucide-react";
 
 interface DeviceCardProps {
   deviceId: string;
   name: string;
-  type: "light" | "outlet";
+  type: "outlet"; 
   isOn: boolean;
   power?: number;
   onToggle: (deviceId: string, newStatus: boolean) => void;
@@ -17,18 +17,19 @@ interface DeviceCardProps {
 export function DeviceCard({
   deviceId,
   name,
-  type,
+  type, 
   isOn,
   power = 0, 
   onToggle,
   isLoading,
 }: DeviceCardProps) {
-  const Icon = type === "light" ? Lightbulb : Zap;
+  
+  const Icon = Plug; 
 
   return (
     <Card className="relative overflow-hidden">
       {isOn && power > 0 && (
-        <div className="absolute top-0 right-0 w-20 h-20 bg-yellow-500/10 blur-3xl rounded-full pointer-events-none" />
+        <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 blur-3xl rounded-full pointer-events-none" />
       )}
 
       <CardHeader className="pb-2">

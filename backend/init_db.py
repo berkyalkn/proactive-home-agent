@@ -4,19 +4,19 @@ from database.models import Device, SensorReading, AgentDecision, UserFeedback, 
 
 INITIAL_DEVICES = [
     {
-        "name": "Living Room Light",
-        "device_type": "light",
+        "name": "Living Room Plug",
+        "device_type": "outlet",
         "protocol": "tapo",
         "location": "living_room",
-        "ip_address": "192.168.0.44", 
+        "ip_address": "192.168.1.177", 
         "is_active": True
     },
     {
-        "name": "Bedroom Light",
-        "device_type": "light",
+        "name": "Bedroom Plug",
+        "device_type": "outlet",
         "protocol": "tapo",
         "location": "bedroom",
-        "ip_address": "192.168.0.43",
+        "ip_address": "192.168.1.198",
         "is_active": True
     },
     {

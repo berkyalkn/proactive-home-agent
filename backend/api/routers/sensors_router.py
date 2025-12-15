@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import uuid
 
@@ -76,6 +76,9 @@ async def get_sensor_history(
 
     data = []
     for timestamp, value in results:
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+
         data.append({
             "timestamp": timestamp,
             "value": value

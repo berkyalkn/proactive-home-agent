@@ -7,6 +7,8 @@ import { DeviceCard } from "@/components/DeviceCard";
 import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
 import { BulbControl } from "@/components/BulbControl";
 import { CameraFeed } from "@/components/CameraFeed";
+import { SensorHistoryModal } from "@/components/SensorHistoryModal";
+
 import {
   Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap
 } from "lucide-react";
@@ -42,6 +44,13 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   const [sensorData, setSensorData] = useState<RoomSensorData | null>(null);
   const [devices, setDevices] = useState<DeviceState>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  const [selectedSensor, setSelectedSensor] = useState<{
+    title: string;
+    metricKey: string;
+    unit: string;
+    value: string | number;
+  } | null>(null);
 
 
   useEffect(() => {
@@ -105,9 +114,16 @@ useEffect(() => {
 
   const formatValue = (val: number | null) => (val === null ? "N/A" : val);
 
+  const openSensorHistory = (title: string, metricKey: string, unit: string, value: any) => {
+    if (metricKey === "motion") return; 
+    
+    setSelectedSensor({
+      title, metricKey, unit, value
+    });
+  };
+
 
   const mainLightId = roomId === "livingroom" ? "living_room_light" : `${roomId}_light`;
-  const secondaryDevices = Object.entries(devices).filter(([id]) => id !== mainLightId);
 
   return (
     <div className="min-h-screen bg-background pb-12">
@@ -144,11 +160,45 @@ useEffect(() => {
           {sensorData ? (
              <div className="bg-card/40 p-4 rounded-2xl border border-border/50 shadow-sm">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <SensorCard title="Temp" value={formatValue(sensorData.temperature)} unit="°C" icon={Thermometer} />
-                  <SensorCard title="Humidity" value={formatValue(sensorData.humidity)} unit="%" icon={Droplets} />
-                  <SensorCard title="Motion" value={sensorData.motion_detected ? "Active" : "Clear"} unit="" icon={Eye} />
-                  <SensorCard title="Light" value={formatValue(sensorData.light_level)} unit="lx" icon={Sun} />
-                  <SensorCard title="Pressure" value={formatValue(sensorData.pressure)} unit="hPa" icon={Gauge} />
+                  
+                  <SensorCard 
+                    title="Temp" 
+                    value={formatValue(sensorData.temperature)} 
+                    unit="°C" 
+                    icon={Thermometer} 
+                    onClick={() => openSensorHistory("Temperature", "temperature", "°C", formatValue(sensorData.temperature))}
+                  />
+                  
+                  <SensorCard 
+                    title="Humidity" 
+                    value={formatValue(sensorData.humidity)} 
+                    unit="%" 
+                    icon={Droplets}
+                    onClick={() => openSensorHistory("Humidity", "humidity", "%", formatValue(sensorData.humidity))}
+                  />
+                  
+                  <SensorCard 
+                    title="Motion" 
+                    value={sensorData.motion_detected ? "Active" : "Clear"} 
+                    unit="" 
+                    icon={Eye} 
+                  />
+                  
+                  <SensorCard 
+                    title="Light" 
+                    value={formatValue(sensorData.light_level)} 
+                    unit="lx" 
+                    icon={Sun} 
+                    onClick={() => openSensorHistory("Light Level", "light_level", "lx", formatValue(sensorData.light_level))}
+                  />
+                  
+                  <SensorCard 
+                    title="Pressure" 
+                    value={formatValue(sensorData.pressure)} 
+                    unit="hPa" 
+                    icon={Gauge} 
+                    onClick={() => openSensorHistory("Pressure", "pressure", "hPa", formatValue(sensorData.pressure))}
+                  />
                 </div>
              </div>
           ) : (
@@ -220,6 +270,18 @@ useEffect(() => {
         </section>
 
       </main>
+
+      {selectedSensor && (
+        <SensorHistoryModal
+          isOpen={!!selectedSensor}
+          onClose={() => setSelectedSensor(null)}
+          title={selectedSensor.title}
+          metricKey={selectedSensor.metricKey}
+          unit={selectedSensor.unit}
+          currentValue={selectedSensor.value}
+          deviceId={`esp32_${roomId}`} 
+        />
+      )}
     </div>
   );
 }

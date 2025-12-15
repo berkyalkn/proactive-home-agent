@@ -12,11 +12,20 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
   const [isOnline, setIsOnline] = useState(true); 
   const [currentTime, setCurrentTime] = useState("");
 
+
+  const [timeString, setTimeString] = useState("");
+  const [dateString, setDateString] = useState("");
+
   useEffect(() => {
-    const timer = setInterval(() => {
+    const updateTime = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString("en-US", { hour12: false }));
-    }, 1000);
+      setTimeString(now.toLocaleTimeString("en-US", { hour12: false }));
+      setDateString(now.toLocaleDateString());
+    };
+
+    updateTime();
+
+    const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -57,7 +66,9 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
 
           <div className="absolute top-4 left-4 flex flex-col gap-0.5">
              <span className="text-[10px] text-white/70 font-mono tracking-widest uppercase">CAM: {roomId.toUpperCase()}</span>
-             <span className="text-[10px] text-white/70 font-mono tracking-widest">{new Date().toLocaleDateString()} {currentTime}</span>
+             <span className="text-[10px] text-white/70 font-mono tracking-widest min-h-[15px]">
+                {dateString} {timeString}
+             </span>
           </div>
 
           <div className="absolute top-1/4 left-1/4 w-32 h-32 border-2 border-primary/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">

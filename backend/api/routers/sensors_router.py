@@ -10,7 +10,7 @@ from api.drivers.mqtt_service import LATEST_SENSOR_DATA
 
 router = APIRouter(prefix="/api/sensors", tags=["Sensors"])
 
-TIMEOUT_SECONDS = 15
+TIMEOUT_SECONDS = 4
 
 @router.get("/all")
 async def get_all_sensors():

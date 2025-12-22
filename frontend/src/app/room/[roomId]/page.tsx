@@ -65,7 +65,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
       } catch (error) { console.error("Sensor error:", error); }
     };
     fetchSensors();
-    const interval = setInterval(fetchSensors, 2000);
+    const interval = setInterval(fetchSensors, 1000);
     return () => clearInterval(interval);
   }, [roomId]);
 

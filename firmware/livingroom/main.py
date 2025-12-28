@@ -13,9 +13,9 @@ from pir import PIR
 CLIENT_ID = "esp32_livingroom" 
 TOPIC = b"home/livingroom/sensors"
 
-WIFI_SSID = "TURKSAT-KABLONET-E602-2.4G" 
+WIFI_SSID = "TURKSAT-KABLONET-E94D-2.4G" 
 WIFI_PASS = "c05f2c96"
-MQTT_BROKER = "192.168.0.36"
+MQTT_BROKER = "192.168.0.23"
 
 I2C_SCL = 22
 I2C_SDA = 21

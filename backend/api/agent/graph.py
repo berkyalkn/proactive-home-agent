@@ -1,8 +1,7 @@
 import os
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_groq import ChatGroq
+from langchain.chat_models import init_chat_model
 
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -12,16 +11,12 @@ from api.agent.tools import tools_list
 load_dotenv()
 
 
-#llm = ChatGoogleGenerativeAI(
-#    model="gemini-2.5-flash",
-#    temperature=0,
-#    google_api_key=os.getenv("GOOGLE_API_KEY"))
-
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile", 
-    api_key=os.getenv("GROQ_API_KEY"), 
-    max_retries=3
+llm = init_chat_model(
+    "gemini-2.5-pro", 
+    model_provider="google_vertexai", 
+    temperature=0
 )
+
 
 llm_with_tools = llm.bind_tools(tools_list)
 
@@ -88,11 +83,16 @@ async def chat_with_ai(user_input: str, thread_id: str = "1"):
         config=config
     )
     
-    return final_state["messages"][-1].content
+    ai_response = final_state["messages"][-1].content
 
+    # Gemini 2.5 Pro returns content as a list of objects, so it changed
+    # We need to extract only the actual text parts
     if isinstance(ai_response, list):
-       
-        text_parts = [part.get('text', '') for part in ai_response if 'text' in part]
-        return " ".join(text_parts)
+        text_parts = [
+            part.get('text', '') 
+            for part in ai_response 
+            if isinstance(part, dict) and part.get('type') == 'text'
+        ]
+        return " ".join(text_parts) if text_parts else str(ai_response)
     
     return str(ai_response)

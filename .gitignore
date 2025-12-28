@@ -13,3 +13,5 @@ firmware/**/secrets.py
 firmware/secrets.py
 
 backend/.env
+
+backend/Vertex_credentials.json

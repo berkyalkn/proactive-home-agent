@@ -3,12 +3,12 @@ from database.settings import engine
 from database.models import Device, SensorReading, AgentDecision, UserFeedback, SystemLog
 
 INITIAL_DEVICES = [
-    {
+     {
         "name": "Living Room Plug",
         "device_type": "outlet",
         "protocol": "tapo",
         "location": "living_room",
-        "ip_address": "192.168.1.177", 
+        "ip_address": "192.168.0.22", 
         "is_active": True
     },
     {
@@ -16,7 +16,7 @@ INITIAL_DEVICES = [
         "device_type": "outlet",
         "protocol": "tapo",
         "location": "bedroom",
-        "ip_address": "192.168.1.198",
+        "ip_address": "192.168.0.21",
         "is_active": True
     },
     {
@@ -24,7 +24,7 @@ INITIAL_DEVICES = [
         "device_type": "sensor_node",
         "protocol": "mqtt",
         "location": "guestroom",
-        "ip_address": "192.168.0.19", 
+        "ip_address": "192.168.0.20", 
         "is_active": True
     },
     {
@@ -32,7 +32,7 @@ INITIAL_DEVICES = [
         "device_type": "sensor_node",
         "protocol": "mqtt",
         "location": "living_room",
-        "ip_address": "192.168.0.18",
+        "ip_address": "192.168.0.17",
         "is_active": True
     },
     {
@@ -40,7 +40,7 @@ INITIAL_DEVICES = [
         "device_type": "sensor_node",
         "protocol": "mqtt",
         "location": "bedroom",
-        "ip_address": "192.168.0.17",
+        "ip_address": "192.168.0.18",
         "is_active": True
     }
 ]

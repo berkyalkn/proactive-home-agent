@@ -8,10 +8,7 @@ from api.drivers import mqtt_service
 from api.services import tapo_poller
 
 import asyncio
-<<<<<<< HEAD
 from api.routers import chat_router
-=======
->>>>>>> origin/main
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

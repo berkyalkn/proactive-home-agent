@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react"; 
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { SensorCard } from "@/components/SensorCard";
 import { DeviceCard } from "@/components/DeviceCard";
@@ -28,8 +28,11 @@ type SensorResponse = Record<string, RoomSensorData>;
 interface Device {
   name: string;
   on: boolean;
-  type: "outlet";
+  type: "outlet" | "bulb";
   power: number;
+  brightness?: number;
+  hue?: number;
+  saturation?: number;
 }
 type DeviceState = Record<string, Device>;
 
@@ -69,30 +72,32 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
     return () => clearInterval(interval);
   }, [roomId]);
 
-useEffect(() => {
-  const fetchDevices = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/devices/`);
-      if (response.ok) {
-        const data: DeviceState = await response.json();
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/devices/`);
+        if (response.ok) {
+          const data: DeviceState = await response.json();
 
-        const roomPrefix = roomId === "livingroom" ? "living_room" : roomId;
-        
-        const filteredDevices: DeviceState = {};
-        
-        Object.entries(data).forEach(([key, val]) => {
-          if (key.toLowerCase().includes(roomPrefix)) {
-            filteredDevices[key] = val;
-          }
-        });
-        setDevices(filteredDevices);
-      }
-    } catch (error) { console.error("Device error:", error); }
-  };
-  fetchDevices();
-  const interval = setInterval(fetchDevices, 5000);
-  return () => clearInterval(interval);
-}, [roomId]);
+          const roomPrefix = roomId === "livingroom" ? "living_room" : roomId;
+
+          const filteredDevices: DeviceState = {};
+
+          Object.entries(data).forEach(([key, val]) => {
+            // Only include outlet devices in "Other Devices" section
+            // Bulbs are shown in "Smart Lighting" section via BulbControl component
+            if (key.toLowerCase().includes(roomPrefix) && val.type === "outlet") {
+              filteredDevices[key] = val;
+            }
+          });
+          setDevices(filteredDevices);
+        }
+      } catch (error) { console.error("Device error:", error); }
+    };
+    fetchDevices();
+    const interval = setInterval(fetchDevices, 5000);
+    return () => clearInterval(interval);
+  }, [roomId]);
 
 
   const handleToggleDevice = async (deviceId: string, newStatus: boolean) => {
@@ -104,8 +109,8 @@ useEffect(() => {
         body: JSON.stringify({ on: newStatus }),
       });
       setDevices((prev) => ({
-         ...prev, 
-         [deviceId]: { ...prev[deviceId], on: newStatus } 
+        ...prev,
+        [deviceId]: { ...prev[deviceId], on: newStatus }
       }));
     } finally {
       setIsLoading(false);
@@ -115,23 +120,23 @@ useEffect(() => {
   const formatValue = (val: number | null) => (val === null ? "N/A" : val);
 
   const openSensorHistory = (title: string, metricKey: string, unit: string, value: any) => {
-    if (metricKey === "motion") return; 
-    
+    if (metricKey === "motion") return;
+
     setSelectedSensor({
       title, metricKey, unit, value
     });
   };
 
 
-  const mainLightId = roomId === "livingroom" ? "living_room_light" : `${roomId}_light`;
+  const mainLightId = roomId === "livingroom" ? "living_room_bulb" : `${roomId}_bulb`;
 
   return (
     <div className="min-h-screen bg-background pb-12">
-      
+
       <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-30 mb-6">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="p-2 bg-secondary hover:bg-secondary/80 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -150,7 +155,7 @@ useEffect(() => {
       <main className="container mx-auto px-4 space-y-8">
 
         <VoiceCommandCenter />
-        
+
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Activity className="h-5 w-5 text-primary" />
@@ -158,49 +163,49 @@ useEffect(() => {
           </div>
 
           {sensorData ? (
-             <div className="bg-card/40 p-4 rounded-2xl border border-border/50 shadow-sm">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  
-                  <SensorCard 
-                    title="Temp" 
-                    value={formatValue(sensorData.temperature)} 
-                    unit="°C" 
-                    icon={Thermometer} 
-                    onClick={() => openSensorHistory("Temperature", "temperature", "°C", formatValue(sensorData.temperature))}
-                  />
-                  
-                  <SensorCard 
-                    title="Humidity" 
-                    value={formatValue(sensorData.humidity)} 
-                    unit="%" 
-                    icon={Droplets}
-                    onClick={() => openSensorHistory("Humidity", "humidity", "%", formatValue(sensorData.humidity))}
-                  />
-                  
-                  <SensorCard 
-                    title="Motion" 
-                    value={sensorData.motion_detected ? "Active" : "Clear"} 
-                    unit="" 
-                    icon={Eye} 
-                  />
-                  
-                  <SensorCard 
-                    title="Light" 
-                    value={formatValue(sensorData.light_level)} 
-                    unit="lx" 
-                    icon={Sun} 
-                    onClick={() => openSensorHistory("Light Level", "light_level", "lx", formatValue(sensorData.light_level))}
-                  />
-                  
-                  <SensorCard 
-                    title="Pressure" 
-                    value={formatValue(sensorData.pressure)} 
-                    unit="hPa" 
-                    icon={Gauge} 
-                    onClick={() => openSensorHistory("Pressure", "pressure", "hPa", formatValue(sensorData.pressure))}
-                  />
-                </div>
-             </div>
+            <div className="bg-card/40 p-4 rounded-2xl border border-border/50 shadow-sm">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+
+                <SensorCard
+                  title="Temp"
+                  value={formatValue(sensorData.temperature)}
+                  unit="°C"
+                  icon={Thermometer}
+                  onClick={() => openSensorHistory("Temperature", "temperature", "°C", formatValue(sensorData.temperature))}
+                />
+
+                <SensorCard
+                  title="Humidity"
+                  value={formatValue(sensorData.humidity)}
+                  unit="%"
+                  icon={Droplets}
+                  onClick={() => openSensorHistory("Humidity", "humidity", "%", formatValue(sensorData.humidity))}
+                />
+
+                <SensorCard
+                  title="Motion"
+                  value={sensorData.motion_detected ? "Active" : "Clear"}
+                  unit=""
+                  icon={Eye}
+                />
+
+                <SensorCard
+                  title="Light"
+                  value={formatValue(sensorData.light_level)}
+                  unit="lx"
+                  icon={Sun}
+                  onClick={() => openSensorHistory("Light Level", "light_level", "lx", formatValue(sensorData.light_level))}
+                />
+
+                <SensorCard
+                  title="Pressure"
+                  value={formatValue(sensorData.pressure)}
+                  unit="hPa"
+                  icon={Gauge}
+                  onClick={() => openSensorHistory("Pressure", "pressure", "hPa", formatValue(sensorData.pressure))}
+                />
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl bg-muted/5">
               <WifiOff className="h-8 w-8 text-muted-foreground mb-2" />
@@ -210,28 +215,28 @@ useEffect(() => {
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          
+
           <section className="flex flex-col gap-3">
-             <div className="flex items-center gap-2">
-                <Cctv className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">Live Feed</h2>
-             </div>
-             <CameraFeed roomId={roomId} />
+            <div className="flex items-center gap-2">
+              <Cctv className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Live Feed</h2>
+            </div>
+            <CameraFeed roomId={roomId} />
           </section>
 
           <section className="flex flex-col gap-3">
-       <div className="flex items-center gap-2">
-          <Lightbulb className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Smart Lighting</h2>
-       </div>
-       
-       <div className="flex flex-col gap-3">
-          <BulbControl 
-             deviceId={mainLightId} 
-             roomName={`${formatTitle(roomId)} Light`}
-          />
-       </div>
-    </section>
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Smart Lighting</h2>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <BulbControl
+                deviceId={mainLightId}
+                roomName={`${formatTitle(roomId)} Light`}
+              />
+            </div>
+          </section>
 
         </div>
 
@@ -240,24 +245,24 @@ useEffect(() => {
             <Zap className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold text-foreground">Other Devices</h2>
           </div>
-      
+
           {Object.keys(devices).length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(devices).map(([id, dev]) => (
-                <DeviceCard 
-                  key={id} 
-                  deviceId={id} 
+                <DeviceCard
+                  key={id}
+                  deviceId={id}
                   name={dev.name}
                   type={dev.type}
-                  isOn={dev.on} 
+                  isOn={dev.on}
                   power={dev.power}
-                  onToggle={handleToggleDevice} 
-                  isLoading={isLoading} 
+                  onToggle={handleToggleDevice}
+                  isLoading={isLoading}
                 />
               ))}
             </div>
           ) : (
-        <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-border rounded-xl bg-muted/5 text-center">
+            <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-border rounded-xl bg-muted/5 text-center">
               <div className="p-3 bg-muted rounded-full mb-3">
                 <PlugZap className="h-6 w-6 text-muted-foreground" />
               </div>
@@ -279,7 +284,7 @@ useEffect(() => {
           metricKey={selectedSensor.metricKey}
           unit={selectedSensor.unit}
           currentValue={selectedSensor.value}
-          deviceId={`esp32_${roomId}`} 
+          deviceId={`esp32_${roomId}`}
         />
       )}
     </div>

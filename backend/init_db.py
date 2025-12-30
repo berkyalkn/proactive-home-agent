@@ -8,11 +8,7 @@ INITIAL_DEVICES = [
         "device_type": "outlet",
         "protocol": "tapo",
         "location": "living_room",
-<<<<<<< HEAD
         "ip_address": "192.168.0.22", 
-=======
-        "ip_address": "192.168.1.177", 
->>>>>>> origin/main
         "is_active": True
     },
     {
@@ -20,7 +16,6 @@ INITIAL_DEVICES = [
         "device_type": "outlet",
         "protocol": "tapo",
         "location": "bedroom",
-<<<<<<< HEAD
         "ip_address": "192.168.0.21",
         "is_active": True
     },
@@ -38,9 +33,6 @@ INITIAL_DEVICES = [
         "protocol": "tapo_bulb",
         "location": "bedroom",
         "ip_address": "192.168.0.30",
-=======
-        "ip_address": "192.168.1.198",
->>>>>>> origin/main
         "is_active": True
     },
     {
@@ -48,11 +40,7 @@ INITIAL_DEVICES = [
         "device_type": "sensor_node",
         "protocol": "mqtt",
         "location": "guestroom",
-<<<<<<< HEAD
         "ip_address": "192.168.0.20", 
-=======
-        "ip_address": "192.168.0.19", 
->>>>>>> origin/main
         "is_active": True
     },
     {
@@ -60,11 +48,7 @@ INITIAL_DEVICES = [
         "device_type": "sensor_node",
         "protocol": "mqtt",
         "location": "living_room",
-<<<<<<< HEAD
         "ip_address": "192.168.0.17",
-=======
-        "ip_address": "192.168.0.18",
->>>>>>> origin/main
         "is_active": True
     },
     {

@@ -40,7 +40,6 @@ export function DeviceCard({
             </div>
             {name}
           </CardTitle>
-
           {typeof power === 'number' && (
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
               <Activity className="h-3 w-3" />
@@ -49,13 +48,11 @@ export function DeviceCard({
           )}
         </div>
       </CardHeader>
-
       <CardContent>
         <div className="flex items-center justify-between mt-2">
           <span className={`text-sm font-medium ${isOn ? "text-foreground" : "text-muted-foreground"}`}>
             {isOn ? "Active" : "Inactive"}
           </span>
-
           <Button
             variant={isOn ? "default" : "outline"}
             size="sm"

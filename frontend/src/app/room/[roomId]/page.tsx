@@ -155,7 +155,6 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
       <main className="container mx-auto px-4 space-y-8">
 
         <VoiceCommandCenter />
-
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Activity className="h-5 w-5 text-primary" />

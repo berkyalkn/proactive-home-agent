@@ -123,9 +123,12 @@ async def get_all_devices() -> Dict[str, dict]:
         is_online = False
         is_on = False
         current_power = 0.0
+<<<<<<< HEAD
         bulb_brightness = 100
         bulb_hue = 0
         bulb_saturation = 0
+=======
+>>>>>>> origin/main
         
         active_conn = None
 
@@ -137,6 +140,7 @@ async def get_all_devices() -> Dict[str, dict]:
                 if not status["error"]:
                     is_online = True
                     is_on = status["on"]
+<<<<<<< HEAD
                     active_conn = conn
             # Tapo L530 Bulb status
             elif conn["protocol"] == "tapo_bulb":
@@ -148,10 +152,14 @@ async def get_all_devices() -> Dict[str, dict]:
                     bulb_brightness = status.get("brightness", 100)
                     bulb_hue = status.get("hue", 0)
                     bulb_saturation = status.get("saturation", 0)
+=======
+                    active_conn = conn 
+>>>>>>> origin/main
 
         if not is_online:
             if await ensure_connection(device_id):
                 conn = CONNECTED_DEVICES[device_id]
+<<<<<<< HEAD
                 # Tapo Plug reconnect
                 if conn["protocol"] == "tapo":
                     status = await tapo_driver.get_tapo_status(conn["object"])
@@ -169,6 +177,13 @@ async def get_all_devices() -> Dict[str, dict]:
                         bulb_brightness = status.get("brightness", 100)
                         bulb_hue = status.get("hue", 0)
                         bulb_saturation = status.get("saturation", 0) 
+=======
+                status = await tapo_driver.get_tapo_status(conn["object"])
+                if not status["error"]:
+                    is_online = True
+                    is_on = status["on"]
+                    active_conn = conn 
+>>>>>>> origin/main
 
         if is_online and active_conn and config["protocol"] == "tapo":
             try:

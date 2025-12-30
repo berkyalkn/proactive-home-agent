@@ -362,7 +362,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
           <div className="hidden md:block w-[1px] bg-gray-100 my-2"></div>
 
           <div className="flex-1 flex flex-col gap-4 relative z-10">
-
             <div className="bg-gray-100 p-1 rounded-xl flex shrink-0">
               <button onClick={() => toggleMode('daylight')} className={cn("flex-1 py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all", mode === 'daylight' ? "bg-white shadow text-gray-900" : "text-gray-400")}>
                 <Sun className="w-3 h-3" /> Daylight

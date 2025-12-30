@@ -20,6 +20,22 @@ INITIAL_DEVICES = [
         "is_active": True
     },
     {
+        "name": "Living Room Bulb",
+        "device_type": "bulb",
+        "protocol": "tapo_bulb",
+        "location": "living_room",
+        "ip_address": "192.168.0.29",
+        "is_active": True
+    },
+    {
+        "name": "Bedroom Bulb",
+        "device_type": "bulb",
+        "protocol": "tapo_bulb",
+        "location": "bedroom",
+        "ip_address": "192.168.0.30",
+        "is_active": True
+    },
+    {
         "name": "esp32_guestroom",  
         "device_type": "sensor_node",
         "protocol": "mqtt",

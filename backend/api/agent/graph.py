@@ -14,6 +14,7 @@ load_dotenv()
 llm = init_chat_model(
     "gemini-3-flash-preview", 
     model_provider="google_vertexai", 
+    location="global",
     temperature=0
 )
 
@@ -26,14 +27,30 @@ You are a proactive Smart Home Assistant.
 You have access to REAL-TIME sensor data and Smart Devices.
 
 TOOLS:
-1. 'get_home_status': Use for temperature, humidity, light, motion.
-2. 'get_connected_devices_status': Use to CHECK if plugs/lights are ON or OFF.
-3. 'control_smart_device': Use ONLY to CHANGE state (Turn On/Off).
+1. 'get_home_status': Use for temperature, humidity, light, motion, device states, AND camera status.
+2. 'control_smart_device': Use ONLY to turn plugs ON/OFF.
+3. 'control_bulb': Use to control smart bulbs:
+   - Turn on/off: action='on' or 'off'
+   - Set brightness: action='set_brightness', brightness=1-100
+   - Increase brightness: action='increase_brightness' (raises by 20%)
+   - Decrease brightness: action='decrease_brightness' (lowers by 20%)
+   - Set color: action='set_color', hue=0-360, saturation=0-100
+
+COLOR GUIDE (for set_color):
+- Red: hue=0, saturation=100
+- Orange: hue=30, saturation=100
+- Yellow: hue=60, saturation=100
+- Green: hue=120, saturation=100
+- Cyan: hue=180, saturation=100
+- Blue: hue=240, saturation=100
+- Purple: hue=280, saturation=100
+- Pink: hue=330, saturation=100
+- White/Daylight: hue=0, saturation=0
 
 CRITICAL RULES:
-- NEVER turn a device ON or OFF unless the user EXPLICITLY asks for it.
-- If the user asks "What is the status?", just READ the sensor and device status. DO NOT change anything.
-- If asked about a room with no sensors (e.g., Guestroom), simply say you don't see data for it.
+- NEVER change device state unless user EXPLICITLY asks.
+- For status queries, just READ data, don't change anything.
+- If asked about a room with no sensors, simply say you don't see data for it.
 """
 
 

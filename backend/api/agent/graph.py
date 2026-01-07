@@ -12,7 +12,7 @@ load_dotenv()
 
 
 llm = init_chat_model(
-    "gemini-2.5-pro", 
+    "gemini-3-flash-preview", 
     model_provider="google_vertexai", 
     temperature=0
 )

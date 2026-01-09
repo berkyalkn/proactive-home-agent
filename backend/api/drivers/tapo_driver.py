@@ -36,9 +36,6 @@ async def set_tapo_status(device: ApiClient, set_on: bool):
         raise e
 
 
-# ============================================
-# TAPO L530 SMART BULB FUNCTIONS
-# ============================================
 
 async def connect_tapo_bulb(ip: str, username: str, password: str):
     """Connects to a Tapo L530 smart bulb at the specified IP address."""
@@ -61,8 +58,6 @@ async def get_bulb_status(device) -> dict:
         saturation = data.get("saturation", 0)
         color_temp = data.get("color_temp", 0)
 
-        # Fix: If color temp is set (Daylight mode), override hue/sat to 0
-        # because the bulb keeps the last used color values in memory.
         if color_temp > 0:
             hue = 0
             saturation = 0
@@ -118,9 +113,7 @@ async def set_bulb_color(device, hue: int, saturation: int):
         hue_clamped = max(0, min(360, hue))
         sat_clamped = max(0, min(100, saturation))
         
-        # For white/daylight (saturation=0), use color temperature instead
         if sat_clamped == 0:
-            # 6500K is daylight white
             await device.set_color_temperature(6500)
             logger.info(f"Tapo L530 Bulb set to daylight mode (6500K)")
         else:

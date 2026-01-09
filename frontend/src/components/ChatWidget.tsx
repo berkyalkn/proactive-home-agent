@@ -1,26 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bot, X, Send, User, Sparkles, Loader2 } from "lucide-react";
+import { Bot, X, Send, Sparkles, Loader2, Mic } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useChat } from "@/context/ChatContext"; 
 
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-};
+const API_URL = "http://100.105.136.5:8000"; 
 
 export function ChatWidget() {
-  const [isOpen, setIsOpen] = useState(false);
+  const { messages, addMessage, isOpen, setIsOpen } = useChat();
+  
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Hello! I am your AI Home Agent. I can check sensor data, generate room reports, or control your devices. How can I help you today?" }
-  ]);
-
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,34 +24,27 @@ export function ChatWidget() {
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
-
     const userMessage = input.trim();
     setInput("");
     
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    addMessage("user", userMessage);
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://100.105.136.5:8000/chat/", {
+      const response = await fetch(`${API_URL}/chat/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage, thread_id: "1" }),
       });
 
       const data = await response.json();
-
-      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+      addMessage("assistant", data.response);
 
     } catch (error) {
-      console.error("Chat Error:", error);
-      setMessages((prev) => [...prev, { role: "assistant", content: "Üzgünüm, şu an sunucuya ulaşamıyorum. Bağlantını kontrol eder misin?" }]);
+      addMessage("assistant", "Sorry, I cannot reach the server right now.");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") sendMessage();
   };
 
   return (
@@ -66,7 +52,6 @@ export function ChatWidget() {
       
       {isOpen && (
         <Card className="w-[350px] h-[500px] flex flex-col shadow-2xl border-white/10 bg-black/80 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-10 duration-300">
-          
           <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-indigo-500/20 rounded-lg">
@@ -105,42 +90,40 @@ export function ChatWidget() {
             
             {isLoading && (
               <div className="flex justify-start">
-                 <div className="bg-zinc-800/50 px-4 py-3 rounded-2xl rounded-bl-sm border border-white/5 flex gap-1 items-center">
-                    <span className="w-1.5 h-1.5 bg-indigo-400/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                    <span className="w-1.5 h-1.5 bg-indigo-400/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                    <span className="w-1.5 h-1.5 bg-indigo-400/50 rounded-full animate-bounce"></span>
+                 <div className="bg-zinc-800/50 px-4 py-3 rounded-2xl flex gap-1 items-center">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
                  </div>
               </div>
             )}
           </div>
 
           <div className="p-3 border-t border-white/10 bg-white/5">
-            <div className="relative flex items-center">
+            <div className="relative flex items-center gap-2">
                 <Input 
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask about home status..."
-                    className="pr-10 bg-black/20 border-white/10 focus-visible:ring-indigo-500/50 text-white placeholder:text-zinc-500"
+                    onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                    placeholder="Type a message..."
+                    className="pr-10 bg-black/20 border-white/10 text-white"
+                    disabled={isLoading}
                 />
                 <Button 
                     size="icon" 
                     variant="ghost" 
-                    className="absolute right-1 h-8 w-8 hover:bg-indigo-500/20 hover:text-indigo-400"
+                    className="absolute right-1 h-8 w-8 hover:bg-indigo-500/20"
                     onClick={sendMessage}
                     disabled={isLoading}
                 >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4" />}
+                    <Send className="w-4 h-4" />
                 </Button>
             </div>
           </div>
-
         </Card>
       )}
 
       <Button
         onClick={() => setIsOpen(!isOpen)}
-        className={`h-14 w-14 rounded-full shadow-xl transition-all duration-300 ${isOpen ? 'bg-zinc-800 hover:bg-zinc-700 rotate-90' : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-110'}`}
+        className={`h-14 w-14 rounded-full shadow-xl transition-all duration-300 ${isOpen ? 'bg-zinc-800 rotate-90' : 'bg-indigo-600 hover:scale-110'}`}
       >
         {isOpen ? <X className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
       </Button>

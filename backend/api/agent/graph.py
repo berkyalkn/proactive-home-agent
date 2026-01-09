@@ -110,7 +110,7 @@ memory = MemorySaver()
 app = workflow.compile(checkpointer=memory)
 
 
-async def chat_with_ai(user_input: str, thread_id: str = "1"):
+async def chat_with_ai(user_input: str, thread_id: str = "2"):
     """
     Main entry point for the chat API.
     """

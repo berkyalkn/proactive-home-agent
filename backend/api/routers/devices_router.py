@@ -24,7 +24,6 @@ DEVICE_REGISTRY = {
         "protocol": "tapo",
         "ip_env": "BEDROOM_PLUG_IP"
     },
-    # Smart Bulb (Tapo L530)
     "living_room_bulb": {
         "name": "Living Room Bulb",
         "type": "bulb",
@@ -57,12 +56,12 @@ class BulbControl(BaseModel):
 
 
 class BrightnessControl(BaseModel):
-    brightness: int  # 1-100
+    brightness: int 
 
 
 class ColorControl(BaseModel):
-    hue: int  # 0-360
-    saturation: int  # 0-100
+    hue: int  
+    saturation: int  
 
 
 
@@ -90,7 +89,6 @@ async def ensure_connection(device_id: str) -> bool:
         except Exception as e:
             logger.error(f"'{device_id}' connection failed: {e}")
     
-    # Tapo L530 Smart Bulb connection
     elif config["protocol"] == "tapo_bulb":
         try:
             if device_id in CONNECTED_DEVICES:
@@ -131,14 +129,12 @@ async def get_all_devices() -> Dict[str, dict]:
 
         if device_id in CONNECTED_DEVICES:
             conn = CONNECTED_DEVICES[device_id]
-            # Tapo Plug status
             if conn["protocol"] == "tapo":
                 status = await tapo_driver.get_tapo_status(conn["object"])
                 if not status["error"]:
                     is_online = True
                     is_on = status["on"]
                     active_conn = conn
-            # Tapo L530 Bulb status
             elif conn["protocol"] == "tapo_bulb":
                 status = await tapo_driver.get_bulb_status(conn["object"])
                 if not status["error"]:
@@ -152,14 +148,12 @@ async def get_all_devices() -> Dict[str, dict]:
         if not is_online:
             if await ensure_connection(device_id):
                 conn = CONNECTED_DEVICES[device_id]
-                # Tapo Plug reconnect
                 if conn["protocol"] == "tapo":
                     status = await tapo_driver.get_tapo_status(conn["object"])
                     if not status["error"]:
                         is_online = True
                         is_on = status["on"]
                         active_conn = conn
-                # Tapo L530 Bulb reconnect
                 elif conn["protocol"] == "tapo_bulb":
                     status = await tapo_driver.get_bulb_status(conn["object"])
                     if not status["error"]:
@@ -185,7 +179,6 @@ async def get_all_devices() -> Dict[str, dict]:
                 "type": config["type"],
                 "power": round(current_power, 2)
             }
-            # Add bulb-specific fields
             if config["type"] == "bulb":
                 device_response["brightness"] = bulb_brightness
                 device_response["hue"] = bulb_hue
@@ -248,10 +241,6 @@ async def control_device(device_id: str, control: DeviceControl):
         else:
              raise HTTPException(status_code=503, detail=f"Device '{device_id}' cannot be reconnected.")
 
-
-# ============================================
-# SMART BULB SPECIFIC ENDPOINTS
-# ============================================
 
 @router.post("/{device_id}/brightness")
 async def set_brightness(device_id: str, control: BrightnessControl):

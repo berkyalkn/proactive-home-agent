@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Mic, MicOff, Sparkles, Loader2, Volume2, Check } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Mic, MicOff, Sparkles, Loader2, Check } from "lucide-react";
 import { useChat } from "@/context/ChatContext"; 
 
 const API_URL = "http://100.105.136.5:8000";
 
 export function VoiceCommandCenter() {
+  
   const { addMessage, setIsOpen } = useChat(); 
   
   const [isListening, setIsListening] = useState(false);
@@ -16,6 +17,11 @@ export function VoiceCommandCenter() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioPlayerRef.current = new Audio();
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -31,6 +37,7 @@ export function VoiceCommandCenter() {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         await sendAudioToBackend(audioBlob);
+        
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -73,7 +80,16 @@ export function VoiceCommandCenter() {
       const data = await response.json();
 
       addMessage("user", `🎤 ${data.transcription}`);
-      addMessage("assistant", data.response);
+      const prefix = data.audio ? "🔊 " : ""; 
+      addMessage("assistant", `${prefix}${data.response}`);
+
+      if (data.audio && audioPlayerRef.current) {
+        audioPlayerRef.current.src = `data:audio/mp3;base64,${data.audio}`;
+        audioPlayerRef.current.play().catch(e => {
+            console.error("Audio play error:", e);
+            setMessage("Auto-play blocked by browser.");
+        });
+      }
 
       setIsOpen(true);
 
@@ -145,6 +161,7 @@ export function VoiceCommandCenter() {
           </div>
         </div>
 
+     
         <button
           onClick={handleToggle}
           disabled={status === "processing"}
@@ -158,6 +175,10 @@ export function VoiceCommandCenter() {
           `}
         >
           {status === "listening" ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          
+          {!isListening && !isProcessing && (
+            <span className="absolute inset-0 rounded-full border border-primary/30 scale-100 group-hover:scale-125 transition-transform duration-500" />
+          )}
         </button>
 
       </div>

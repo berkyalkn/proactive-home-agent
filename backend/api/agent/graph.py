@@ -7,6 +7,7 @@ from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from api.agent.tools import tools_list
+from langgraph.checkpoint.memory import MemorySaver
 
 load_dotenv()
 
@@ -104,7 +105,9 @@ workflow.add_conditional_edges(
 
 workflow.add_edge("tools", "agent")
 
-app = workflow.compile()
+memory = MemorySaver()
+
+app = workflow.compile(checkpointer=memory)
 
 
 async def chat_with_ai(user_input: str, thread_id: str = "1"):

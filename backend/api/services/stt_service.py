@@ -21,13 +21,14 @@ async def speech_to_text(file_path: str) -> str:
                 model="whisper-1", 
                 file=audio_file, 
                 temperature=0.0,
+                language="en", 
                 prompt=(
-                    "Homify Smart Home System command log. "
-                    "Turn on the living room lights. Salonun ışığını aç. "
-                    "What is the temperature in the bedroom? Yatak odasında sıcaklık kaç? "
-                    "Set the brightness to 50 percent. Parlaklığı yüzde 50 yap. "
-                    "Make the lights blue. Işıkları mavi yap. "
-                    "Turn off the plug. Prizi kapat."
+                    "Smart Home Command Log. "
+                    "Turn off the oven. Turn on the desk lamp. "
+                    "Turn on the living room light. "
+                    "Set brightness to 20 and set color to red. "
+                    "What is the temperature? "
+                    "Homify System."
                 )
             )
             return transcription.text

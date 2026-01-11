@@ -18,7 +18,7 @@ HOME_INVENTORY = {
         "name": "Living Room",
         "sensor_node_id": "esp32_livingroom",
         "capabilities": ["temperature", "humidity", "pressure", "light", "motion"],
-        "smart_devices": ["living_room_plug"],
+        "smart_devices": ["living_room_plug1", "living_room_plug2"],
         "smart_bulbs": ["living_room_bulb"],
         "cameras": ["main_camera"]
     },
@@ -26,7 +26,7 @@ HOME_INVENTORY = {
         "name": "Bedroom",
         "sensor_node_id": "esp32_bedroom",
         "capabilities": ["light", "motion"], 
-        "smart_devices": ["bedroom_plug"],
+        "smart_devices": [],
         "smart_bulbs": ["bedroom_bulb"],
         "cameras": []
     },
@@ -217,25 +217,33 @@ async def get_home_status():
     print(f"{final_report}\n------------------------------")
     return final_report
 
+
 @tool
-async def control_smart_device(location: str, action: str):
+async def control_smart_device(target: str, action: str):
     """
     Controls REAL smart plugs via Tapo driver.
     Args:
-        location: 'livingroom', 'bedroom' etc.
+        target: The specific device name (e.g., 'oven', 'desk lamp') OR the room name (e.g., 'livingroom').
         action: 'on' or 'off'.
     """
     target_device_id = None
-    location_lower = location.lower()
+    target_lower = target.lower()
     
-    for room_key, config in HOME_INVENTORY.items():
-        if location_lower in room_key or location_lower in config["name"].lower():
-            if config["smart_devices"]:
-                target_device_id = config["smart_devices"][0] 
+    for dev_id, dev_info in DEVICE_REGISTRY.items():
+        if dev_info.get("type") == "outlet":
+            if target_lower in dev_info["name"].lower():
+                target_device_id = dev_id
                 break
+
+    if not target_device_id:
+        for room_key, config in HOME_INVENTORY.items():
+            if target_lower in room_key or target_lower in config["name"].lower():
+                if config["smart_devices"]:
+                    target_device_id = config["smart_devices"][0] 
+                    break
     
     if not target_device_id:
-        return f"Could not find a smart plug in '{location}'. Check if the room has smart devices."
+        return f"Could not find a smart plug matching '{target}'. Try specifying the device name (e.g., 'Oven', 'Desk Lamp')."
 
     is_on = True if action.lower() == "on" else False
 
@@ -250,7 +258,6 @@ async def control_smart_device(location: str, action: str):
     except Exception as e:
         logger.error(f"AI Device Control Error: {e}")
         return f"Failed to control device: {str(e)}"
-
 
 @tool
 async def control_bulb(location: str, action: str, brightness: int = None, hue: int = None, saturation: int = None):

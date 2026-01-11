@@ -4,7 +4,7 @@ from database.models import Device, SensorReading, AgentDecision, UserFeedback, 
 
 INITIAL_DEVICES = [
      {
-        "name": "Living Room Plug",
+        "name": "Plug1 (Oven)",
         "device_type": "outlet",
         "protocol": "tapo",
         "location": "living_room",
@@ -12,10 +12,10 @@ INITIAL_DEVICES = [
         "is_active": True
     },
     {
-        "name": "Bedroom Plug",
+        "name": "Plug2 (Desk Lamp)",
         "device_type": "outlet",
         "protocol": "tapo",
-        "location": "bedroom",
+        "location": "living_room",
         "ip_address": "192.168.0.21",
         "is_active": True
     },

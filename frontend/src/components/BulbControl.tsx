@@ -16,7 +16,6 @@ const PRESET_COLORS = [
   "#ffffff", "#ffaa00", "#FF5733", "#3380FF", "#33FF57", "#A833FF"
 ];
 
-// Convert hex color to HSL
 function hexToHsl(hex: string): { h: number; s: number; l: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return { h: 0, s: 0, l: 100 };
@@ -42,7 +41,6 @@ function hexToHsl(hex: string): { h: number; s: number; l: number } {
   return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
 }
 
-// Convert HSL to hex color
 function hslToHex(h: number, s: number, l: number = 50): string {
   s /= 100;
   l /= 100;
@@ -65,7 +63,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
   const [isLoading, setIsLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
 
-  // Fetch initial bulb status from backend
   const fetchBulbStatus = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/devices/${deviceId}/status`);
@@ -75,9 +72,8 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
         setBrightness(data.brightness || 100);
         setIsOnline(true);
 
-        // Convert hue/saturation to hex color
         if (data.hue !== undefined && data.saturation !== undefined) {
-          if (data.saturation === 0 || data.hue === 0) {
+          if (data.saturation === 0) {
             setColor("#ffffff");
             setMode('daylight');
           } else {
@@ -97,11 +93,10 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
 
   useEffect(() => {
     fetchBulbStatus();
-    const interval = setInterval(fetchBulbStatus, 10000); // Refresh every 10 seconds
+    const interval = setInterval(fetchBulbStatus, 10000); 
     return () => clearInterval(interval);
   }, [fetchBulbStatus]);
 
-  // Toggle power with backend API
   const togglePower = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setIsLoading(true);
@@ -122,7 +117,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
     }
   };
 
-  // Handle brightness change with debounced API call
   const handleBrightnessChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     setBrightness(val);
@@ -134,7 +128,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
     }
   };
 
-  // Send brightness to backend when slider is released
   const handleBrightnessCommit = async () => {
     if (brightness === 0) return;
     setIsLoading(true);
@@ -151,15 +144,12 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
     }
   };
 
-  // Handle color change
   const handleColorChange = (newColor: string) => {
     setColor(newColor);
     if (newColor !== "#ffffff") setMode('color');
   };
 
-  // Send color to backend when color picker interaction ends
   const handleColorCommit = async () => {
-    // For white, switch to daylight mode
     if (color === "#ffffff") {
       toggleMode('daylight');
       return;
@@ -184,11 +174,10 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
     if (newMode === 'daylight') {
       setColor("#ffffff");
       setBrightness(100);
-      setIsOn(true);  // Turn on the bulb for glow effect
+      setIsOn(true);  
       setFeedback(true);
       setTimeout(() => setFeedback(false), 2000);
 
-      // Set daylight mode on backend (turn on, white color, full brightness)
       setIsLoading(true);
       try {
         await Promise.all([
@@ -413,7 +402,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
                           handleColorChange(preset);
                           setTimeout(() => {
                             if (preset === "#ffffff") {
-                              // For white preset, switch to daylight mode
                               toggleMode('daylight');
                             } else {
                               const { h, s } = hexToHsl(preset);

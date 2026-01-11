@@ -84,8 +84,6 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
           const filteredDevices: DeviceState = {};
 
           Object.entries(data).forEach(([key, val]) => {
-            // Only include outlet devices in "Other Devices" section
-            // Bulbs are shown in "Smart Lighting" section via BulbControl component
             if (key.toLowerCase().includes(roomPrefix) && val.type === "outlet") {
               filteredDevices[key] = val;
             }

@@ -12,17 +12,17 @@ router = APIRouter(prefix="/api/devices", tags=["Devices"])
 load_dotenv()
 
 DEVICE_REGISTRY = {
-    "living_room_plug": {
-        "name": "Living Room Plug",
+    "living_room_plug1": {
+        "name": "Plug1 (Oven)",
         "type": "outlet",
         "protocol": "tapo",
-        "ip_env": "LIVING_ROOM_PLUG_IP"
+        "ip_env": "PLUG1_OVEN_IP"
     },
-    "bedroom_plug": {
-        "name": "Bedroom Plug",
+    "living_room_plug2": {
+        "name": "Plug2 (Desk Lamp)",
         "type": "outlet",
         "protocol": "tapo",
-        "ip_env": "BEDROOM_PLUG_IP"
+        "ip_env": "PLUG2_DESKLAMP_IP"
     },
     "living_room_bulb": {
         "name": "Living Room Bulb",

@@ -1,20 +1,81 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Bot, X, Send, Sparkles, Loader2, Mic } from "lucide-react"; 
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Bot, X, Send, Sparkles, RefreshCw, WifiOff } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useChat } from "@/context/ChatContext"; 
 
-const API_URL = "http://100.105.136.5:8000"; 
+const WS_URL = "ws://localhost:8000/chat/ws";
 
 export function ChatWidget() {
   const { messages, addMessage, isOpen, setIsOpen } = useChat();
   
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  
+  const socketRef = useRef<WebSocket | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const connectWebSocket = useCallback(() => {
+    if (socketRef.current?.readyState === WebSocket.OPEN || socketRef.current?.readyState === WebSocket.CONNECTING) {
+        return;
+    }
+
+    console.log("[Chat] Connecting...");
+    const socket = new WebSocket(WS_URL);
+
+    socket.onopen = () => {
+      console.log("[Chat] Connected!");
+      setIsConnected(true);
+      if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+      }
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.message) {
+           addMessage("assistant", data.message);
+        }
+        
+        if (data.status === "error") {
+            addMessage("assistant", `Error: ${data.message}`);
+        }
+
+      } catch (e) {
+        console.error("Message Error:", e);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log("[Chat] It disconnected. Trying again...");
+      setIsConnected(false);
+      socketRef.current = null;
+
+      reconnectTimeoutRef.current = setTimeout(() => {
+          connectWebSocket();
+      }, 4000);
+    };
+
+    socketRef.current = socket;
+  }, [addMessage]); 
+
+  useEffect(() => {
+    connectWebSocket();
+    return () => {
+      if (socketRef.current) {
+          socketRef.current.onclose = null; 
+          socketRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    };
+  }, [connectWebSocket]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -22,29 +83,20 @@ export function ChatWidget() {
     }
   }, [messages, isOpen]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  const sendMessage = () => {
+    if (!input.trim()) return;
+    
+    if (!isConnected || socketRef.current?.readyState !== WebSocket.OPEN) {
+        addMessage("assistant", "No connection. Reconnecting...");
+        connectWebSocket();
+        return;
+    }
+    
     const userMessage = input.trim();
     setInput("");
     
     addMessage("user", userMessage);
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${API_URL}/chat/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage, thread_id: "1" }),
-      });
-
-      const data = await response.json();
-      addMessage("assistant", data.response);
-
-    } catch (error) {
-      addMessage("assistant", "Sorry, I cannot reach the server right now.");
-    } finally {
-      setIsLoading(false);
-    }
+    socketRef.current.send(userMessage);
   };
 
   return (
@@ -59,9 +111,9 @@ export function ChatWidget() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white">AI Home Agent</h3>
-                <span className="flex items-center gap-1.5 text-[10px] text-green-400">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"/>
-                    Online
+                <span className="flex items-center gap-1.5 text-[10px]">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`}/>
+                    {isConnected ? "Online" : "Offline"}
                 </span>
               </div>
             </div>
@@ -87,14 +139,6 @@ export function ChatWidget() {
                 </div>
               </div>
             ))}
-            
-            {isLoading && (
-              <div className="flex justify-start">
-                 <div className="bg-zinc-800/50 px-4 py-3 rounded-2xl flex gap-1 items-center">
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                 </div>
-              </div>
-            )}
           </div>
 
           <div className="p-3 border-t border-white/10 bg-white/5">
@@ -103,18 +147,18 @@ export function ChatWidget() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                    placeholder="Type a message..."
+                    placeholder={isConnected ? "Type a message..." : "Connecting..."}
                     className="pr-10 bg-black/20 border-white/10 text-white"
-                    disabled={isLoading}
+                    disabled={!isConnected}
                 />
                 <Button 
                     size="icon" 
                     variant="ghost" 
                     className="absolute right-1 h-8 w-8 hover:bg-indigo-500/20"
                     onClick={sendMessage}
-                    disabled={isLoading}
+                    disabled={!isConnected}
                 >
-                    <Send className="w-4 h-4" />
+                   {isConnected ? <Send className="w-4 h-4" /> : <RefreshCw className="w-4 h-4 animate-spin"/>}
                 </Button>
             </div>
           </div>

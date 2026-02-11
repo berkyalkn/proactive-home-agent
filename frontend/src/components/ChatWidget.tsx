@@ -10,7 +10,7 @@ import { useChat } from "@/context/ChatContext";
 const WS_URL = "ws://localhost:8000/chat/ws";
 
 export function ChatWidget() {
-  const { messages, addMessage, isOpen, setIsOpen } = useChat();
+  const { messages, addMessage, streamMessage, isOpen, setIsOpen } = useChat();
   
   const [input, setInput] = useState("");
   const [isConnected, setIsConnected] = useState(false);
@@ -39,12 +39,16 @@ export function ChatWidget() {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        
-        if (data.message) {
+
+        if (data.status === "text_chunk") {
+           streamMessage(data.chunk);
+        }
+
+        else if (data.message && !data.status) { 
            addMessage("assistant", data.message);
         }
         
-        if (data.status === "error") {
+        else if (data.status === "error") {
             addMessage("assistant", `Error: ${data.message}`);
         }
 
@@ -54,17 +58,14 @@ export function ChatWidget() {
     };
 
     socket.onclose = () => {
-      console.log("[Chat] It disconnected. Trying again...");
+      console.log("[Chat] Disconnected. Reconnecting...");
       setIsConnected(false);
       socketRef.current = null;
-
-      reconnectTimeoutRef.current = setTimeout(() => {
-          connectWebSocket();
-      }, 4000);
+      reconnectTimeoutRef.current = setTimeout(connectWebSocket, 4000);
     };
 
     socketRef.current = socket;
-  }, [addMessage]); 
+  }, [addMessage, streamMessage]); 
 
   useEffect(() => {
     connectWebSocket();
@@ -81,13 +82,12 @@ export function ChatWidget() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen]); 
 
   const sendMessage = () => {
     if (!input.trim()) return;
     
     if (!isConnected || socketRef.current?.readyState !== WebSocket.OPEN) {
-        addMessage("assistant", "No connection. Reconnecting...");
         connectWebSocket();
         return;
     }
@@ -96,6 +96,7 @@ export function ChatWidget() {
     setInput("");
     
     addMessage("user", userMessage);
+    
     socketRef.current.send(userMessage);
   };
 
@@ -129,7 +130,7 @@ export function ChatWidget() {
                 className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[80%] p-3 text-sm rounded-2xl ${
+                  className={`max-w-[85%] p-3 text-sm rounded-2xl ${
                     msg.role === "user"
                       ? "bg-indigo-600 text-white rounded-br-sm"
                       : "bg-zinc-800/80 text-zinc-200 border border-white/5 rounded-bl-sm"
@@ -148,13 +149,13 @@ export function ChatWidget() {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                     placeholder={isConnected ? "Type a message..." : "Connecting..."}
-                    className="pr-10 bg-black/20 border-white/10 text-white"
+                    className="pr-10 bg-black/20 border-white/10 text-white placeholder:text-white/40 focus:ring-indigo-500"
                     disabled={!isConnected}
                 />
                 <Button 
                     size="icon" 
                     variant="ghost" 
-                    className="absolute right-1 h-8 w-8 hover:bg-indigo-500/20"
+                    className="absolute right-1 h-8 w-8 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/20"
                     onClick={sendMessage}
                     disabled={!isConnected}
                 >
@@ -167,7 +168,7 @@ export function ChatWidget() {
 
       <Button
         onClick={() => setIsOpen(!isOpen)}
-        className={`h-14 w-14 rounded-full shadow-xl transition-all duration-300 ${isOpen ? 'bg-zinc-800 rotate-90' : 'bg-indigo-600 hover:scale-110'}`}
+        className={`h-14 w-14 rounded-full shadow-xl transition-all duration-300 ${isOpen ? 'bg-zinc-800 rotate-90' : 'bg-indigo-600 hover:scale-110 hover:shadow-indigo-500/25'}`}
       >
         {isOpen ? <X className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
       </Button>

@@ -13,6 +13,9 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+DEVICE_TIMEOUT = 2.0  
+SENSOR_TIMEOUT_SECONDS = 120
+
 HOME_INVENTORY = {
     "livingroom": {
         "name": "Living Room",
@@ -48,7 +51,6 @@ CAMERA_INVENTORY = {
     }
 }
 
-SENSOR_TIMEOUT_SECONDS = 120
 
 
 async def _fetch_bulb_status(bulb_id: str) -> tuple:
@@ -58,10 +60,17 @@ async def _fetch_bulb_status(bulb_id: str) -> tuple:
     if cached:
         return (bulb_id, cached)
     try:
-        status = await get_bulb_status_endpoint(device_id=bulb_id)
+        status = await asyncio.wait_for(
+            get_bulb_status_endpoint(device_id=bulb_id), 
+            timeout=DEVICE_TIMEOUT
+        )
         set_cache(cache_key, status)
         return (bulb_id, status)
-    except Exception:
+    except asyncio.TimeoutError:
+        logger.warning(f"Timeout fetching status for bulb: {bulb_id}")
+        return (bulb_id, None)
+    except Exception as e:
+        logger.error(f"Error fetching bulb {bulb_id}: {e}")
         return (bulb_id, None)
 
 
@@ -94,8 +103,15 @@ async def get_home_status():
     if cached_devices:
         plug_data_source = cached_devices
     else:
-        plug_data_source = await get_all_devices()
-        set_cache("all_devices", plug_data_source)
+        try:
+            plug_data_source = await asyncio.wait_for(get_all_devices(), timeout=3.0)
+            set_cache("all_devices", plug_data_source)
+        except asyncio.TimeoutError:
+            logger.warning("Timeout scanning all devices.")
+            plug_data_source = {} 
+        except Exception as e:
+            logger.error(f"Error getting devices: {e}")
+            plug_data_source = {}
     
     all_bulb_ids = []
     all_camera_info = []  
@@ -249,15 +265,20 @@ async def control_smart_device(target: str, action: str):
 
     try:
         control_payload = DeviceControl(on=is_on)
-        result = await control_device(device_id=target_device_id, control=control_payload)
+        result = await asyncio.wait_for(
+            control_device(device_id=target_device_id, control=control_payload),
+            timeout=DEVICE_TIMEOUT
+        )
         
         invalidate_cache("all_devices")
         
         status_text = "ON" if result["on"] else "OFF"
         return f"Success: {result['name']} is now {status_text}."
+    except asyncio.TimeoutError:
+        return f"Error: Device '{target}' is not responding. Is it plugged in?"
     except Exception as e:
-        logger.error(f"AI Device Control Error: {e}")
         return f"Failed to control device: {str(e)}"
+
 
 @tool
 async def control_bulb(location: str, action: str, brightness: int = None, hue: int = None, saturation: int = None):
@@ -280,68 +301,75 @@ async def control_bulb(location: str, action: str, brightness: int = None, hue: 
                 break
     
     if not target_bulb_id:
-        return f"Could not find a smart bulb in '{location}'. Available: bedroom, livingroom."
+        return f"Could not find a smart bulb in '{location}'."
 
     action_lower = action.lower()
     
+    async def safe_control(coro):
+        return await asyncio.wait_for(coro, timeout=DEVICE_TIMEOUT)
+
     try:
         if action_lower == "on":
             control_payload = DeviceControl(on=True)
-            result = await control_device(device_id=target_bulb_id, control=control_payload)
+            result = await safe_control(control_device(device_id=target_bulb_id, control=control_payload))
             invalidate_cache("all_devices")
             invalidate_cache(f"bulb_{target_bulb_id}")
             return f"Success: {result['name']} is now ON."
             
         elif action_lower == "off":
             control_payload = DeviceControl(on=False)
-            result = await control_device(device_id=target_bulb_id, control=control_payload)
+            result = await safe_control(control_device(device_id=target_bulb_id, control=control_payload))
             invalidate_cache("all_devices")
             invalidate_cache(f"bulb_{target_bulb_id}")
             return f"Success: {result['name']} is now OFF."
             
         elif action_lower == "set_brightness":
             if brightness is None:
-                return "Error: brightness value (1-100) is required for set_brightness action."
+                return "Error: brightness value (1-100) is required."
             brightness_payload = BrightnessControl(brightness=brightness)
-            result = await set_brightness(device_id=target_bulb_id, control=brightness_payload)
+            await safe_control(set_brightness(device_id=target_bulb_id, control=brightness_payload))
             invalidate_cache("all_devices")
             invalidate_cache(f"bulb_{target_bulb_id}")
             return f"Success: Bulb brightness set to {brightness}%."
         
         elif action_lower == "increase_brightness":
-            current_status = await get_bulb_status_endpoint(device_id=target_bulb_id)
+            current_status = await safe_control(get_bulb_status_endpoint(device_id=target_bulb_id))
             current_brightness = current_status.get("brightness", 50)
+            
             new_brightness = min(100, current_brightness + 20)
+            
             brightness_payload = BrightnessControl(brightness=new_brightness)
-            await set_brightness(device_id=target_bulb_id, control=brightness_payload)
+            await safe_control(set_brightness(device_id=target_bulb_id, control=brightness_payload))
+            
             invalidate_cache("all_devices")
             invalidate_cache(f"bulb_{target_bulb_id}")
-            return f"Success: Bulb brightness increased from {current_brightness}% to {new_brightness}%."
+            return f"Success: Brightness increased to {new_brightness}%."
         
         elif action_lower == "decrease_brightness":
-            current_status = await get_bulb_status_endpoint(device_id=target_bulb_id)
+            current_status = await safe_control(get_bulb_status_endpoint(device_id=target_bulb_id))
             current_brightness = current_status.get("brightness", 50)
             new_brightness = max(1, current_brightness - 20)
             brightness_payload = BrightnessControl(brightness=new_brightness)
-            await set_brightness(device_id=target_bulb_id, control=brightness_payload)
+            await safe_control(set_brightness(device_id=target_bulb_id, control=brightness_payload))
+            
             invalidate_cache("all_devices")
             invalidate_cache(f"bulb_{target_bulb_id}")
-            return f"Success: Bulb brightness decreased from {current_brightness}% to {new_brightness}%."
+            return f"Success: Brightness decreased to {new_brightness}%."
             
         elif action_lower == "set_color":
             if hue is None or saturation is None:
-                return "Error: hue (0-360) and saturation (0-100) are required for set_color action."
+                return "Error: hue and saturation required."
             color_payload = ColorControl(hue=hue, saturation=saturation)
-            result = await set_color(device_id=target_bulb_id, control=color_payload)
+            await safe_control(set_color(device_id=target_bulb_id, control=color_payload))
             invalidate_cache("all_devices")
             invalidate_cache(f"bulb_{target_bulb_id}")
-            if saturation == 0:
-                return "Success: Bulb set to white/daylight mode."
-            return f"Success: Bulb color set to hue={hue}, saturation={saturation}."
+            return f"Success: Color set."
             
         else:
-            return f"Unknown action '{action}'. Use: on, off, set_brightness, or set_color."
+            return f"Unknown action '{action}'."
             
+    except asyncio.TimeoutError:
+        return f"Error: Bulb in {location} is unreachable (Timeout)."
     except Exception as e:
         logger.error(f"Bulb control error: {e}")
         return f"Failed to control bulb: {str(e)}"

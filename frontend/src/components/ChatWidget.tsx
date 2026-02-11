@@ -10,7 +10,7 @@ import { useChat } from "@/context/ChatContext";
 const WS_URL = "ws://localhost:8000/chat/ws";
 
 export function ChatWidget() {
-  const { messages, addMessage, streamMessage, isOpen, setIsOpen } = useChat();
+  const { messages, addMessage, streamMessage, isTyping, setIsTyping, isOpen, setIsOpen } = useChat();
   
   const [input, setInput] = useState("");
   const [isConnected, setIsConnected] = useState(false);
@@ -39,17 +39,18 @@ export function ChatWidget() {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-
+        
         if (data.status === "text_chunk") {
            streamMessage(data.chunk);
         }
 
-        else if (data.message && !data.status) { 
-           addMessage("assistant", data.message);
+        else if (data.status === "error") {
+            setIsTyping(false);
+            addMessage("assistant", `Error: ${data.message}`);
         }
         
-        else if (data.status === "error") {
-            addMessage("assistant", `Error: ${data.message}`);
+        else if (data.status === "stream_finished") {
+            setIsTyping(false);
         }
 
       } catch (e) {
@@ -65,7 +66,7 @@ export function ChatWidget() {
     };
 
     socketRef.current = socket;
-  }, [addMessage, streamMessage]); 
+  }, [addMessage, streamMessage, setIsTyping]); 
 
   useEffect(() => {
     connectWebSocket();
@@ -82,7 +83,7 @@ export function ChatWidget() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isOpen]); 
+  }, [messages, isTyping, isOpen]);
 
   const sendMessage = () => {
     if (!input.trim()) return;
@@ -132,7 +133,7 @@ export function ChatWidget() {
                 <div
                   className={`max-w-[85%] p-3 text-sm rounded-2xl ${
                     msg.role === "user"
-                      ? "bg-indigo-600 text-white rounded-br-sm"
+                      ? "bg-indigo-600 text-white rounded-br-sm shadow-md"
                       : "bg-zinc-800/80 text-zinc-200 border border-white/5 rounded-bl-sm"
                   }`}
                 >
@@ -140,6 +141,16 @@ export function ChatWidget() {
                 </div>
               </div>
             ))}
+
+            {isTyping && (
+              <div className="flex justify-start animate-in fade-in slide-in-from-left-2 duration-300">
+                <div className="bg-zinc-800/80 border border-white/5 p-3 rounded-2xl rounded-bl-sm flex gap-1.5 items-center">
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"></span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="p-3 border-t border-white/10 bg-white/5">

@@ -7,7 +7,7 @@ import { useChat } from "@/context/ChatContext";
 const WS_URL = "ws://localhost:8000/chat/ws";
 
 export function VoiceCommandCenter() {
-  const { addMessage, streamMessage, setIsOpen } = useChat(); 
+  const { addMessage, streamMessage, isTyping, setIsTyping, setIsOpen } = useChat(); 
   
   const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState<"idle" | "listening" | "processing" | "speaking" | "success" | "error">("idle");
@@ -67,6 +67,7 @@ export function VoiceCommandCenter() {
       setStatus("processing");
       setDisplayMessage("Thinking...");
       isStreamFinishedRef.current = false;
+      setIsTyping(true);
     }
 
     if (data.status === "transcription") {
@@ -88,6 +89,7 @@ export function VoiceCommandCenter() {
     if (data.status === "stream_finished") {
       console.log("Stream finished from Backend");
       setIsOpen(true);
+      setIsTyping(false);
 
       isStreamFinishedRef.current = true;
 

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
-type Message = {
+export type Message = {
   role: "user" | "assistant";
   content: string;
 };
@@ -10,6 +10,7 @@ type Message = {
 interface ChatContextType {
   messages: Message[];
   addMessage: (role: "user" | "assistant", content: string) => void;
+  streamMessage: (textChunk: string) => void; 
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
@@ -26,8 +27,31 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setMessages((prev) => [...prev, { role, content }]);
   };
 
+  const streamMessage = (textChunk: string) => {
+    setMessages((prev) => {
+      if (prev.length === 0) {
+        return [{ role: "assistant", content: textChunk }];
+      }
+
+      const lastIndex = prev.length - 1;
+      const lastMessage = prev[lastIndex];
+
+      if (lastMessage.role === "assistant") {
+        const updatedLastMessage = {
+          ...lastMessage,
+          content: lastMessage.content + textChunk
+        };
+        return [...prev.slice(0, lastIndex), updatedLastMessage];
+      } 
+      
+      else {
+        return [...prev, { role: "assistant", content: textChunk }];
+      }
+    });
+  };
+
   return (
-    <ChatContext.Provider value={{ messages, addMessage, isOpen, setIsOpen }}>
+    <ChatContext.Provider value={{ messages, addMessage, streamMessage, isOpen, setIsOpen }}>
       {children}
     </ChatContext.Provider>
   );

@@ -9,6 +9,8 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from api.agent.tools import tools_list
 from langgraph.checkpoint.memory import MemorySaver
 
+from typing import AsyncIterator
+
 load_dotenv()
 
 
@@ -114,24 +116,38 @@ async def chat_with_ai(user_input: str, thread_id: str):
     """
     Main entry point for the chat API.
     """
-
     config = {"configurable": {"thread_id": thread_id}}
-    
     input_message = HumanMessage(content=user_input)
     
-    final_state = await app.ainvoke(
-        {"messages": [input_message]},
-        config=config
-    )
-    
-    ai_response = final_state["messages"][-1].content
+    async for event in app.astream_events(
+        {"messages": [input_message]}, 
+        config=config, 
+        version="v2"
+    ):
+        kind = event["event"]
 
-    if isinstance(ai_response, list):
-        text_parts = [
-            part.get('text', '') 
-            for part in ai_response 
-            if isinstance(part, dict) and part.get('type') == 'text'
-        ]
-        return " ".join(text_parts) if text_parts else str(ai_response)
-    
-    return str(ai_response)
+        if kind == "on_chat_model_stream":
+            data = event["data"]
+            
+            if "chunk" in data:
+                chunk = data["chunk"]
+
+                if chunk.tool_call_chunks:
+                    continue
+
+                if not chunk.content:
+                    continue
+                
+                content = chunk.content
+                
+                if isinstance(content, list):
+                    text_parts = []
+                    for part in content:
+                        if isinstance(part, str):
+                            text_parts.append(part)
+                        elif isinstance(part, dict) and "text" in part:
+                            text_parts.append(part["text"])
+                    yield "".join(text_parts)
+                
+                elif isinstance(content, str):
+                    yield content

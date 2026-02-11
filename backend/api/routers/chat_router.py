@@ -8,6 +8,8 @@ import base64
 import json
 import uuid
 import traceback
+import io
+
 from api.services.tts_service import text_to_speech
 from api.services.stt_service import speech_to_text
 from api.services.websocket_manager import manager
@@ -64,7 +66,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 elif command_type == "stop_recording":
                     logger.info(f"Recording is finished ({len(audio_buffer)} bytes). Processing...")
                     
-                    # Eğer buffer boşsa hata dön ve çık
                     if len(audio_buffer) == 0:
                         await manager.send_json({"status": "error", "message": "No sound was received (Empty data)."}, websocket)
                         continue
@@ -74,34 +75,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     temp_filename = f"voice_{uuid.uuid4()}.webm"
                     
                     try:
-                        with open(temp_filename, "wb") as f:
-                            f.write(audio_buffer)
+                        audio_stream = io.BytesIO(audio_buffer)
+                        
+                        user_text = await speech_to_text(audio_stream)
+                        logger.info(f"Perceived: {user_text}")
 
-                        try:
-                            user_text = await speech_to_text(temp_filename)
-                            logger.info(f"Detected: {user_text}")
-                            
-                            if not user_text:
-                                raise Exception("Audio unintelligible (Empty text).")
-                                
-                        except Exception as stt_err:
-                            logger.error(f"STT Error: {stt_err}")
-                            await manager.send_json({"status": "error", "message": "I couldn't hear you."}, websocket)
-                            if os.path.exists(temp_filename): os.remove(temp_filename)
-                            audio_buffer = bytearray()
-                            continue
+                        if not user_text:
+                            raise Exception("The voice could not be understood.")
 
-                        try:
-                            ai_response = await chat_with_ai(user_text, thread_id="1")
-                            logger.info(f"Agent: {ai_response}")
-                        except Exception as llm_err:
-                             await manager.send_json({
-                                "status": "error", 
-                                "transcription": user_text,
-                                "message": f"Agent Error: {llm_err}"
-                             }, websocket)
-                             continue
-
+                        ai_response = await chat_with_ai(user_text, thread_id="1")
+                        
                         await manager.send_json({
                             "status": "success",
                             "transcription": user_text,
@@ -116,17 +99,14 @@ async def websocket_endpoint(websocket: WebSocket):
                                     "status": "audio_ready", 
                                     "audio": audio_base64
                                 }, websocket)
-                                logger.info("Audio sent.")
                         except Exception as tts_err:
                             logger.error(f"TTS Error: {tts_err}") 
 
                     except Exception as e:
                         logger.error(f"Processing Error: {traceback.format_exc()}")
-                        await manager.send_json({"status": "error", "message": "A system error has occurred."}, websocket)
+                        await manager.send_json({"status": "error", "message": "System Error."}, websocket)
                     
                     finally:
-                        if os.path.exists(temp_filename):
-                            os.remove(temp_filename)
                         audio_buffer = bytearray()
 
     except WebSocketDisconnect:

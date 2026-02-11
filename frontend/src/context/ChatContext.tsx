@@ -9,6 +9,8 @@ export type Message = {
 
 interface ChatContextType {
   messages: Message[];
+  isTyping: boolean;
+  setIsTyping: (typing: boolean) => void; 
   addMessage: (role: "user" | "assistant", content: string) => void;
   streamMessage: (textChunk: string) => void; 
   isOpen: boolean;
@@ -21,13 +23,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: "Hello! I am your AI Home Agent. How can I help you today?" }
   ]);
-  const [isOpen, setIsOpen] = useState(false); 
+  const [isOpen, setIsOpen] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
 
   const addMessage = (role: "user" | "assistant", content: string) => {
     setMessages((prev) => [...prev, { role, content }]);
+    if (role === "user") setIsTyping(true); 
   };
 
   const streamMessage = (textChunk: string) => {
+    setIsTyping(false); 
     setMessages((prev) => {
       if (prev.length === 0) {
         return [{ role: "assistant", content: textChunk }];
@@ -42,16 +47,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           content: lastMessage.content + textChunk
         };
         return [...prev.slice(0, lastIndex), updatedLastMessage];
-      } 
-      
-      else {
+      } else {
         return [...prev, { role: "assistant", content: textChunk }];
       }
     });
   };
 
   return (
-    <ChatContext.Provider value={{ messages, addMessage, streamMessage, isOpen, setIsOpen }}>
+    <ChatContext.Provider value={{ messages, isTyping, setIsTyping, addMessage, streamMessage, isOpen, setIsOpen }}>
       {children}
     </ChatContext.Provider>
   );

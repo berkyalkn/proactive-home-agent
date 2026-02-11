@@ -21,19 +21,25 @@ export function VoiceCommandCenter() {
   const audioQueueRef = useRef<string[]>([]); 
   const isPlayingRef = useRef(false); 
   const currentAudioRef = useRef<HTMLAudioElement | null>(null); 
-
   const isRecordingRef = useRef(false);
+
+  const isStreamFinishedRef = useRef(false);
 
   const playNextAudio = useCallback(() => {
     if (audioQueueRef.current.length === 0) {
       isPlayingRef.current = false;
 
+      if (isStreamFinishedRef.current) {
+          setStatus("idle");
+          setDisplayMessage("How can I help you?");
+      }
       return;
     }
 
     isPlayingRef.current = true;
     setStatus("speaking"); 
-    
+    setDisplayMessage("Speaking..."); 
+
     const nextAudioBase64 = audioQueueRef.current.shift(); 
     if (!nextAudioBase64) return;
 
@@ -60,6 +66,7 @@ export function VoiceCommandCenter() {
     if (data.status === "processing") {
       setStatus("processing");
       setDisplayMessage("Thinking...");
+      isStreamFinishedRef.current = false;
     }
 
     if (data.status === "transcription") {
@@ -67,8 +74,6 @@ export function VoiceCommandCenter() {
     }
 
     if (data.status === "text_chunk") {
-      setDisplayMessage(prev => (prev === "Thinking..." || prev === "Processing...") ? data.chunk : prev + data.chunk);
-      
       streamMessage(data.chunk); 
     }
 
@@ -81,19 +86,15 @@ export function VoiceCommandCenter() {
     }
 
     if (data.status === "stream_finished") {
-      console.log("Stream finished");
-      setIsOpen(true); 
+      console.log("Stream finished from Backend");
+      setIsOpen(true);
 
-      setTimeout(() => {
-        if (!isPlayingRef.current) {
-            setStatus("idle");
-            setDisplayMessage("How can I help you?");
-        } else {
+      isStreamFinishedRef.current = true;
 
-            setStatus("idle");
-            setDisplayMessage("How can I help you?");
-        }
-      }, 3000);
+      if (!isPlayingRef.current) {
+          setStatus("idle");
+          setDisplayMessage("How can I help you?");
+      }
     }
 
     if (data.status === "error") {
@@ -162,6 +163,7 @@ export function VoiceCommandCenter() {
     }
     audioQueueRef.current = [];
     isPlayingRef.current = false;
+    isStreamFinishedRef.current = false; 
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

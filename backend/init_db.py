@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Session, select
 from database.settings import engine
-from database.models import Device, SensorReading, AgentDecision, UserFeedback, SystemLog
+from database.models import Device, SensorReading, AgentDecision, UserFeedback, SystemLog, User
 
 INITIAL_DEVICES = [
      {

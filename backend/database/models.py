@@ -2,6 +2,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel, Relationship
 import uuid
+from sqlalchemy import Column, JSON
 
 class Device(SQLModel, table=True):
     __tablename__ = "devices"
@@ -65,3 +66,17 @@ class SystemLog(SQLModel, table=True):
     level: str
     source: str
     message: str
+
+
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True, unique=True)
+    role: str = Field(default="guest") 
+    
+    voice_embedding: List[float] = Field(default=None, sa_column=Column(JSON))
+    
+    face_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_seen: Optional[datetime] = Field(default=None)

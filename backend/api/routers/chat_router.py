@@ -14,6 +14,7 @@ import asyncio
 from api.services.tts_service import text_to_speech
 from api.services.stt_service import speech_to_text
 from api.services.websocket_manager import manager
+from api.services.speaker_service import speaker_service
 from openai import AsyncOpenAI 
 from dotenv import load_dotenv
 
@@ -86,19 +87,29 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     try:
                         audio_stream = io.BytesIO(audio_buffer)
+
+                        audio_stream.seek(0)
+                        audio_bytes_for_id = audio_stream.read()
+
+                        identified_user, score = speaker_service.identify_speaker(audio_bytes_for_id)
+                        logger.info(f"Speaker Identified: {identified_user} (Score: {score:.2f})")
+
+                        audio_stream.seek(0)
                         user_text = await speech_to_text(audio_stream)
                         logger.info(f"Transcript: {user_text}")
-                        
+            
                         if not user_text:
                             await manager.send_json({"status": "error", "message": "Voice couldn't be understand."}, websocket)
                             continue
 
                         await manager.send_json({
                             "status": "transcription",
-                            "text": user_text
+                            "text": f"({identified_user}) {user_text}"
                         }, websocket)
 
-                        stream_generator = chat_with_ai(user_text, thread_id="1")
+                        context_aware_input = f"[User: {identified_user}] {user_text}"
+
+                        stream_generator = chat_with_ai(context_aware_input, thread_id="1")
                         sentence_buffer = ""
 
                         async for chunk in stream_generator:

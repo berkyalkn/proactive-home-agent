@@ -3,14 +3,14 @@
 import { Home } from "lucide-react";
 import { FloorPlan } from "@/components/FloorPlan";
 import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
-import { UserRegistration } from "@/components/UserRegistration";
+import { UserManager } from "@/components/UserManager";
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col relative">
       
-      <div className="absolute top-20 left-6 z-40 w-[300px] md:top-24">
-         <UserRegistration />
+      <div className="absolute top-24 left-6 z-50">
+          <UserManager />
       </div>
 
       <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-10">

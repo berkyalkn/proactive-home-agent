@@ -78,7 +78,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     logger.info("Audio Record started...")
 
                 elif command_type == "stop_recording":
-                    logger.info(f"Audio Record finsihed. Processing...")
+                    logger.info(f"Audio Record finished. Processing...")
                     
                     if len(audio_buffer) == 0: 
                         continue
@@ -86,17 +86,18 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.send_json({"status": "processing"}, websocket)
 
                     try:
-                        audio_stream = io.BytesIO(audio_buffer)
+                        audio_bytes = bytes(audio_buffer)
+                        audio_stream = io.BytesIO(audio_bytes) 
 
-                        audio_stream.seek(0)
-                        audio_bytes_for_id = audio_stream.read()
+                        task_stt = speech_to_text(audio_stream)
 
-                        identified_user, score = speaker_service.identify_speaker(audio_bytes_for_id)
-                        logger.info(f"Speaker Identified: {identified_user} (Score: {score:.2f})")
+                        task_id = asyncio.to_thread(speaker_service.identify_speaker, audio_bytes)
+                        
+                        results = await asyncio.gather(task_id, task_stt)
+                        
+                        (identified_user, score), user_text = results
 
-                        audio_stream.seek(0)
-                        user_text = await speech_to_text(audio_stream)
-                        logger.info(f"Transcript: {user_text}")
+                        logger.info(f"Speaker: {identified_user} ({score:.2f}) | Text: {user_text}")
             
                         if not user_text:
                             await manager.send_json({"status": "error", "message": "Voice couldn't be understand."}, websocket)

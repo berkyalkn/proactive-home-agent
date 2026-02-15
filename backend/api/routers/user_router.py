@@ -27,6 +27,16 @@ async def register_user(name: str = Form(...), file: UploadFile = File(...)):
         logger.error(f"Registration Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.delete("/{username}")
+def delete_user(username: str):
+    """Deletes the user"""
+    try:
+        speaker_service.delete_user(username)
+        return {"status": "success", "message": f"User {username} deleted."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/list")
 def list_users():
     """Lists registered usernames."""

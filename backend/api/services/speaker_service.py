@@ -150,4 +150,24 @@ class SpeakerService:
             logger.error(f"Audio conversion error: {e}")
             raise e
 
+    def delete_user(self, username: str):
+        """Removes the user from the database and RAM"""
+        try:
+            with Session(engine) as session:
+                statement = select(User).where(User.username == username)
+                user = session.exec(statement).first()
+                if user:
+                    session.delete(user)
+                    session.commit()
+                    logger.info(f"User deleted from DB: {username}")
+            
+            if username in self.known_users:
+                del self.known_users[username]
+                logger.info(f"User deleted from RAM: {username}")
+                
+            return True
+        except Exception as e:
+            logger.error(f"Delete failed: {e}")
+            raise e
+
 speaker_service = SpeakerService()

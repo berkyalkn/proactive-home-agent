@@ -3,9 +3,11 @@ import json
 import logging
 import os
 import time
+import asyncio
 from dotenv import load_dotenv
 
 from api.services.db_service import save_sensor_data
+from api.services.websocket_manager import manager
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -33,7 +35,6 @@ def on_message(client, userdata, msg):
         data = json.loads(payload_str)
         
         topic_parts = msg.topic.split("/")
-
         if len(topic_parts) >= 2:
             room_name = topic_parts[1]
         else:
@@ -43,6 +44,18 @@ def on_message(client, userdata, msg):
         
         data["last_seen"] = time.time()        
         LATEST_SENSOR_DATA[device_id] = data
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                ws_payload = {
+                    "status": "sensor_update", 
+                    "device_id": device_id,
+                    "data": data
+                }
+                asyncio.run_coroutine_threadsafe(manager.broadcast_json(ws_payload), loop)
+        except Exception as ws_error:
+            pass
 
         save_sensor_data(data)
 

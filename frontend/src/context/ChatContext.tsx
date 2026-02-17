@@ -19,6 +19,7 @@ interface ChatContextType {
   audioQueueRef: React.MutableRefObject<string[]>;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  latestSensorData: Record<string, any>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -31,6 +32,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
   const [isOpen, setIsOpen] = useState(false);
+  const [latestSensorData, setLatestSensorData] = useState<Record<string, any>>({});
 
   const socketRef = useRef<WebSocket | null>(null);
   const audioQueueRef = useRef<string[]>([]);
@@ -104,6 +106,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         try {
             const data = JSON.parse(event.data);
 
+            if (data.status === "sensor_update") {
+              setLatestSensorData((prev) => ({
+                  ...prev,
+                  [data.device_id]: data.data
+              }));
+          }
+
             if (data.status === "text_chunk") {
                 setMessages((prev) => {
                     const lastMsg = prev[prev.length - 1];
@@ -173,7 +182,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         socketRef, 
         audioQueueRef, 
         isOpen, 
-        setIsOpen 
+        setIsOpen,
+        latestSensorData
     }}>
       {children}
     </ChatContext.Provider>

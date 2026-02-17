@@ -30,4 +30,13 @@ class WebSocketManager:
         for connection in self.active_connections:
             await connection.send_text(message)
 
+    async def broadcast_json(self, data: dict):
+        """It sends JSON data to all connected users (for sensors)."""
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(data)
+            except Exception as e:
+                print(f"Broadcast Error: {e}")
+                self.disconnect(connection)
+
 manager = WebSocketManager()

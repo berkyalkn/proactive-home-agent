@@ -8,6 +8,7 @@ import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
 import { BulbControl } from "@/components/BulbControl";
 import { CameraFeed } from "@/components/CameraFeed";
 import { SensorHistoryModal } from "@/components/SensorHistoryModal";
+import { useChat } from "@/context/ChatContext";
 
 import {
   Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap
@@ -43,6 +44,7 @@ const formatTitle = (roomId: string) => {
 export default function RoomDetailPage({ params }: { params: Promise<{ roomId: string }> }) {
   const resolvedParams = use(params);
   const roomId = resolvedParams.roomId;
+  const { latestSensorData } = useChat();
 
   const [sensorData, setSensorData] = useState<RoomSensorData | null>(null);
   const [devices, setDevices] = useState<DeviceState>({});
@@ -55,21 +57,28 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
     value: string | number;
   } | null>(null);
 
+  useEffect(() => {
+    const targetId = `esp32_${roomId}`;
+    const liveData = latestSensorData[targetId];
+    
+    if (liveData) {
+        setSensorData(liveData);
+    }
+}, [latestSensorData, roomId]);
+
 
   useEffect(() => {
-    const fetchSensors = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/sensors/all`);
-        if (response.ok) {
-          const data = await response.json();
-          const targetId = `esp32_${roomId}`;
-          setSensorData(data && data[targetId] ? data[targetId] : null);
-        }
-      } catch (error) { console.error("Sensor error:", error); }
+    const fetchInitial = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/sensors/all`);
+            if (response.ok) {
+                const data = await response.json();
+                const targetId = `esp32_${roomId}`;
+                if (data[targetId]) setSensorData(data[targetId]);
+            }
+        } catch (e) { console.error(e); }
     };
-    fetchSensors();
-    const interval = setInterval(fetchSensors, 1000);
-    return () => clearInterval(interval);
+    fetchInitial();
   }, [roomId]);
 
   useEffect(() => {

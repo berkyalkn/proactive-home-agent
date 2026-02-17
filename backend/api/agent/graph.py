@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain.chat_models import init_chat_model
@@ -25,7 +26,7 @@ llm = init_chat_model(
 llm_with_tools = llm.bind_tools(tools_list)
 
 
-SYSTEM_PROMPT = """
+SYSTEM_TEMPLATE = """
 You are a proactive Smart Home Assistant designed EXCLUSIVELY for home automation tasks.
 You have access to REAL-TIME sensor data and Smart Devices.
 
@@ -96,11 +97,17 @@ Current Time: {time}
 async def agent_node(state: MessagesState):
 
     messages = state["messages"]
+
+    turkey_timezone = timezone(timedelta(hours=3))
+    current_time = datetime.now(turkey_timezone).strftime("%Y-%m-%d %H:%M:%S")
     
-    if not isinstance(messages[0], SystemMessage):
-        messages = [SystemMessage(content=SYSTEM_PROMPT)] + messages
+    formatted_prompt = SYSTEM_TEMPLATE.format(time=current_time)
     
-    response = await llm_with_tools.ainvoke(messages)
+    conversation_messages = [msg for msg in messages if not isinstance(msg, SystemMessage)]
+    
+    final_messages = [SystemMessage(content=formatted_prompt)] + conversation_messages
+    
+    response = await llm_with_tools.ainvoke(final_messages)
     
     return {"messages": [response]}
 

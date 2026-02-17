@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import logging
 
 from api.drivers import tapo_driver
+from api.services.websocket_manager import manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/devices", tags=["Devices"])
@@ -220,6 +221,17 @@ async def control_device(device_id: str, control: DeviceControl):
             await tapo_driver.set_bulb_status(conn["object"], control.on)
         
         logger.info(f"Device '{device_id}' set to: {control.on}")
+
+        await manager.broadcast_json({
+            "status": "device_update",
+            "device_id": device_id,
+            "data": {
+                "on": control.on,
+                "type": DEVICE_REGISTRY[device_id]["type"]
+            }
+        })
+
+
         return {"name": DEVICE_REGISTRY[device_id]["name"], "on": control.on, "type": DEVICE_REGISTRY[device_id]["type"]}
 
     except Exception as e:
@@ -232,8 +244,15 @@ async def control_device(device_id: str, control: DeviceControl):
                     await tapo_driver.set_tapo_status(conn["object"], control.on)
                 elif conn["protocol"] == "tapo_bulb":
                     await tapo_driver.set_bulb_status(conn["object"], control.on)
+
+                await manager.broadcast_json({
+                    "status": "device_update",
+                    "device_id": device_id,
+                    "data": { "on": control.on, "type": DEVICE_REGISTRY[device_id]["type"] }
+                })
                 
                 logger.info(f"Second attempt successful! Device '{device_id}' set to: {control.on}")
+
                 return {"name": DEVICE_REGISTRY[device_id]["name"], "on": control.on, "type": DEVICE_REGISTRY[device_id]["type"]}
             except Exception as e2:
                 logger.error(f"Second attempt failed: {e2}")
@@ -261,6 +280,13 @@ async def set_brightness(device_id: str, control: BrightnessControl):
     try:
         conn = CONNECTED_DEVICES[device_id]
         await tapo_driver.set_bulb_brightness(conn["object"], control.brightness)
+
+        await manager.broadcast_json({
+            "status": "device_update",
+            "device_id": device_id,
+            "data": { "brightness": control.brightness }
+        })
+
         logger.info(f"Bulb '{device_id}' brightness set to: {control.brightness}%")
         return {"device_id": device_id, "brightness": control.brightness, "success": True}
     except Exception as e:
@@ -269,6 +295,13 @@ async def set_brightness(device_id: str, control: BrightnessControl):
             try:
                 conn = CONNECTED_DEVICES[device_id]
                 await tapo_driver.set_bulb_brightness(conn["object"], control.brightness)
+                
+                await manager.broadcast_json({
+                    "status": "device_update",
+                    "device_id": device_id,
+                    "data": { "brightness": control.brightness }
+                
+                })
                 return {"device_id": device_id, "brightness": control.brightness, "success": True}
             except Exception as e2:
                 logger.error(f"Second attempt failed: {e2}")
@@ -295,6 +328,17 @@ async def set_color(device_id: str, control: ColorControl):
     try:
         conn = CONNECTED_DEVICES[device_id]
         await tapo_driver.set_bulb_color(conn["object"], control.hue, control.saturation)
+
+        await manager.broadcast_json({
+            "status": "device_update",
+            "device_id": device_id,
+            "data": { 
+                "hue": control.hue, 
+                "saturation": control.saturation,
+                "on": True 
+            }
+        })
+
         logger.info(f"Bulb '{device_id}' color set to: hue={control.hue}, saturation={control.saturation}")
         return {"device_id": device_id, "hue": control.hue, "saturation": control.saturation, "success": True}
     except Exception as e:
@@ -303,6 +347,13 @@ async def set_color(device_id: str, control: ColorControl):
             try:
                 conn = CONNECTED_DEVICES[device_id]
                 await tapo_driver.set_bulb_color(conn["object"], control.hue, control.saturation)
+
+                await manager.broadcast_json({
+                    "status": "device_update",
+                    "device_id": device_id,
+                    "data": { "hue": control.hue, "saturation": control.saturation, "on": True }
+                })
+                
                 return {"device_id": device_id, "hue": control.hue, "saturation": control.saturation, "success": True}
             except Exception as e2:
                 logger.error(f"Second attempt failed: {e2}")

@@ -44,7 +44,7 @@ const formatTitle = (roomId: string) => {
 export default function RoomDetailPage({ params }: { params: Promise<{ roomId: string }> }) {
   const resolvedParams = use(params);
   const roomId = resolvedParams.roomId;
-  const { latestSensorData } = useChat();
+  const { latestSensorData, latestDeviceData } = useChat();
 
   const [sensorData, setSensorData] = useState<RoomSensorData | null>(null);
   const [devices, setDevices] = useState<DeviceState>({});
@@ -82,29 +82,41 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   }, [roomId]);
 
   useEffect(() => {
-    const fetchDevices = async () => {
+    const fetchDevicesInitial = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/devices/`);
         if (response.ok) {
-          const data: DeviceState = await response.json();
-
+          const data = await response.json();
           const roomPrefix = roomId === "livingroom" ? "living_room" : roomId;
-
-          const filteredDevices: DeviceState = {};
-
-          Object.entries(data).forEach(([key, val]) => {
-            if (key.toLowerCase().includes(roomPrefix) && val.type === "outlet") {
-              filteredDevices[key] = val;
+          const filteredDevices: any = {};
+          
+          Object.entries(data).forEach(([key, val]: [string, any]) => {
+            if (key.toLowerCase().includes(roomPrefix) && val.type === "outlet") { 
+                filteredDevices[key] = val;
             }
           });
           setDevices(filteredDevices);
         }
-      } catch (error) { console.error("Device error:", error); }
+      } catch (e) { console.error(e); }
     };
-    fetchDevices();
-    const interval = setInterval(fetchDevices, 5000);
-    return () => clearInterval(interval);
+    fetchDevicesInitial();
   }, [roomId]);
+
+
+  useEffect(() => {
+    if (Object.keys(latestDeviceData).length > 0) {
+        setDevices((prevDevices) => {
+            const newDevices = { ...prevDevices };
+            
+            Object.entries(latestDeviceData).forEach(([devId, newData]) => {
+                if (newDevices[devId]) {
+                    newDevices[devId] = { ...newDevices[devId], ...newData };
+                }
+            });
+            return newDevices;
+        });
+    }
+}, [latestDeviceData]);
 
 
   const handleToggleDevice = async (deviceId: string, newStatus: boolean) => {

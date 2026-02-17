@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { Lightbulb, LightbulbOff, Sun, Palette, Power, Zap, CheckCircle2, X, Sliders, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useChat } from "@/context/ChatContext"; 
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -54,6 +55,8 @@ function hslToHex(h: number, s: number, l: number = 50): string {
 }
 
 export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) => {
+  const { latestDeviceData } = useChat();
+
   const [isOpen, setIsOpen] = useState(false);
   const [isOn, setIsOn] = useState(false);
   const [color, setColor] = useState("#ffffff");
@@ -93,25 +96,48 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
 
   useEffect(() => {
     fetchBulbStatus();
-    const interval = setInterval(fetchBulbStatus, 10000); 
-    return () => clearInterval(interval);
   }, [fetchBulbStatus]);
+
+
+  useEffect(() => {
+    const update = latestDeviceData[deviceId];
+    
+    if (update) {
+        setIsOnline(true);
+
+        if (update.on !== undefined) setIsOn(update.on);
+        if (update.brightness !== undefined) setBrightness(update.brightness);
+
+        if (update.hue !== undefined && update.saturation !== undefined) {
+            if (update.saturation === 0) {
+                setColor("#ffffff");
+                setMode('daylight');
+            } else {
+                const hex = hslToHex(update.hue, update.saturation);
+                setColor(hex);
+                setMode('color');
+            }
+        }
+    }
+  }, [latestDeviceData, deviceId]);
+
 
   const togglePower = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setIsLoading(true);
     try {
       const newStatus = !isOn;
+      setIsOn(newStatus); 
+      
       const response = await fetch(`${API_BASE_URL}/api/devices/${deviceId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ on: newStatus })
       });
-      if (response.ok) {
-        setIsOn(newStatus);
-      }
+      if (!response.ok) setIsOn(!newStatus); 
     } catch (error) {
       console.error("Failed to toggle power:", error);
+      setIsOn(!isOn);
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +156,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
 
   const handleBrightnessCommit = async () => {
     if (brightness === 0) return;
-    setIsLoading(true);
     try {
       await fetch(`${API_BASE_URL}/api/devices/${deviceId}/brightness`, {
         method: 'POST',
@@ -139,8 +164,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
       });
     } catch (error) {
       console.error("Failed to set brightness:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -154,7 +177,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
       toggleMode('daylight');
       return;
     }
-    setIsLoading(true);
     try {
       const { h, s } = hexToHsl(color);
       await fetch(`${API_BASE_URL}/api/devices/${deviceId}/color`, {
@@ -164,8 +186,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
       });
     } catch (error) {
       console.error("Failed to set color:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -293,7 +313,6 @@ export const BulbControl: React.FC<BulbControlProps> = ({ deviceId, roomName }) 
         </button>
 
         <div className="bg-white rounded-[24px] shadow-2xl border border-gray-100 p-6 w-full flex flex-col md:flex-row gap-6 relative overflow-hidden min-h-[350px]">
-
           <style jsx global>{`
             .react-colorful { width: 100%; height: 100%; min-height: 160px; border-radius: 16px; cursor: crosshair; position: relative; display: flex; flex-direction: column; }
             .react-colorful__saturation { position: relative; flex-grow: 1; border-radius: 16px 16px 0 0; border-bottom: 0; background-image: linear-gradient(to top, #000, rgba(0, 0, 0, 0)), linear-gradient(to right, #fff, rgba(255, 255, 255, 0)); }

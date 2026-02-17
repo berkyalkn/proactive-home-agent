@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from api.routers.devices_router import CONNECTED_DEVICES
+from api.services.websocket_manager import manager 
 
 logger = logging.getLogger(__name__)
 
@@ -10,13 +11,14 @@ async def poll_tapo_devices():
     1. On/Off State
     2. Instantaneous Power Draw (Watt)
     3. Daily/Monthly Consumption (kWh)
-    and writes these to the database.
+    and writes these to the database AND broadcasts to WebSocket.
     """
     logger.info("Tapo Data Collector (Poller) Launched.")
     
     while True:
         try:
             for device_id, conn in list(CONNECTED_DEVICES.items()):
+                
                 if conn["protocol"] == "tapo":
                     try:
                         device = conn["object"]
@@ -42,11 +44,41 @@ async def poll_tapo_devices():
                         
                         from api.services.db_service import save_device_state
                         save_device_state(data_to_save)
+
+                        await manager.broadcast_json({
+                            "status": "device_update",
+                            "device_id": device_id,
+                            "data": {
+                                "on": is_on,
+                                "power": float(current_power_w)
+                            }
+                        })
                         
                     except Exception as e:
-                        logger.error(f"{device_id} data reading error: {e}")
 
-            await asyncio.sleep(3)
+                        pass
+
+                elif conn["protocol"] == "tapo_bulb":
+                    try:
+                        device = conn["object"]
+                        info = await device.get_device_info()
+                        info_dict = info.to_dict()
+                        is_on = info_dict.get("device_on", False)
+                        
+                        await manager.broadcast_json({
+                            "status": "device_update",
+                            "device_id": device_id,
+                            "data": {
+                                "on": is_on,
+                                "brightness": info_dict.get("brightness"),
+                                "hue": info_dict.get("hue"),
+                                "saturation": info_dict.get("saturation")
+                            }
+                        })
+                    except Exception:
+                        pass
+
+            await asyncio.sleep(3) 
             
         except asyncio.CancelledError:
             logger.info("Tapo Poller has been stopped.")

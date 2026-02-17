@@ -1,95 +1,28 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Bot, X, Send, Sparkles, RefreshCw, WifiOff } from "lucide-react"; 
+import { useState, useRef, useEffect } from "react";
+import { Bot, X, Send, Sparkles, RefreshCw } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useChat } from "@/context/ChatContext"; 
 
-const WS_URL = "ws://localhost:8000/chat/ws";
-
 export function ChatWidget() {
-  const { messages, addMessage, streamMessage, isTyping, setIsTyping, isOpen, setIsOpen } = useChat();
+  const { messages, addMessage, isConnected, socketRef, isOpen, setIsOpen, agentStatus } = useChat();
   
   const [input, setInput] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
-  
-  const socketRef = useRef<WebSocket | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const connectWebSocket = useCallback(() => {
-    if (socketRef.current?.readyState === WebSocket.OPEN || socketRef.current?.readyState === WebSocket.CONNECTING) {
-        return;
-    }
-
-    console.log("[Chat] Connecting...");
-    const socket = new WebSocket(WS_URL);
-
-    socket.onopen = () => {
-      console.log("[Chat] Connected!");
-      setIsConnected(true);
-      if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-          reconnectTimeoutRef.current = null;
-      }
-    };
-
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        if (data.status === "text_chunk") {
-           streamMessage(data.chunk);
-        }
-
-        else if (data.status === "error") {
-            setIsTyping(false);
-            addMessage("assistant", `Error: ${data.message}`);
-        }
-        
-        else if (data.status === "stream_finished") {
-            setIsTyping(false);
-        }
-
-      } catch (e) {
-        console.error("Message Error:", e);
-      }
-    };
-
-    socket.onclose = () => {
-      console.log("[Chat] Disconnected. Reconnecting...");
-      setIsConnected(false);
-      socketRef.current = null;
-      reconnectTimeoutRef.current = setTimeout(connectWebSocket, 4000);
-    };
-
-    socketRef.current = socket;
-  }, [addMessage, streamMessage, setIsTyping]); 
-
-  useEffect(() => {
-    connectWebSocket();
-    return () => {
-      if (socketRef.current) {
-          socketRef.current.onclose = null; 
-          socketRef.current.close();
-      }
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-    };
-  }, [connectWebSocket]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping, isOpen]);
+  }, [messages, isOpen]);
 
   const sendMessage = () => {
     if (!input.trim()) return;
     
     if (!isConnected || socketRef.current?.readyState !== WebSocket.OPEN) {
-        connectWebSocket();
         return;
     }
     
@@ -100,6 +33,8 @@ export function ChatWidget() {
     
     socketRef.current.send(userMessage);
   };
+
+  const isTyping = agentStatus === "processing";
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">

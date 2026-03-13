@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Users, UserPlus, Trash2, X, Mic, Square, Loader2, CheckCircle, ShieldCheck, UserCheck } from "lucide-react";
+import { Users, UserPlus, Trash2, X, Mic, Loader2, CheckCircle, ShieldCheck, UserCheck, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -14,19 +14,25 @@ export function UserManager() {
   const [users, setUsers] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [isRecording, setIsRecording] = useState(false);
   const [name, setName] = useState("");
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "success">("idle");
   
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        stopCamera(); 
       }
     }
     if (isOpen) document.addEventListener("mousedown", handleClickOutside);
@@ -77,12 +83,50 @@ export function UserManager() {
     }
   };
 
+  const startCamera = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            setIsCameraActive(true);
+        }
+    } catch (err) { console.error("Camera error", err); }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+        const canvas = document.createElement("canvas");
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(videoRef.current, 0, 0);
+        
+        canvas.toBlob((blob) => {
+            if (blob) {
+                setImageBlob(blob);
+                stopCamera();
+            }
+        }, "image/jpeg", 0.9);
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(t => t.stop());
+        setIsCameraActive(false);
+    }
+  };
+
   const handleSave = async () => {
-    if (!audioBlob || !name) return;
+    if (!name || (!audioBlob && !imageBlob)) return;
+    
     setStatus("uploading");
     const formData = new FormData();
     formData.append("name", name.trim());
-    formData.append("file", audioBlob, "voice_sample.webm");
+    
+    if (audioBlob) formData.append("audio_file", audioBlob, "voice_sample.webm");
+    if (imageBlob) formData.append("image_file", imageBlob, "face_sample.jpg");
 
     try {
       const res = await fetch(`${API_URL}/users/register`, { method: "POST", body: formData });
@@ -92,11 +136,19 @@ export function UserManager() {
             setStatus("idle");
             setName("");
             setAudioBlob(null);
+            setImageBlob(null);
             setActiveTab("list");
             fetchUsers();
         }, 1500);
+      } else {
+        const errorData = await res.json();
+        alert(`Error: ${errorData.detail}`);
+        setStatus("idle");
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error(e); 
+        setStatus("idle");
+    }
   };
 
   return (
@@ -112,9 +164,7 @@ export function UserManager() {
           }`}
       >
           {isOpen ? <X className="w-5 h-5"/> : <ShieldCheck className="w-5 h-5 text-indigo-400" />}
-          
           <span className="hidden md:inline font-medium text-sm">Access Control</span>
-          
           {!isOpen && users.length > 0 && (
              <span className="ml-2 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-zinc-800 px-2 text-xs font-bold text-zinc-300">
                 {users.length}
@@ -158,7 +208,6 @@ export function UserManager() {
                             <div className="text-center py-10 px-4 border border-dashed border-zinc-800 rounded-lg bg-zinc-900/30">
                                 <UserCheck className="w-10 h-10 text-zinc-700 mx-auto mb-3"/>
                                 <p className="text-sm text-zinc-500">No users found.</p>
-                                <p className="text-xs text-zinc-600 mt-1">Add a user to enable voice ID.</p>
                             </div>
                         ) : (
                             users.map((user) => (
@@ -182,32 +231,72 @@ export function UserManager() {
                 )}
 
                 {activeTab === "add" && (
-                    <div className="space-y-4 animate-in slide-in-from-right-2 duration-300">
+                    <div className="space-y-4 animate-in slide-in-from-right-2 duration-300 max-h-[400px] overflow-y-auto scrollbar-hide pb-2">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-medium text-zinc-500 ml-1 uppercase tracking-wider">Name</label>
                             <Input placeholder="e.g. Berkay" value={name} onChange={(e) => setName(e.target.value)} className="bg-zinc-900/80 border-zinc-800 h-9 text-sm focus:ring-1 focus:ring-indigo-500 text-white"/>
                         </div>
 
-                        <div className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-3 transition-colors ${isRecording ? "border-red-500/30 bg-red-500/5" : "border-zinc-800 bg-zinc-900/30"}`}>
-                            {audioBlob ? (
-                                <div className="text-green-400 flex flex-col items-center gap-1 animate-in zoom-in duration-300">
-                                    <CheckCircle className="w-6 h-6"/> <span className="text-sm font-medium">Voice Captured</span>
+                        <div className={`border-2 border-dashed rounded-xl p-3 flex flex-col items-center justify-center gap-3 transition-colors ${isCameraActive ? "border-blue-500/30 bg-blue-500/5" : "border-zinc-800 bg-zinc-900/30"}`}>
+                            {imageBlob ? (
+                                <div className="text-green-400 flex flex-col items-center gap-2 animate-in zoom-in duration-300 w-full py-2">
+                                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-green-500">
+                                        <img src={URL.createObjectURL(imageBlob)} alt="Captured face" className="w-full h-full object-cover" />
+                                    </div>
+                                    <span className="text-xs font-medium flex items-center gap-1"><CheckCircle className="w-3 h-3"/> Face Captured</span>
+                                    <Button variant="ghost" size="sm" onClick={() => setImageBlob(null)} className="h-6 text-xs text-zinc-500 hover:text-red-400">Retake</Button>
                                 </div>
                             ) : (
                                 <>
-                                    <div className={`p-2.5 rounded-full ${isRecording ? "bg-red-500/20 animate-pulse" : "bg-zinc-800"}`}>
-                                        <Mic className={`w-5 h-5 ${isRecording ? "text-red-400" : "text-zinc-500"}`}/>
+                                    <div className="w-full relative rounded-lg overflow-hidden bg-black flex items-center justify-center min-h-[100px]">
+                                        <video 
+                                            ref={videoRef} 
+                                            autoPlay 
+                                            playsInline 
+                                            muted
+                                            className={`w-full max-h-[140px] object-cover ${isCameraActive ? "block" : "hidden"}`} 
+                                        />
+                                        
+                                        {!isCameraActive && (
+                                            <div className="flex flex-col items-center opacity-50 py-4">
+                                                <Camera className="w-6 h-6 mb-2 text-zinc-500" />
+                                                <span className="text-[10px] text-zinc-500">Face ID (Required)</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-zinc-500 text-center">{isRecording ? "Recording... Say something." : "Tap below to record (5s)"}</p>
+                                    <Button 
+                                        onClick={isCameraActive ? capturePhoto : startCamera} 
+                                        variant="secondary" size="sm" 
+                                        className={`w-full text-xs h-8 ${isCameraActive ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}
+                                    >
+                                        {isCameraActive ? "Capture Face" : "Start Camera"}
+                                    </Button>
                                 </>
                             )}
-                            <Button onClick={isRecording ? stopRecording : startRecording} variant={isRecording ? "destructive" : "secondary"} size="sm" className={`w-full mt-1 text-xs h-9 ${isRecording ? "bg-red-600 hover:bg-red-700" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}>
-                                {isRecording ? "Stop Recording" : "Start Recording"}
-                            </Button>
                         </div>
-                        <Button onClick={handleSave} disabled={!audioBlob || !name || status === "uploading"} className="w-full bg-indigo-600 hover:bg-indigo-700 h-10 text-sm font-medium text-white">
+
+                        <div className={`border-2 border-dashed rounded-xl p-3 flex flex-col items-center justify-center gap-2 transition-colors ${isRecording ? "border-red-500/30 bg-red-500/5" : "border-zinc-800 bg-zinc-900/30"}`}>
+                            {audioBlob ? (
+                                <div className="text-green-400 flex flex-col items-center gap-1 animate-in zoom-in duration-300 py-2">
+                                    <CheckCircle className="w-5 h-5"/> <span className="text-xs font-medium">Voice Captured</span>
+                                    <Button variant="ghost" size="sm" onClick={() => setAudioBlob(null)} className="h-6 text-xs text-zinc-500 hover:text-red-400 mt-1">Retake</Button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className={`p-2 rounded-full ${isRecording ? "bg-red-500/20 animate-pulse" : "bg-zinc-800"}`}>
+                                        <Mic className={`w-4 h-4 ${isRecording ? "text-red-400" : "text-zinc-500"}`}/>
+                                    </div>
+                                    <p className="text-[10px] text-zinc-500 text-center">{isRecording ? "Recording..." : "Voice ID (Optional)"}</p>
+                                    <Button onClick={isRecording ? stopRecording : startRecording} variant={isRecording ? "destructive" : "secondary"} size="sm" className={`w-full mt-1 text-xs h-8 ${isRecording ? "bg-red-600 hover:bg-red-700" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}>
+                                        {isRecording ? "Stop" : "Record"}
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+
+                        <Button onClick={handleSave} disabled={(!audioBlob && !imageBlob) || !name || status === "uploading"} className="w-full bg-indigo-600 hover:bg-indigo-700 h-10 text-sm font-medium text-white mt-2">
                             {status === "uploading" ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <UserPlus className="w-4 h-4 mr-2"/>}
-                            {status === "uploading" ? "Saving..." : "Create User Profile"}
+                            {status === "uploading" ? "Saving Profile..." : "Create User Profile"}
                         </Button>
                     </div>
                 )}

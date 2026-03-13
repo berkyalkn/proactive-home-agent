@@ -88,6 +88,60 @@ class LoggingConfig(BaseModel):
 
 class Config(BaseModel):
     """Main configuration model."""
+
     video: VideoConfig = Field(default_factory=VideoConfig)
     detection: DetectionConfig = Field(default_factory=DetectionConfig)
     face_recognition: FaceRecognitionConfig = Field(default_factory=FaceRecognitionConfig)
+    fall_detection: FallDetectionConfig = Field(default_factory=FallDetectionConfig)
+    gesture_detection: GestureDetectionConfig = Field(default_factory=GestureDetectionConfig)
+    person_detection: PersonDetectionConfig = Field(default_factory=PersonDetectionConfig)
+    alerts: AlertsConfig = Field(default_factory=AlertsConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    models_dir: str = Field(default="data/models")
+
+    class Config:
+        validate_assignment = True
+
+
+def load_config(config_path: Optional[Union[str, Path]] = None) -> Config:
+    """Load configuration from YAML file with environment variable overrides."""
+
+    if config_path is None:
+        possible_paths = [
+            Path("config/default_config.yaml"),
+            Path("default_config.yaml"),
+            Path(__file__).parent.parent.parent / "config" / "default_config.yaml",
+        ]
+        config_path = next((p for p in possible_paths if p.exists()), possible_paths[0])
+    else:
+        config_path = Path(config_path)
+
+    config_data = {}
+    if config_path.exists():
+        with open(config_path) as f:
+            config_data = yaml.safe_load(f) or {}
+
+    for key, value in os.environ.items():
+        if key.startswith("VIDEO_"):
+            parts = key[6:].lower().split("_", 1)
+            if len(parts) == 2:
+                section, setting = parts
+                if value.lower() in ("true", "false"):
+                    value = value.lower() == "true"
+                elif value.isdigit():
+                    value = int(value)
+                elif value.replace(".", "").isdigit():
+                    value = float(value)
+
+                if section not in config_data:
+                    config_data[section] = {}
+                config_data[section][setting] = value
+
+    return Config(**config_data)
+
+
+def get_device(config: Config) -> str:
+    """
+    Get the appropriate device for model inference.
+    """
+    return "cpu"

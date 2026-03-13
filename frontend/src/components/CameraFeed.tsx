@@ -9,9 +9,9 @@ interface CameraFeedProps {
 }
 
 export function CameraFeed({ roomId }: CameraFeedProps) {
-  const ACTIVE_CAMERAS = ["livingroom"];
+  const ACTIVE_CAMERAS = ["livingroom", "living_room"];
 
-  const STREAM_URL = "http://100.90.235.67:5001/video_feed";
+  const STREAM_URL = "http://127.0.0.1:5001/video_feed";
 
   const hasCamera = ACTIVE_CAMERAS.includes(roomId.toLowerCase());
 
@@ -61,6 +61,7 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-2 bg-zinc-900/80 backdrop-blur-sm">
                   <AlertCircle className="h-10 w-10 text-red-500/50" />
                   <span className="text-xs tracking-widest uppercase font-semibold">Connection Lost</span>
+                  <span className="text-[10px] text-gray-500">is mac_camera.py working?</span>
                 </div>
               )}
             </>

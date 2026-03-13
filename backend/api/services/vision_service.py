@@ -144,4 +144,45 @@ class VisionService:
             logger.error(f"Extraction error: {e}")
         return None
 
+    def recognize(self, frame: np.ndarray) -> dict:
+        """
+        Takes a live frame, detects the largest face, extracts its embedding,
+        and identifies the person using Cosine Similarity against the database.
+        """
+        try:
+            detection = self.detector.detect(frame)
+            if not detection["faces_found"]:
+                return {"face_found": False, "name": None, "confidence": 0.0}
+
+            face_data = max(
+                detection["faces"],
+                key=lambda f: (f["box"][2] - f["box"][0]) * (f["box"][3] - f["box"][1]),
+            )
+            x1, y1, x2, y2 = face_data["box"]
+            
+            face_roi = self._extract_padded_roi(frame, x1, y1, x2, y2)
+            embedding = self._extract_embedding(face_roi)
+            
+            if embedding is None:
+                return {"face_found": False, "name": None, "confidence": 0.0}
+
+            best_name = "Unknown"
+            best_score = -1.0
+            threshold = 0.50 
+            
+            for name, known_emb in self.known_faces.items():
+                score = np.dot(embedding, known_emb) / (np.linalg.norm(embedding) * np.linalg.norm(known_emb))
+                if score > best_score:
+                    best_score = float(score)
+                    best_name = name
+
+            if best_score >= threshold:
+                return {"face_found": True, "name": best_name, "confidence": best_score}
+            else:
+                return {"face_found": True, "name": "Unknown", "confidence": best_score}
+
+        except Exception as e:
+            logger.error(f"Recognition error: {e}")
+            return {"face_found": False, "name": None, "confidence": 0.0}
+
 vision_service = VisionService()

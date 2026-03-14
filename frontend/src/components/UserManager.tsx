@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Users, UserPlus, Trash2, X, Mic, Loader2, CheckCircle, ShieldCheck, UserCheck, Camera, ArrowRight, ArrowLeft, ArrowUp, ArrowDown, User } from "lucide-react";
+import { Users, UserPlus, Trash2, X, Mic, Loader2, CheckCircle, ShieldCheck, UserCheck, Camera, ArrowRight, ArrowLeft, ArrowUp, ArrowDown, User, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -214,14 +214,17 @@ export function UserManager() {
       </Button>
 
       {isOpen && (
-        <Card className="absolute top-14 left-0 w-[400px] bg-black/95 backdrop-blur-xl border-zinc-800 shadow-2xl p-0 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left rounded-xl">
+        <Card className="absolute top-14 left-0 w-[420px] bg-black/95 backdrop-blur-xl border-zinc-800 shadow-2xl p-0 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left rounded-xl">
             
             <div className="flex items-center justify-between p-5 border-b border-zinc-800 bg-zinc-900/50">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-500/20 rounded-lg">
-                        <Users className="w-5 h-5 text-indigo-400"/>
+                        <Fingerprint className="w-5 h-5 text-indigo-400"/>
                     </div>
-                    <span className="text-base font-semibold text-zinc-100">Identity & Access Management</span>
+                    <div>
+                        <h3 className="text-base font-semibold text-zinc-100 leading-tight">Identity Management</h3>
+                        <p className="text-xs text-zinc-500 mt-0.5">Biometric Enrollment & Access</p>
+                    </div>
                 </div>
             </div>
 
@@ -236,7 +239,7 @@ export function UserManager() {
                     onClick={() => setActiveTab("add")}
                     className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${activeTab === "add" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
                 >
-                    Enroll New Identity
+                    Enroll New Profile
                 </button>
             </div>
 
@@ -272,98 +275,141 @@ export function UserManager() {
                 )}
 
                 {activeTab === "add" && (
-                    <div className="space-y-5 animate-in slide-in-from-right-2 duration-300 max-h-[500px] overflow-y-auto scrollbar-hide pb-2">
-                        <div className="space-y-2">
-                            <label className="text-xs font-semibold text-zinc-400 ml-1 uppercase tracking-wider">Full Name</label>
-                            <Input placeholder="e.g. Berkay Alkan" value={name} onChange={(e) => setName(e.target.value)} className="bg-zinc-900/80 border-zinc-800 h-11 text-base focus:ring-1 focus:ring-indigo-500 text-white"/>
+                    <div className="space-y-6 animate-in slide-in-from-right-2 duration-300 max-h-[500px] overflow-y-auto scrollbar-hide pb-2 px-1">
+                        
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-sm">STEP 1</span>
+                                <h4 className="text-sm font-semibold text-zinc-300">Basic Identity</h4>
+                            </div>
+                            <Input placeholder="Enter Full Name (e.g. Berkay Alkan)" value={name} onChange={(e) => setName(e.target.value)} className="bg-zinc-900 border-zinc-800 h-11 text-sm focus:ring-1 focus:ring-indigo-500 text-white"/>
                         </div>
 
-                        <div className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-4 transition-colors ${isCameraActive ? "border-blue-500/30 bg-blue-500/5" : currentFaceStep === "done" ? "border-green-500/30 bg-green-500/5" : "border-zinc-800 bg-zinc-900/30"}`}>
-                            {currentFaceStep === "done" ? (
-                                <div className="text-green-400 flex flex-col items-center gap-3 animate-in zoom-in duration-300 w-full py-4">
-                                    <div className="flex gap-2 justify-center items-center">
-                                        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-green-500 opacity-60"><img src={URL.createObjectURL(faces.left!)} className="w-full h-full object-cover" /></div>
-                                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-green-500 opacity-80 -ml-3"><img src={URL.createObjectURL(faces.up!)} className="w-full h-full object-cover" /></div>
-                                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-green-400 z-10 -ml-3 shadow-lg shadow-green-500/20"><img src={URL.createObjectURL(faces.front!)} className="w-full h-full object-cover" /></div>
-                                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-green-500 opacity-80 -ml-3"><img src={URL.createObjectURL(faces.down!)} className="w-full h-full object-cover" /></div>
-                                        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-green-500 opacity-60 -ml-3"><img src={URL.createObjectURL(faces.right!)} className="w-full h-full object-cover" /></div>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-sm">STEP 2</span>
+                                <h4 className="text-sm font-semibold text-zinc-300">Visual Biometrics</h4>
+                            </div>
+                            
+                            <div className={`border rounded-xl p-4 flex flex-col items-center justify-center gap-4 transition-colors ${isCameraActive ? "border-blue-500/40 bg-blue-500/5" : currentFaceStep === "done" ? "border-green-500/40 bg-green-500/5 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-zinc-800 bg-zinc-900/40"}`}>
+                                {currentFaceStep === "done" ? (
+                                    <div className="text-green-400 flex flex-col items-center gap-4 w-full py-2">
+                                        <div className="flex justify-center items-center">
+                                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-green-500 opacity-50 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.left!)} className="w-full h-full object-cover" /></div>
+                                            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-green-500 opacity-80 -ml-4 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.up!)} className="w-full h-full object-cover" /></div>
+                                            <div className="w-20 h-20 rounded-full overflow-hidden border-[3px] border-green-400 z-10 -ml-4 shadow-xl shadow-green-500/20 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.front!)} className="w-full h-full object-cover" /></div>
+                                            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-green-500 opacity-80 -ml-4 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.down!)} className="w-full h-full object-cover" /></div>
+                                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-green-500 opacity-50 -ml-4 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.right!)} className="w-full h-full object-cover" /></div>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-sm font-bold flex items-center gap-1.5"><CheckCircle className="w-4 h-4"/> Face Profile Secured</span>
+                                            <span className="text-xs text-green-500/70 mt-1">5 unique angles captured</span>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={() => setFaces({front: null, left: null, right: null, up: null, down: null})} className="h-8 text-xs bg-transparent border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800">Retake Photos</Button>
                                     </div>
-                                    <span className="text-sm font-medium flex items-center gap-1.5 mt-2"><CheckCircle className="w-4 h-4"/> 5-Point 3D Face Profile Complete</span>
-                                    <Button variant="ghost" size="sm" onClick={() => setFaces({front: null, left: null, right: null, up: null, down: null})} className="h-8 text-xs text-zinc-500 hover:text-red-400">Retake All</Button>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="w-full relative rounded-xl overflow-hidden bg-black flex items-center justify-center min-h-[180px]">
-                                        <video 
-                                            ref={videoRef} 
-                                            autoPlay 
-                                            playsInline 
-                                            muted
-                                            className={`w-full max-h-[200px] object-cover transform scale-x-[-1] ${isCameraActive ? "block" : "hidden"}`} 
-                                        />
+                                ) : (
+                                    <>
+                                        <div className="w-full relative rounded-xl overflow-hidden bg-black flex items-center justify-center min-h-[180px] border border-zinc-800">
+                                            <video 
+                                                ref={videoRef} 
+                                                autoPlay 
+                                                playsInline 
+                                                muted
+                                                className={`w-full h-[200px] object-cover transform scale-x-[-1] ${isCameraActive ? "block" : "hidden"}`} 
+                                            />
+                                            
+                                            {!isCameraActive && (
+                                                <div className="flex flex-col items-center opacity-50 py-8">
+                                                    <Camera className="w-8 h-8 mb-3 text-zinc-500" />
+                                                    <span className="text-xs text-zinc-400">Camera is off</span>
+                                                </div>
+                                            )}
+
+                                            {isCameraActive && (
+                                                <div className="absolute bottom-3 left-0 right-0 flex justify-center animate-in slide-in-from-bottom-2">
+                                                    <span className="bg-black/80 text-white text-[13px] px-4 py-2 rounded-full backdrop-blur-md flex items-center gap-2 font-medium border border-blue-500/30 shadow-lg shadow-black/50">
+                                                        {currentFaceStep === "front" && <><User className="w-4 h-4 text-blue-400 animate-pulse"/> 1. Look Straight at Camera</>}
+                                                        {currentFaceStep === "left" && <><ArrowLeft className="w-4 h-4 text-blue-400 animate-pulse"/> 2. Turn Head Slightly Left</>}
+                                                        {currentFaceStep === "right" && <><ArrowRight className="w-4 h-4 text-blue-400 animate-pulse"/> 3. Turn Head Slightly Right</>}
+                                                        {currentFaceStep === "up" && <><ArrowUp className="w-4 h-4 text-blue-400 animate-pulse"/> 4. Tilt Head Slightly Up</>}
+                                                        {currentFaceStep === "down" && <><ArrowDown className="w-4 h-4 text-blue-400 animate-pulse"/> 5. Tilt Head Slightly Down</>}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-1.5 w-full px-1">
+                                            <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.front ? "bg-green-500" : isCameraActive && currentFaceStep === "front" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-zinc-800"}`} />
+                                            <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.left ? "bg-green-500" : isCameraActive && currentFaceStep === "left" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-zinc-800"}`} />
+                                            <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.right ? "bg-green-500" : isCameraActive && currentFaceStep === "right" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-zinc-800"}`} />
+                                            <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.up ? "bg-green-500" : isCameraActive && currentFaceStep === "up" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-zinc-800"}`} />
+                                            <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.down ? "bg-green-500" : isCameraActive && currentFaceStep === "down" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-zinc-800"}`} />
+                                        </div>
+
+                                        <Button 
+                                            onClick={isCameraActive ? capturePhoto : startCamera} 
+                                            variant="secondary" 
+                                            className={`w-full text-sm h-11 font-semibold transition-all ${isCameraActive ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}
+                                        >
+                                            {isCameraActive ? "Capture This Angle" : "Start Face Registration"}
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <span className="bg-zinc-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-sm">STEP 3</span>
+                                <h4 className="text-sm font-semibold text-zinc-300">Voice Signature <span className="text-zinc-500 font-normal text-xs ml-1">(Optional)</span></h4>
+                            </div>
+                            
+                            <div className={`border rounded-xl p-5 flex flex-col items-center justify-center gap-4 transition-colors ${isRecording ? "border-red-500/40 bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.1)]" : "border-zinc-800 bg-zinc-900/40"}`}>
+                                {audioBlob ? (
+                                    <div className="text-green-400 flex flex-col items-center gap-2 py-2">
+                                        <CheckCircle className="w-8 h-8 mb-1"/> 
+                                        <span className="text-sm font-bold">Voice Profile Secured</span>
+                                        <Button variant="outline" size="sm" onClick={() => setAudioBlob(null)} className="h-8 mt-2 text-xs bg-transparent border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800">Retake Audio</Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={`p-4 rounded-full transition-all ${isRecording ? "bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : "bg-zinc-800"}`}>
+                                            <Mic className={`w-6 h-6 ${isRecording ? "text-red-500 animate-pulse" : "text-zinc-500"}`}/>
+                                        </div>
                                         
-                                        {!isCameraActive && (
-                                            <div className="flex flex-col items-center opacity-50 py-8">
-                                                <Camera className="w-8 h-8 mb-3 text-zinc-500" />
-                                                <span className="text-xs text-zinc-400">5-Point Multi-Angle Face ID (Required)</span>
+                                        <div className="text-center space-y-2 w-full">
+                                            <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+                                                {isRecording ? "Reading in progress..." : "Please read the text below"}
+                                            </p>
+                                            <div className="bg-black/50 border border-zinc-800 p-3 rounded-lg w-full relative overflow-hidden">
+                                                {isRecording && <div className="absolute inset-0 bg-red-500/10 animate-pulse" />}
+                                                <p className="text-sm text-indigo-300 font-medium italic relative z-10">
+                                                    "Hello Homify, this is my voice signature. Please authorize my access to the secure home network."
+                                                </p>
                                             </div>
-                                        )}
+                                        </div>
 
-                                        {isCameraActive && (
-                                            <div className="absolute bottom-3 left-0 right-0 flex justify-center animate-in slide-in-from-bottom-2">
-                                                <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-md flex items-center gap-2 font-medium border border-white/20 shadow-xl">
-                                                    {currentFaceStep === "front" && <><User className="w-4 h-4 text-blue-400 animate-pulse"/> Look Straight at Camera</>}
-                                                    {currentFaceStep === "left" && <><ArrowLeft className="w-4 h-4 text-blue-400 animate-pulse"/> Turn Head Slightly Left</>}
-                                                    {currentFaceStep === "right" && <><ArrowRight className="w-4 h-4 text-blue-400 animate-pulse"/> Turn Head Slightly Right</>}
-                                                    {currentFaceStep === "up" && <><ArrowUp className="w-4 h-4 text-blue-400 animate-pulse"/> Tilt Head Slightly Up</>}
-                                                    {currentFaceStep === "down" && <><ArrowDown className="w-4 h-4 text-blue-400 animate-pulse"/> Tilt Head Slightly Down</>}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex gap-1.5 w-full px-2">
-                                        <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.front ? "bg-green-500" : isCameraActive && currentFaceStep === "front" ? "bg-blue-500 animate-pulse" : "bg-zinc-800"}`} />
-                                        <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.left ? "bg-green-500" : isCameraActive && currentFaceStep === "left" ? "bg-blue-500 animate-pulse" : "bg-zinc-800"}`} />
-                                        <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.right ? "bg-green-500" : isCameraActive && currentFaceStep === "right" ? "bg-blue-500 animate-pulse" : "bg-zinc-800"}`} />
-                                        <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.up ? "bg-green-500" : isCameraActive && currentFaceStep === "up" ? "bg-blue-500 animate-pulse" : "bg-zinc-800"}`} />
-                                        <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.down ? "bg-green-500" : isCameraActive && currentFaceStep === "down" ? "bg-blue-500 animate-pulse" : "bg-zinc-800"}`} />
-                                    </div>
-
-                                    <Button 
-                                        onClick={isCameraActive ? capturePhoto : startCamera} 
-                                        variant="secondary" 
-                                        className={`w-full text-sm h-10 font-medium ${isCameraActive ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}
-                                    >
-                                        {isCameraActive ? "Capture This Angle" : "Start Face Registration"}
-                                    </Button>
-                                </>
-                            )}
+                                        <Button 
+                                            onClick={isRecording ? stopRecording : startRecording} 
+                                            className={`w-full mt-1 text-sm h-11 font-semibold transition-all ${isRecording ? "bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}
+                                        >
+                                            {isRecording ? "Stop Recording" : "Start Voice Capture"}
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
                         </div>
 
-                        <div className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-colors ${isRecording ? "border-red-500/30 bg-red-500/5" : "border-zinc-800 bg-zinc-900/30"}`}>
-                            {audioBlob ? (
-                                <div className="text-green-400 flex flex-col items-center gap-2 animate-in zoom-in duration-300 py-3">
-                                    <CheckCircle className="w-6 h-6"/> <span className="text-sm font-medium">Voice Signature Captured</span>
-                                    <Button variant="ghost" size="sm" onClick={() => setAudioBlob(null)} className="h-8 text-xs text-zinc-500 hover:text-red-400 mt-1">Retake Audio</Button>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className={`p-3 rounded-full ${isRecording ? "bg-red-500/20 animate-pulse" : "bg-zinc-800"}`}>
-                                        <Mic className={`w-5 h-5 ${isRecording ? "text-red-400" : "text-zinc-500"}`}/>
-                                    </div>
-                                    <p className="text-xs text-zinc-500 text-center">{isRecording ? "Recording your voice..." : "Voice Biometric ID (Optional)"}</p>
-                                    <Button onClick={isRecording ? stopRecording : startRecording} variant={isRecording ? "destructive" : "secondary"} className={`w-full mt-2 text-sm h-10 font-medium ${isRecording ? "bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"}`}>
-                                        {isRecording ? "Stop Recording" : "Record Voice Sample"}
-                                    </Button>
-                                </>
-                            )}
+                        <div className="pt-2">
+                            <Button 
+                                onClick={handleSave} 
+                                disabled={currentFaceStep !== "done" || !name || status === "uploading"} 
+                                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 h-14 text-base font-bold text-white shadow-xl shadow-indigo-600/20 transition-all disabled:opacity-50 disabled:grayscale"
+                            >
+                                {status === "uploading" ? <Loader2 className="w-5 h-5 animate-spin mr-2"/> : <ShieldCheck className="w-5 h-5 mr-2"/>}
+                                {status === "uploading" ? "Encrypting Biometrics..." : "Complete Enrollment"}
+                            </Button>
                         </div>
-
-                        <Button onClick={handleSave} disabled={currentFaceStep !== "done" || !name || status === "uploading"} className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 text-base font-semibold text-white mt-4 shadow-xl shadow-indigo-600/20">
-                            {status === "uploading" ? <Loader2 className="w-5 h-5 animate-spin mr-2"/> : <UserPlus className="w-5 h-5 mr-2"/>}
-                            {status === "uploading" ? "Encrypting & Saving Profile..." : "Enroll Identity"}
-                        </Button>
                     </div>
                 )}
             </div>

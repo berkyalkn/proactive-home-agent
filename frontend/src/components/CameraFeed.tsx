@@ -52,7 +52,7 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
               <img
                 src={STREAM_URL}
                 alt="Live Camera Stream"
-                className={`w-full h-full object-cover transform scale-x-[-1] transition-opacity duration-500 ${isOnline ? 'opacity-100' : 'opacity-0'}`}
+                className={`w-full h-full object-cover transition-opacity duration-500 ${isOnline ? 'opacity-100' : 'opacity-0'}`}
                 onError={() => setIsOnline(false)}
                 onLoad={() => setIsOnline(true)}
               />

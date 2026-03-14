@@ -19,6 +19,7 @@ router = APIRouter(prefix="/vision", tags=["Vision Analysis"])
 class PresenceEvent(BaseModel):
     user: str
     status: str
+    location: str = "living_room"
 
 
 async def trigger_agent_proactively(person_name: str, event_type: str):
@@ -133,9 +134,11 @@ async def identify_face(image_file: UploadFile = File(...)):
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
     """It receives 1KB of text from the MacBook 5 times per second. It manages the Shield and the Agent."""
+
     person_name = event.user
+    location = event.location
     
-    state = presence_service.handle_detection(person_name)
+    state = presence_service.handle_detection(person_name, location)
     
     if state == "ENTRY":
         if person_name == "Unknown":

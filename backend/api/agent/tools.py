@@ -1,5 +1,6 @@
 from langchain_core.tools import tool
 import api.drivers.mqtt_service as mqtt_service
+from api.services.presence_service import presence_service
 from api.routers.devices_router import (
     control_device, DeviceControl, DEVICE_REGISTRY, get_all_devices,
     set_brightness, BrightnessControl, set_color, ColorControl,
@@ -47,7 +48,7 @@ CAMERA_INVENTORY = {
     "main_camera": {
         "name": "Main Camera",
         "location": "livingroom",
-        "feed_url": "http://100.90.235.67:5001/video_feed"
+        "feed_url": "http://100.119.128.11:5001/video_feed"
     }
 }
 
@@ -92,9 +93,8 @@ async def _fetch_camera_status(cam_id: str, feed_url: str) -> tuple:
 @tool
 async def get_home_status():
     """
-    Retrieves a complete status report of the home by combining SENSORS and SMART DEVICES.
-    It checks capabilities per room (e.g., Guestroom only has motion).
-    Use this for ANY question about home status, specific room status, temperature, or devices.
+    Retrieves a complete status report of the home by combining SENSORS, SMART DEVICES, and PEOPLE PRESENCE.
+    Use this for ANY question about who is home, what room they are in, recent events, home status, temperature, or devices.
     """
     current_time = time.time()
     sensor_data_source = mqtt_service.LATEST_SENSOR_DATA
@@ -230,8 +230,26 @@ async def get_home_status():
         summary.append("\n".join(report_parts))
 
     final_report = "\n\n".join(summary)
-    print(f"{final_report}\n------------------------------")
-    return final_report
+
+    presence_report = "\n\n=== PRESENCE & MEMORY LEDGER ===\n"
+    
+    active = presence_service.active_people
+    if not active:
+        presence_report += "- Currently Active People: The house is currently EMPTY.\n"
+    else:
+        presence_report += "- Currently Active People:\n"
+        for name, data in active.items():
+            presence_report += f"  * {name} is currently in the {data['location']}\n"
+    
+    history = presence_service.history_ledger
+    if not history:
+        presence_report += "- Recent Events: No recent events recorded yet.\n"
+    else:
+        presence_report += "- Recent Events (Last 20):\n"
+        for event in reversed(history): 
+            presence_report += f"  * [{event['time']}] {event['user']} {event['action']} the {event['location']}\n"
+    
+    return final_report + presence_report
 
 
 @tool

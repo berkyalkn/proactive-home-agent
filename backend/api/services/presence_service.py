@@ -3,6 +3,10 @@ import logging
 from typing import Dict, List
 from datetime import datetime, timezone, timedelta
 
+from sqlmodel import Session, select
+from database.settings import engine
+from database.models import User
+
 logger = logging.getLogger(__name__)
 
 class PresenceService:
@@ -35,6 +39,26 @@ class PresenceService:
         if len(self.history_ledger) > 20:
             self.history_ledger.pop(0)
 
+    
+    def _update_db_last_seen(self, username: str):
+        """It updates the database without overloading it."""
+
+        if username in ["Unknown", "Guest", "A Stranger"]: 
+            return 
+            
+        try:
+            with Session(engine) as session:
+                statement = select(User).where(User.username == username)
+                user = session.exec(statement).first()
+                if user:
+                    local_time_naive = datetime.utcnow() + timedelta(hours=3)
+                    user.last_seen = local_time_naive
+                    session.add(user)
+                    session.commit()
+                    logger.info(f"Permanent Memory: {username} last seen -> {user.last_seen.strftime('%H:%M')}")
+        except Exception as e:
+            logger.error(f"DB Update Error for last_seen: {e}")
+
     def handle_detection(self, person_name: str, location: str = "living_room") -> str:
         current_time = time.time()
         
@@ -44,13 +68,14 @@ class PresenceService:
             if person_name not in self.active_people:
                 self.active_people[person_name] = {"last_seen": current_time, "location": location}
                 self._log_event(person_name, "ENTERED", location) 
+                self._update_db_last_seen(person_name)
                 return "ENTRY"
             else:
                 self.active_people[person_name]["last_seen"] = current_time
                 self.active_people[person_name]["location"] = location
                 return "PRESENT"
 
-        else: # 
+        else: 
             if person_name in self.active_people:
                 self.active_people[person_name]["last_seen"] = current_time
                 self.active_people[person_name]["location"] = location
@@ -92,6 +117,7 @@ class PresenceService:
                     self._log_event("A Stranger", "EXITED", location)
                 else:
                     self._log_event(person_name, "EXITED", location)
+                    self._update_db_last_seen(person_name)
                 
         return exited_people
 

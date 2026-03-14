@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 CAMERA_INDEX = 0 
 camera = cv2.VideoCapture(CAMERA_INDEX)
-time.sleep(2) 
+time.sleep(2)
 
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -23,10 +23,11 @@ tracker = None
 current_user = "Unknown"
 last_json_time = 0
 last_identify_time = 0 
+unknown_retry_count = 0 
+MAX_RETRIES = 3        
 
 def identify_face_from_pi(frame_bytes):
-    """It only works once. It sends a photo to Pi and learns your identity."""
-    global tracking_active, current_user
+    global tracking_active, current_user, unknown_retry_count
     try:
         print("A face is being sent to Pi 5, awaiting identification...")
         files = {'image_file': ('face.jpg', frame_bytes, 'image/jpeg')}
@@ -36,28 +37,29 @@ def identify_face_from_pi(frame_bytes):
             data = response.json()
             if data["status"] == "authorized":
                 current_user = data["user"]
-                print(f"Authenticated: {current_user}")
+                unknown_retry_count = 0 
+                print(f"Identity Verified: {current_user}")
             else:
                 current_user = "Unknown"
-                print("Stranger or Unknown.")
+                unknown_retry_count += 1
+                print(f"Stranger or Unknown. (Failed Attempt: {unknown_retry_count}/{MAX_RETRIES})")
         else:
             print("Backend error returned, discontinuing follow-up.")
             tracking_active = False
             
     except Exception as e:
-        print(f"Pi could not be reached:{e}")
+        print(f"Pi could not be reached: {e}")
         tracking_active = False
 
 def send_presence_json():
-    """Pi 5 simply sends the message 'Berkay is still here' without tiring itself out at all."""
     try:
-        payload = {"user": current_user, "status": "PRESENT", "location": "livingroom"}
+        payload = {"user": current_user, "status": "PRESENT", "location": "living_room"}
         requests.post(PRESENCE_URL, json=payload, timeout=0.5)
     except:
         pass 
 
 def generate_frames():
-    global tracking_active, tracker, current_user, last_json_time, last_identify_time
+    global tracking_active, tracker, current_user, last_json_time, last_identify_time, unknown_retry_count
 
     while True:
         success, frame = camera.read()
@@ -66,11 +68,9 @@ def generate_frames():
             continue
 
         frame = cv2.flip(frame, 1)
-
         current_time = time.time()
 
         if not tracking_active:
-
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
 
@@ -85,13 +85,13 @@ def generate_frames():
                 tracking_active = True
                 current_user = "Identifying..."
                 last_identify_time = current_time 
+                unknown_retry_count = 0 
                 
                 ret, buffer = cv2.imencode('.jpg', frame)
                 if ret:
                     threading.Thread(target=identify_face_from_pi, args=(buffer.tobytes(),), daemon=True).start()
 
         else:
-
             success_track, bbox = tracker.update(frame)
 
             if success_track:
@@ -107,8 +107,8 @@ def generate_frames():
                         threading.Thread(target=send_presence_json, daemon=True).start()
                         last_json_time = current_time
 
-                    if current_user == "Unknown" and (current_time - last_identify_time > 2.0):
-                        print("The stranger box is being monitored, identity is being re-verified...")
+                    if current_user == "Unknown" and (current_time - last_identify_time > 2.0) and unknown_retry_count < MAX_RETRIES:
+                        print("The box is being tracked, identity is being verified again...")
                         current_user = "Identifying..."
                         last_identify_time = current_time
                         ret, buffer = cv2.imencode('.jpg', frame)
@@ -118,6 +118,7 @@ def generate_frames():
                 print("Box Lost. Returning to Search Mode...")
                 tracking_active = False
                 current_user = "Unknown"
+                unknown_retry_count = 0 
 
         try:
             ret, buffer = cv2.imencode('.jpg', frame)

@@ -51,7 +51,7 @@ def identify_face_from_pi(frame_bytes):
 def send_presence_json():
     """Pi 5 simply sends the message 'Berkay is still here' without tiring itself out at all."""
     try:
-        payload = {"user": current_user, "status": "PRESENT"}
+        payload = {"user": current_user, "status": "PRESENT", "location": "livingroom"}
         requests.post(PRESENCE_URL, json=payload, timeout=0.5)
     except:
         pass 

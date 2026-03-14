@@ -26,18 +26,18 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
     logger.info(f"Agent Wakes Up: {person_name} set {event_type} to the room...")
     
     if event_type == "entered":
-        system_prompt = (
-            f"[User: {person_name}] [System Event: User {person_name} has just {event_type} the room.] "
-            f"You are the Proactive Home Agent. Greet {person_name} warmly and briefly (max 2 sentences). "
-            f"CRITICAL: Do NOT call any tools right now, just say a quick, natural welcome."
-        )
-    else: 
-        system_prompt = (
-            f"[User: {person_name}] [System Event: User {person_name} has just {event_type} the room.] "
-            f"You are the Proactive Home Agent. The user left the room 15 seconds ago. "
-            f"Acknowledge their departure briefly (max 2 sentences) and state that you are switching to energy-saving mode. "
-            f"CRITICAL: Do NOT call any tools, just give a short verbal confirmation."
-        )
+        if person_name in ["Guest", "Unknown", "A Stranger"]:
+            system_prompt = (
+                f"[System Event: An unrecognized person has just entered the room.] "
+                f"You are the Proactive AI Home Agent. Greet the person politely, mention that you don't recognize their face in your database, and kindly ask for their name. "
+                f"Keep it brief (max 2 sentences). CRITICAL: Do NOT call any tools right now."
+            )
+        else:
+            system_prompt = (
+                f"[User: {person_name}] [System Event: User {person_name} has just entered the room.] "
+                f"You are the Proactive AI Home Agent. Greet {person_name} warmly and briefly (max 2 sentences). "
+                f"CRITICAL: Do NOT call any tools right now, just say a quick, natural welcome."
+            )
 
     async def broadcast(message_dict: dict):
         for connection in manager.active_connections:

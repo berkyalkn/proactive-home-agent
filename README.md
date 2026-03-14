@@ -29,9 +29,9 @@
 
 ## Introduction
 
-This project is a local-first, privacy-centric smart home ecosystem designed to bridge the gap between traditional reactive IoT systems and true agentic intelligence. While standard hubs wait for explicit commands, Homify leverages a Hybrid AI Architecture running on a Raspberry Pi 5 to proactively manage the environment based on context, visual observation, and habits.
+This project is a local-first, privacy-centric smart home ecosystem designed to bridge the gap between traditional reactive IoT systems and true agentic intelligence. While standard hubs wait for explicit commands, Homify leverages a Hybrid AI Architecture running on a Raspberry Pi 5 to proactively manage the environment based on context, visual observation, spatial memory, and habits.
 
-By orchestrating **Distributed ESP32 Sensor Nodes, Edge Computer Vision, Presence Management, and Generative AI (LangGraph)**, the system creates a "conscious" living space. It doesn't just switch lights on; it understands context, visually identifies users upon entry, detects anomalies, and executes complex natural language goals autonomously—while keeping critical data within the home network.
+By orchestrating **Distributed ESP32 Sensor Nodes, Edge Computer Vision, Presence Management, and Generative AI (LangGraph)**, the system creates a "conscious" living space. It doesn't just switch lights on; it understands context, visually identifies users upon entry via multi-angle biometrics, retains a memory of spatial movements, detects anomalies, and executes complex natural language goals autonomously—while keeping critical data within the home network.
 
 ---
 
@@ -86,47 +86,39 @@ To optimize for Privacy-First Latency, the system processes user intents through
 
 - **Safety:** Only anonymized state snapshots are transmitted.
 
+
 #### 2. Cognitive Tools & Sensor Fusion
 
 The Agent interacts with the physical world through a set of "Robust Tools" that handle the unpredictability of IoT networks.
 
-`get_home_status (Sensor Fusion)`:
+- `get_home_status (Sensor Fusion & Memory)`: Aggregates telemetry from **MQTT** (BH1750, BME280, PIR), device states (Tapo API), and the **Spatial & Temporal Ledger** into a single context window. Allows the LLM to answer holistic questions like "Is the living room environment suitable for reading?" or complex contextual questions like "Where am I currently located and when did I enter?".
 
-- Aggregates telemetry from **MQTT** (BH1750, BME280, PIR) and device states (Tapo API) into a single context window.
+- `control_smart_device (Self-Healing Actuator)`: Wraps the **Tapo P110** driver with a Self-Healing Mechanism. If a device is unreachable, the system automatically attempts to re-authenticate and reconnect (up to 3 retries) before reporting a failure, significantly reducing "false offline" errors.
 
-- Why it matters: Allows the LLM to answer holistic questions like "Is the living room environment suitable for reading?" by analyzing light levels and temperature simultaneously.
-
-`control_smart_device` (Self-Healing Actuator):
-
-- Wraps the **Tapo P110** driver with a Self-Healing Mechanism.
-
-- **Logic:** If a device is unreachable, the system automatically attempts to re-authenticate and reconnect (up to 3 retries) before reporting a failure, significantly reducing "false offline" errors.
-
-`control_bulb` (Advanced Lighting):
-
-- Manages **L530 bulbs** with full HSL (Hue, Saturation, Lightness) color space support.
-
-- **Adaptive:** Can translate vague natural language commands (e.g., "Make it cozy") into specific color temperatures (e.g., 2700K Warm White).
+- `control_bulb (Advanced Lighting)`: Manages **L530** bulbs with full HSL (Hue, Saturation, Lightness) color space support. Can translate vague natural language commands (e.g., "Make it cozy") into specific color temperatures (e.g., 2700K Warm White).
 
 #### 3. Dual-Biometric Zero-Trust Security
 
 No command is executed without continuous authentication, utilizing both visual and vocal verification.
 
--  **Visual Authentication:** Uses **YOLOv8n-face** (optimized for Edge) for bounding box extraction and the ultra-lightweight **GhostFaceNet (17MB)** to extract 512D embeddings. Verified via Cosine Similarity against PostgreSQL data.
+-  **Visual Authentication (5-Angle FaceID):** Uses the ultra-lightweight **GhostFaceNet (17MB)**. The system utilizes an Apple FaceID-style enrollment process, capturing and storing 5 different facial embeddings (Front, Left, Right, Up, Down) per user in PostgreSQL. This ensures flawless recognition from any perspective via Cosine Similarity.
 
--  **Vocal Authentication:** Uses **Resemblyzer** for real-time speaker diarization and embedding matching.
+- **Vocal Authentication:** Uses **Resemblyzer** for real-time speaker diarization and embedding matching.
 
--  **Dynamic RBAC (Role-Based Access Control):** The System Prompt dynamically adjusts based on identity. Admins have full execution rights, while "Guests" or "Unknown/Intruder" entities trigger guardrails, restricting them to read-only interactions or firing security alerts.
+- **Dynamic RBAC (Role-Based Access Control):** The System Prompt dynamically adjusts based on identity. Admins have full execution rights, while "Guests" or "Unknown/Intruder" entities trigger guardrails, restricting them to read-only interactions or firing security alerts.
 
 
 #### 4. Event-Driven Edge Vision & State Machine
+
 The system does not just wait for voice commands; it visually monitors the environment and acts autonomously without melting the central CPU.
 
--  **The Smart Edge Watchdog:** Edge cameras utilize lightweight OpenCV background subtraction (`cv2.absdiff`) to monitor rooms. Instead of running heavy AI on every frame, they act as an absolute gateway, sending frames to the backend *only* when physical motion exceeds a specific threshold.
+- **Edge-Native Object Tracking (Zero Latency)**: Camera nodes operate as Smart Edge Sensors. Once a user is identified, the edge node switches to a lightweight OpenCV KCF Tracker, following the user's bounding box locally. It stops sending heavy JPEG frames to the backend and instead streams lightweight 1KB JSON payloads (`{"user": "Berkay", "status": "PRESENT", "location": "living_room"}`) at high frequencies.
 
--  **Presence & State Management:** To prevent "alert spam" and API exhaustion, a backend `PresenceService` maintains a real-time ledger of room occupancy (`ENTRY`, `PRESENT`, `EXIT`). A continuous background asyncio task monitors for "silent exits" (timeouts) without blocking the main event loop.
+- **Spatial & Temporal Ledger:** Maintains a rolling history of the last 20 room events with strict timezone constraints to prevent time drift. It utilizes an Event-Driven Persistent Memory approach, updating the PostgreSQL `last_seen` column only upon Entry/Exit to prevent I/O bottlenecks while ensuring the AI retains context across system reboots.
 
-- **Asynchronous LLM Awakening:** Upon a valid `ENTRY` or `EXIT` event, FastAPI `BackgroundTasks` silently inject a system prompt into the LangGraph Agent. The Agent assesses the home status (e.g., "Are the lights off?") and streams a proactive audio greeting/action via WebSockets without any manual user prompt.
+- **Identity Flickering Prevention (Grace Period)**: A custom debounce algorithm in the `PresenceService` acts as a memory shield. If a tracked user momentarily loses visibility, the system grants a 4-second grace period with a self-correcting retry mechanism, preventing false alarms.
+
+- **Asynchronous LLM Awakening:** Upon a valid `ENTRY` or `EXIT` event, FastAPI `BackgroundTasks` silently inject a system prompt into the LangGraph Agent. The Agent assesses the home status and streams a proactive audio greeting/action via WebSockets autonomously
 
 ---
 
@@ -139,7 +131,7 @@ The system does not just wait for voice commands; it visually monitors the envir
 | **Orchestration** | **LangGraph** |Manages the cyclic state of the agent, allowing for reasoning loops, error recovery, and multi-turn conversation memory.|
 | **Framework** | **LangChain** | Used for creating structured Tools (@tool decorators) and managing prompt templates.|
 | **LLM** | **Google Gemini 3.0** | The primary reasoning engine (gemini-3-flash-preview) accessed via Vertex AI for high-speed intent processing. |
-| **Computer Vision**| **OpenCV & YOLOv8** | Lightweight motion detection on edge nodes and precise face bounding box extraction. |
+| **Computer Vision**| **OpenCV & KCF** | Lightweight motion detection and high-speed bounding box tracking on edge nodes. |
 | **Face Recognition**| **DeepFace (GhostFaceNet)**| Extracts high-dimensional facial embeddings for real-time biometric verification. |
 | **Biometrics** | **Resemblyzer** | Generates 256-dimensional voice embeddings for real-time speaker identification. |
 | **Math** | **Numpy** | Performs Cosine Similarity calculations to match live audio vectors against stored user profiles. |
@@ -188,61 +180,31 @@ The system does not just wait for voice commands; it visually monitors the envir
 
 ## Key Features
 
-#### Proactive Vision & Presence Management
+#### Extreme CPU Optimization via Edge Computing
 
-- **Dumb Cameras to Smart Edge Sensors:** Utilizes standard webcams as intelligent edge nodes that process motion locally, saving bandwidth and central CPU cycles.
+By shifting the burden of frame processing to the edge nodes (cameras) and utilizing **KCF Object Tracking**, the central Raspberry Pi 5 Hub is relieved from analyzing continuous video feeds. The Pi only runs the heavy GhostFaceNet model once during initial entry. Subsequent presence updates are handled via lightweight JSON payloads, keeping the Hub's CPU usage minimal and preventing Thermal Throttling.
 
-- **Stateful Memory:** The `PresenceService` maintains a real-time ledger of room occupancy, preventing notification spam and enabling "energy-saving" triggers when a room is vacant.
+#### Spatial & Temporal Context Awareness
 
-- **Asynchronous LLM Awakening:** Uses FastAPI `BackgroundTasks` to trigger the LangGraph agent upon room entry/exit, generating contextual, spoken reactions in real-time.
-
-- **Thermal-Throttling Prevention:** By utilizing "Nano" YOLO models, turning off heavy 68-point facial alignment networks, and implementing rigid cooldowns on the camera nodes, the Raspberry Pi 5 runs heavy AI inferences while maintaining safe operating temperatures.
+The system doesn't just know who is home; it knows where they are and when they moved. Edge nodes inject room-specific spatial data, and the Presence Service maintains a timezone-aware history ledger. Combined with an event-driven last_seen database update mechanism, the AI agent possesses a persistent, true sense of time and location across reboots.
 
 #### Robust & Hybrid Architecture
 
-- **Hybrid Communication Protocols:** Implements a strategic split between protocols for maximum efficiency:
+- **Hybrid Communication Protocols:** HTTP/REST is used for reliable, stateful device management, while WebSockets are reserved for low-latency, bi-directional AI audio streaming.
 
-  - **HTTP/REST:** Used for reliable, stateful device management and sensor history.
-
-  - **WebSockets:** Reserved for low-latency, bi-directional AI audio streaming and agent interaction.
-
-- **Self-Healing Connectivity:** The backend implements an intelligent retry wrapper. If a Tapo device drops from the network, the system attempts to re-authenticate and reconnect before failing a command, ensuring high availability.
-
--  **Zero-Latency State Synchronization (Event-Driven):** Unlike traditional polling architectures, Homify utilizes a **Push-Based WebSocket** system. When a sensor detects motion or a light is toggled physically, the backend instantly broadcasts the new state to the dashboard. No refresh needed.
+- **Zero-Latency State Synchronization:** Utilizing a Push-Based WebSocket system, physical sensor changes or motion events instantly broadcast to the dashboard without requiring a page refresh.
 
 #### Multi-Modal AI Command Center
 
-- **Dual-Mode Interaction:** Users can interact with the Agent via Voice (for hands-free control) or Text Chat (for silent commands), sharing the same context window.
-
 - **Parallel Async Processing:** The backend processes Voice Identification (CPU-bound) and Speech-to-Text (I/O-bound) in parallel using `asyncio.gather`, reducing response time by 50%.
 
-- **Streamed Intelligence:** Utilizes WebSockets to stream audio chunks in real-time. The frontend implements a Smart Audio Queue to buffer and play synthesized speech responses smoothly without overlap.
+Streamed Intelligence: Utilizes a Smart Audio Queue on the frontend to seamlessly buffer and play synthesized speech responses via WebSockets in real-time.
 
--  **Deep Context Awareness:** The LangGraph agent remembers conversation history and **Time Awareness** (injecting real-time clock context into the prompt).
+#### Interactive Dashboard & Biometric Management
 
-#### Interactive Dashboard & Visualization
+- **Dynamic Floor Plan & Granular Control:** SVG-based interactive maps for room selection, real-time environmental metrics (Temp, Humidity, Light), and HSL-supported smart lighting control.
 
-- **Dynamic Floor Plan:** A visual, SVG-based interactive map allows users to select rooms directly from the home layout.
-
-- **Granular Room Control:** Each room features a dedicated control panel:
-
-- **Environmental Status:** Real-time metrics for Temperature, Humidity, Pressure (BME280), Light Level (BH1750), and Motion (PIR).
-
-- **Live Feed:** Integrated RTSP/HTTP video streams for real-time surveillance.
-
-- **Smart Lighting**: Advanced control for L530 bulbs including Brightness, Color Temperature, and HSL Color Space.
-
-- **Appliance Control:** Toggle switches and power monitoring for devices connected via smart plugs.
-
-#### Biometric Security & Access Control
-
-- **Voice-Based Identity Management:** A dedicated "User Management" interface allows administrators to record and register new users.
-
-- **Database Verification:** When a command is issued, the AI compares the live audio embedding against stored user vectors in PostgreSQL.
-
-- **Context-Aware Authorization (RBAC):** The LangGraph agent is injected with a **Dynamic System Prompt** containing the identified user's role.
-    * *Scenario A:* **Admin:** "Turn on the lights" -> *Executed.*
-    * *Scenario B:* **Guest:** "Turn on the lights" -> *Refused via LLM Guardrail:* "I'm sorry, guests have read-only access."
+- **5-Point Identity Enrollment:** A sophisticated UI guides users to register their face from 5 different angles (Front, Left, Right, Up, Down) while simultaneously capturing voice signatures, ensuring bulletproof identity verification across all lighting and positional conditions.
 
 ---
 
@@ -251,7 +213,7 @@ The system does not just wait for voice commands; it visually monitors the envir
 
 - [ ] **True Local Autonomy:** Replacing cloud dependencies with quantized **Local LLMs (Llama-3)**, **Whisper.cpp** (STT), and **Piper TTS** for 100% offline privacy and zero-latency response.
 
-- [ ] **Multi-Modal Vision Context:** Strengthening the Agent's context awareness via **YOLO & MediaPipe** to enable Hand Gesture Control, Face Recognition-based personalization, and Pose Estimation for Fall Detection.
+- [ ] **Multi-Modal Vision Context:** Strengthening the Agent's context awareness via YOLO & MediaPipe to enable Hand Gesture Control, Face Recognition-based personalization, and Pose Estimation for Fall Detection.
 
 - [ ] **Acoustic Event Detection (SED):** Integrating Audio Intelligence models (e.g., YAMNet) to recognize critical environmental sounds such as *baby crying* or *glass breaking* and trigger emergency protocols.
 

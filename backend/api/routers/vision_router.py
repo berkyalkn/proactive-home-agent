@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 from api.services.vision_service import vision_service
 from api.services.presence_service import presence_service
 from api.agent.graph import chat_with_ai 
@@ -14,6 +15,11 @@ import base64
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/vision", tags=["Vision Analysis"])
+
+class PresenceEvent(BaseModel):
+    user: str
+    status: str
+
 
 async def trigger_agent_proactively(person_name: str, event_type: str):
     logger.info(f"Agent Wakes Up: {person_name} set {event_type} to the room...")
@@ -99,51 +105,47 @@ async def startup_event():
     asyncio.create_task(continuous_presence_check())
 
 
-@router.post("/analyze")
-async def analyze_frame(image_file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-
+@router.post("/identify")
+async def identify_face(image_file: UploadFile = File(...)):
+    """It takes the photo from the MacBook, but only returns its name. It doesn't touch the memory or the Agent."""
     try:
         image_bytes = await image_file.read()
-        if not image_bytes:
-             raise HTTPException(status_code=400, detail="Empty image file received.")
-             
         nparr = np.frombuffer(image_bytes, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        if frame is None:
-            raise HTTPException(status_code=400, detail="Could not decode image.")
-
         result = vision_service.recognize(frame)
-
+        
         if not result["face_found"]:
-            return {"status": "no_face_detected"}
-
+            return {"status": "no_face"}
+            
         person_name = result["name"]
-        confidence = result["confidence"]
-
+        
         if person_name == "Unknown" or person_name is None:
-            state = presence_service.handle_detection("Unknown")
-            if state == "ENTRY":
-                logger.warning("ALERT: A stranger has been identified!")
-                background_tasks.add_task(trigger_agent_proactively, "Guest", "entered")
             return {"status": "unknown_person"}
-        
-        state = presence_service.handle_detection(person_name)
-        
-        if state == "ENTRY":
-            logger.info(f"NEW EVENT: {person_name} ENTERED! Triggering agent...")
-            background_tasks.add_task(trigger_agent_proactively, person_name, "entered")
-        
-        elif state == "PRESENT":
-            logger.debug(f"{person_name} is still here.")
-
-        return {
-            "status": "authorized", 
-            "user": person_name, 
-            "confidence": confidence,
-            "state": state
-        }
+            
+        return {"status": "authorized", "user": person_name, "confidence": result["confidence"]}
 
     except Exception as e:
-        logger.error(f"Vision Analysis Error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error.")
+        logger.error(f"Identify Error: {e}")
+        raise HTTPException(status_code=500, detail="Identify Error")
+
+
+@router.post("/update_presence")
+async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
+    """It receives 1KB of text from the MacBook 5 times per second. It manages the Shield and the Agent."""
+    person_name = event.user
+    
+    state = presence_service.handle_detection(person_name)
+    
+    if state == "ENTRY":
+        if person_name == "Unknown":
+            logger.warning("ALERT: A stranger has been identified!")
+            background_tasks.add_task(trigger_agent_proactively, "Guest", "entered")
+        else:
+            logger.info(f"NEW EVENT: {person_name} ENTERED! Triggering agent...")
+            background_tasks.add_task(trigger_agent_proactively, person_name, "entered")
+            
+    return {"status": "ok"}
+
+
+

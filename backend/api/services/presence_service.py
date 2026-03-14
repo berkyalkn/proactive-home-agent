@@ -1,44 +1,59 @@
 import time
 import logging
 from typing import Dict, List
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
 class PresenceService:
-    """
-    The system has 'Short-Term Memory' and 'Flickering Shield'.
-    It tracks who is in the room and absorbs momentary 'Unknown' errors caused by head movements.
-    """
     _instance = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(PresenceService, cls).__new__(cls)
-            cls._instance.active_people: Dict[str, float] = {}
-            cls._instance.timeout_seconds = 15
             
+            cls._instance.active_people: Dict[str, dict] = {}
+            
+            cls._instance.history_ledger: List[dict] = []
+            
+            cls._instance.timeout_seconds = 15
             cls._instance.unknown_grace_period = 4.0 
             cls._instance.unknown_first_seen = 0.0
             
-            logger.info("Presence Service has been started")
+            logger.info("Presence Service (with Spatial and Temporal Memory) has been initiated.")
         return cls._instance
 
-    def handle_detection(self, person_name: str) -> str:
+    def _log_event(self, person_name: str, action: str, location: str):
+        """The agent writes down the entry / exit events, along with the times, in a notebook for to read."""
+
+        tr_timezone = timezone(timedelta(hours=3))
+        now_str = datetime.now(tr_timezone).strftime("%H:%M")
+        
+        event = {"time": now_str, "user": person_name, "action": action, "location": location}
+        self.history_ledger.append(event)
+        
+        if len(self.history_ledger) > 20:
+            self.history_ledger.pop(0)
+
+    def handle_detection(self, person_name: str, location: str = "living_room") -> str:
         current_time = time.time()
         
         if person_name != "Unknown":
             self.unknown_first_seen = 0.0
             
             if person_name not in self.active_people:
-                self.active_people[person_name] = current_time
+                self.active_people[person_name] = {"last_seen": current_time, "location": location}
+                self._log_event(person_name, "ENTERED", location) 
                 return "ENTRY"
             else:
-                self.active_people[person_name] = current_time
+                self.active_people[person_name]["last_seen"] = current_time
+                self.active_people[person_name]["location"] = location
                 return "PRESENT"
 
-        else:
+        else: # 
             if person_name in self.active_people:
-                self.active_people[person_name] = current_time
+                self.active_people[person_name]["last_seen"] = current_time
+                self.active_people[person_name]["location"] = location
                 return "PRESENT"
             
             known_people_present = any(name != "Unknown" for name in self.active_people.keys())
@@ -46,18 +61,17 @@ class PresenceService:
             if known_people_present:
                 if self.unknown_first_seen == 0.0:
                     self.unknown_first_seen = current_time
-                    logger.debug("Shield Activated: A brief 'Unknown' signal was detected, waiting 4 seconds...")
                     return "IGNORED"
-                
                 elif (current_time - self.unknown_first_seen) > self.unknown_grace_period:
-                    self.active_people[person_name] = current_time
+                    self.active_people[person_name] = {"last_seen": current_time, "location": location}
+                    self._log_event("A Stranger", "ENTERED", location)
                     self.unknown_first_seen = 0.0
                     return "ENTRY"
-                
                 else:
                     return "IGNORED"
             else:
-                self.active_people[person_name] = current_time
+                self.active_people[person_name] = {"last_seen": current_time, "location": location}
+                self._log_event("A Stranger", "ENTERED", location)
                 return "ENTRY"
 
     def check_timeouts(self) -> List[str]:
@@ -65,7 +79,8 @@ class PresenceService:
         exited_people = []
         
         for person_name in list(self.active_people.keys()):
-            last_seen = self.active_people[person_name]
+            last_seen = self.active_people[person_name]["last_seen"]
+            location = self.active_people[person_name]["location"]
             
             if (current_time - last_seen) > self.timeout_seconds:
                 exited_people.append(person_name)
@@ -74,6 +89,9 @@ class PresenceService:
                 
                 if person_name == "Unknown":
                     self.unknown_first_seen = 0.0
+                    self._log_event("A Stranger", "EXITED", location)
+                else:
+                    self._log_event(person_name, "EXITED", location)
                 
         return exited_people
 

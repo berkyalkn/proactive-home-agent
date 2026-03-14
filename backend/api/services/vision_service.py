@@ -41,7 +41,8 @@ class VisionService:
         return cls._instance
 
     def load_faces_from_db(self):
-        """Vectors are loaded into RAM from PostgreSQL."""
+        """Loads vectors from the DB to RAM. Now each user can have MORE THAN ONE face (profile)."""
+
         self.known_faces = {}
         try:
             with Session(engine) as session:
@@ -50,14 +51,18 @@ class VisionService:
                 
                 for user in users:
                     if user.face_embedding:
-                        self.known_faces[user.username] = np.array(user.face_embedding)
+                        data = user.face_embedding
+                        if len(data) > 0 and isinstance(data[0], list):
+                            self.known_faces[user.username] = [np.array(e) for e in data]
+                        else:
+                            self.known_faces[user.username] = [np.array(data)]
             
-            logger.info(f"Loaded {len(self.known_faces)} face embeddings from DB.")
+            logger.info(f"Loaded profiles for {len(self.known_faces)} users from DB.")
         except Exception as e:
             logger.error(f"Error loading faces from DB: {e}")
 
     def register_face(self, username: str, image_bytes: bytes) -> bool:
-        """It processes the incoming photo, extracts the vector, and saves it to PostgreSQL."""
+        """It processes a new photo and adds it to the user's face collection (FaceID)."""
         try:
             nparr = np.frombuffer(image_bytes, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -81,9 +86,7 @@ class VisionService:
                 key=lambda f: (f["box"][2] - f["box"][0]) * (f["box"][3] - f["box"][1]),
             )
             x1, y1, x2, y2 = face_data["box"]
-            
             face_roi = self._extract_padded_roi(frame, x1, y1, x2, y2)
-
             embedding = self._extract_embedding(face_roi)
             
             if embedding is None:
@@ -96,22 +99,31 @@ class VisionService:
                 existing_user = session.exec(statement).first()
                 
                 if existing_user:
-                    existing_user.face_embedding = embedding_list
+                    current_data = existing_user.face_embedding or []
+                    
+                    if len(current_data) > 0 and not isinstance(current_data[0], list):
+                        current_data = [current_data]
+                    
+                    current_data.append(embedding_list)
+                    
+                    if len(current_data) >= 5:
+                        current_data.pop(0)
+
+                    existing_user.face_embedding = current_data
                     session.add(existing_user)
-                    logger.info(f"Updated face for existing user: {username}")
+                    logger.info(f"Added new profile angle for existing user: {username} (Total profiles: {len(current_data)})")
                 else:
-                    new_user = User(username=username, role="admin", face_embedding=embedding_list)
+                    new_user = User(username=username, role="admin", face_embedding=[embedding_list])
                     session.add(new_user)
                     logger.info(f"Created new user with face: {username}")
                 
                 session.commit()
 
-            self.known_faces[username] = embedding
+            self.load_faces_from_db()
             return True
 
         except Exception as e:
             logger.error(f"Face registration failed for {username}: {e}")
-            raise e
 
     def _extract_padded_roi(self, frame: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
         h, w = frame.shape[:2]
@@ -145,10 +157,7 @@ class VisionService:
         return None
 
     def recognize(self, frame: np.ndarray) -> dict:
-        """
-        Takes a live frame, detects the largest face, extracts its embedding,
-        and identifies the person using Cosine Similarity against the database.
-        """
+        """The incoming view compares the user's ALL profiles (Front, Right, Left, Top, Bottom)."""
         try:
             detection = self.detector.detect(frame)
             if not detection["faces_found"]:
@@ -159,7 +168,6 @@ class VisionService:
                 key=lambda f: (f["box"][2] - f["box"][0]) * (f["box"][3] - f["box"][1]),
             )
             x1, y1, x2, y2 = face_data["box"]
-            
             face_roi = self._extract_padded_roi(frame, x1, y1, x2, y2)
             embedding = self._extract_embedding(face_roi)
             
@@ -170,11 +178,12 @@ class VisionService:
             best_score = -1.0
             threshold = 0.50 
             
-            for name, known_emb in self.known_faces.items():
-                score = np.dot(embedding, known_emb) / (np.linalg.norm(embedding) * np.linalg.norm(known_emb))
-                if score > best_score:
-                    best_score = float(score)
-                    best_name = name
+            for name, embeddings_list in self.known_faces.items():
+                for known_emb in embeddings_list:
+                    score = np.dot(embedding, known_emb) / (np.linalg.norm(embedding) * np.linalg.norm(known_emb))
+                    if score > best_score:
+                        best_score = float(score)
+                        best_name = name
 
             if best_score >= threshold:
                 return {"face_found": True, "name": best_name, "confidence": best_score}

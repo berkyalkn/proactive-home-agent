@@ -69,7 +69,7 @@ export function ChatWidget() {
                   className={`max-w-[85%] p-3 text-sm rounded-2xl ${
                     msg.role === "user"
                       ? "bg-indigo-600 text-white rounded-br-sm shadow-md"
-                      : "bg-zinc-800/80 text-zinc-200 border border-white/5 rounded-bl-sm"
+                      : "bg-zinc-800/90 text-zinc-100 border border-zinc-700 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] rounded-bl-sm"
                   }`}
                 >
                     <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>

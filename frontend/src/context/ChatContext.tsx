@@ -43,6 +43,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const isStreamFinishedRef = useRef(false);
+  const isReceivingStreamRef = useRef(false);
 
   const playNextAudio = useCallback(() => {
     if (audioQueueRef.current.length === 0) {
@@ -121,16 +122,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               }));
           }
 
-            if (data.status === "text_chunk") {
-                setMessages((prev) => {
-                    const lastMsg = prev[prev.length - 1];
-                    if (lastMsg.role === "assistant") {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + data.chunk }];
-                    } else {
-                        return [...prev, { role: "assistant", content: data.chunk }];
-                    }
-                });
-            }
+          if (data.status === "text_chunk") {
+            setMessages((prev) => {
+                const lastMsg = prev[prev.length - 1];
+                if (isReceivingStreamRef.current && lastMsg && lastMsg.role === "assistant") {
+                    return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + data.chunk }];
+                } else {
+                    isReceivingStreamRef.current = true;
+                    return [...prev, { role: "assistant", content: data.chunk }];
+                }
+            });
+        }
             
             else if (data.status === "audio_chunk" && data.audio) {
                 audioQueueRef.current.push(data.audio);
@@ -150,6 +152,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             
             else if (data.status === "stream_finished") {
                 isStreamFinishedRef.current = true; 
+                isReceivingStreamRef.current = false;
                 
                 if (!isPlayingRef.current && audioQueueRef.current.length === 0) {
                     setAgentStatus("idle");
@@ -160,6 +163,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 addMessage("assistant", `Error: ${data.message}`);
                 setAgentStatus("idle");
                 isStreamFinishedRef.current = true;
+                isReceivingStreamRef.current = false;
                 isPlayingRef.current = false;
                 audioQueueRef.current = [];
             }

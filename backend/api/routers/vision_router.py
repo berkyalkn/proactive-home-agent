@@ -141,21 +141,30 @@ async def identify_face(image_file: UploadFile = File(...)):
 
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
-    """It receives 1KB of text from the MacBook 5 times per second. It manages the Shield and the Agent."""
+    """It receives text messages from the MacBook 5 times per second. It manages the Presence and the Agent."""
 
     person_name = event.user
-    location = event.location
+    location = event.location 
     
     state = presence_service.handle_detection(person_name, location)
     
     if state == "ENTRY":
-        if person_name == "Unknown":
-            logger.warning("ALERT: A stranger has been identified!")
-            background_tasks.add_task(trigger_agent_proactively, "Guest", "entered")
+        authorized_hosts = [
+            name for name, data in presence_service.active_people.items() 
+            if data.get("location") == location and name not in ["Unknown", "Identifying...", "A Stranger", "Guest", person_name]
+        ]
+
+        if person_name in ["Unknown", "Identifying...", "A Stranger", "Guest"]:
+            if len(authorized_hosts) > 0:
+                logger.info(f"Silent Protocol: The stranger entered the room, but the host ({authorized_hosts[0]}) was already inside. The agent was silenced.")
+            else:
+                logger.warning("SECURITY ALERT: A stranger has entered an EMPTY room!")
+                background_tasks.add_task(trigger_agent_proactively, "Guest", "entered")
+                
         else:
-            logger.info(f"NEW EVENT: {person_name} ENTERED! Triggering agent...")
+            logger.info(f"NEW EVENT: {person_name} entered the room! The agent is being awakened...")
             background_tasks.add_task(trigger_agent_proactively, person_name, "entered")
-            
+
     return {"status": "ok"}
 
 

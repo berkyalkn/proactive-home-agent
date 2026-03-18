@@ -28,7 +28,8 @@ def identify_face_from_pi(frame_bytes, tracker_id):
     try:
         print(f"[{tracker_id}] The face is being sent to Pi 5, awaiting identification...")
         files = {'image_file': ('face.jpg', frame_bytes, 'image/jpeg')}
-        response = requests.post(IDENTIFY_URL, files=files, timeout=3.0)
+        
+        response = requests.post(IDENTIFY_URL, files=files, timeout=8.0)
         
         if response.status_code == 200:
             data = response.json()
@@ -36,16 +37,21 @@ def identify_face_from_pi(frame_bytes, tracker_id):
                 if data.get("status") == "authorized":
                     active_trackers[tracker_id]["user"] = data["user"]
                     active_trackers[tracker_id]["retry_count"] = 0 
-                    print(f"Authenticated [{tracker_id}]: {data['user']}")
+                    print(f"Identity Verified [{tracker_id}]: {data['user']}")
                 else:
                     active_trackers[tracker_id]["user"] = "Unknown"
                     active_trackers[tracker_id]["retry_count"] += 1
-                    print(f"Stranger [{tracker_id}]. (Trial: {active_trackers[tracker_id]['retry_count']}/{MAX_RETRIES})")
+                    print(f"Stranger or Unknown [{tracker_id}]. (Failed Attempt: {active_trackers[tracker_id]['retry_count']}/{MAX_RETRIES})")
         else:
-            print(f"[{tracker_id}] The backend returned an error.")
+            print(f"[{tracker_id}] Backend error returned.")
+            if tracker_id in active_trackers:
+                active_trackers[tracker_id]["user"] = "Unknown"
             
     except Exception as e:
-        print(f"[{tracker_id}] Pi could not be reached:{e}")
+        print(f"[{tracker_id}] Pi could not be reached: {e}")
+        if tracker_id in active_trackers:
+            active_trackers[tracker_id]["user"] = "Unknown"
+            active_trackers[tracker_id]["retry_count"] += 1
 
 def send_presence_json(user_name):
     """It only assigns JSON to recognized users."""

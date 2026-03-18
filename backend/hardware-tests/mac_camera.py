@@ -18,48 +18,51 @@ PRESENCE_URL = "http://100.105.136.5:8000/vision/update_presence"
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-tracking_active = False
-tracker = None
-current_user = "Unknown"
-last_json_time = 0
-last_identify_time = 0 
-unknown_retry_count = 0 
+active_trackers = {}
+next_tracker_id = 0
 MAX_RETRIES = 3        
 
-def identify_face_from_pi(frame_bytes):
-    global tracking_active, current_user, unknown_retry_count
+def identify_face_from_pi(frame_bytes, tracker_id):
+    """It only queries the ID for the relevant box (tracker_id)."""
+    global active_trackers
     try:
-        print("A face is being sent to Pi 5, awaiting identification...")
+        print(f"[{tracker_id}] The face is being sent to Pi 5, awaiting identification...")
         files = {'image_file': ('face.jpg', frame_bytes, 'image/jpeg')}
         response = requests.post(IDENTIFY_URL, files=files, timeout=3.0)
         
         if response.status_code == 200:
             data = response.json()
-            if data["status"] == "authorized":
-                current_user = data["user"]
-                unknown_retry_count = 0 
-                print(f"Identity Verified: {current_user}")
-            else:
-                current_user = "Unknown"
-                unknown_retry_count += 1
-                print(f"Stranger or Unknown. (Failed Attempt: {unknown_retry_count}/{MAX_RETRIES})")
+            if tracker_id in active_trackers: 
+                if data.get("status") == "authorized":
+                    active_trackers[tracker_id]["user"] = data["user"]
+                    active_trackers[tracker_id]["retry_count"] = 0 
+                    print(f"Authenticated [{tracker_id}]: {data['user']}")
+                else:
+                    active_trackers[tracker_id]["user"] = "Unknown"
+                    active_trackers[tracker_id]["retry_count"] += 1
+                    print(f"Stranger [{tracker_id}]. (Trial: {active_trackers[tracker_id]['retry_count']}/{MAX_RETRIES})")
         else:
-            print("Backend error returned, discontinuing follow-up.")
-            tracking_active = False
+            print(f"[{tracker_id}] The backend returned an error.")
             
     except Exception as e:
-        print(f"Pi could not be reached: {e}")
-        tracking_active = False
+        print(f"[{tracker_id}] Pi could not be reached:{e}")
 
-def send_presence_json():
+def send_presence_json(user_name):
+    """It only assigns JSON to recognized users."""
     try:
-        payload = {"user": current_user, "status": "PRESENT", "location": "living_room"}
+        payload = {"user": user_name, "status": "PRESENT", "location": "living_room"}
         requests.post(PRESENCE_URL, json=payload, timeout=0.5)
     except:
         pass 
 
+def get_center(bbox):
+    """To determine if the two boxes belong to the same person, the center point is calculated."""
+    x, y, w, h = bbox
+    return (x + w/2, y + h/2)
+
 def generate_frames():
-    global tracking_active, tracker, current_user, last_json_time, last_identify_time, unknown_retry_count
+    global active_trackers, next_tracker_id
+    last_detection_time = 0
 
     while True:
         success, frame = camera.read()
@@ -70,55 +73,87 @@ def generate_frames():
         frame = cv2.flip(frame, 1)
         current_time = time.time()
 
-        if not tracking_active:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
-
-            if len(faces) > 0:
-                (x, y, w, h) = faces[0]
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                cv2.putText(frame, "Identifying...", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-
-                tracker = cv2.TrackerKCF_create()
-                tracker.init(frame, (x, y, w, h))
-                
-                tracking_active = True
-                current_user = "Identifying..."
-                last_identify_time = current_time 
-                unknown_retry_count = 0 
-                
-                ret, buffer = cv2.imencode('.jpg', frame)
-                if ret:
-                    threading.Thread(target=identify_face_from_pi, args=(buffer.tobytes(),), daemon=True).start()
-
-        else:
-            success_track, bbox = tracker.update(frame)
+        trackers_to_delete = []
+        
+        for t_id, t_data in list(active_trackers.items()):
+            success_track, bbox = t_data["tracker"].update(frame)
 
             if success_track:
                 x, y, w, h = [int(v) for v in bbox]
+                t_data["bbox"] = (x, y, w, h)
+                user = t_data["user"]
                 
-                color = (0, 0, 255) if current_user == "Unknown" else (0, 255, 0)
+                color = (0, 0, 255) if user == "Unknown" else (0, 255, 0)
+                if user == "Identifying...": color = (255, 0, 0)
+                
                 cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-                
-                if current_user != "Identifying...":
-                    cv2.putText(frame, f"ID: {current_user}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-                    
-                    if current_time - last_json_time > 0.2:
-                        threading.Thread(target=send_presence_json, daemon=True).start()
-                        last_json_time = current_time
+                cv2.putText(frame, f"ID: {user}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-                    if current_user == "Unknown" and (current_time - last_identify_time > 2.0) and unknown_retry_count < MAX_RETRIES:
-                        print("The box is being tracked, identity is being verified again...")
-                        current_user = "Identifying..."
-                        last_identify_time = current_time
-                        ret, buffer = cv2.imencode('.jpg', frame)
+                if user not in ["Unknown", "Identifying..."]:
+                    if current_time - t_data.get("last_json_time", 0) > 0.5:
+                        threading.Thread(target=send_presence_json, args=(user,), daemon=True).start()
+                        t_data["last_json_time"] = current_time
+
+                if user == "Unknown" and (current_time - t_data["last_identify_time"] > 2.0) and t_data["retry_count"] < MAX_RETRIES:
+                    print(f"[{t_id}] The box is being tracked, identity is being verified again...")
+                    t_data["user"] = "Identifying..."
+                    t_data["last_identify_time"] = current_time
+                    
+                    face_roi = frame[max(0, y):y+h, max(0, x):x+w]
+                    if face_roi.size > 0:
+                        ret, buffer = cv2.imencode('.jpg', face_roi)
                         if ret:
-                            threading.Thread(target=identify_face_from_pi, args=(buffer.tobytes(),), daemon=True).start()
+                            threading.Thread(target=identify_face_from_pi, args=(buffer.tobytes(), t_id), daemon=True).start()
             else:
-                print("Box Lost. Returning to Search Mode...")
-                tracking_active = False
-                current_user = "Unknown"
-                unknown_retry_count = 0 
+                trackers_to_delete.append(t_id)
+
+        for t_id in trackers_to_delete:
+            print(f"Box Lost [{t_id}]. Being deleted from the dictionary.")
+            del active_trackers[t_id]
+
+        if current_time - last_detection_time > 0.5:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(
+                gray, 
+                scaleFactor=1.2,
+                minNeighbors=8,
+                minSize=(90, 90)     
+)
+
+            for (x, y, w, h) in faces:
+                new_cx, new_cy = get_center((x, y, w, h))
+                is_new_face = True
+                
+                for t_id, t_data in active_trackers.items():
+                    old_cx, old_cy = get_center(t_data["bbox"])
+                    dist = ((new_cx - old_cx)**2 + (new_cy - old_cy)**2)**0.5
+                    if dist < max(w, t_data["bbox"][2]): 
+                        is_new_face = False
+                        break
+                
+                if is_new_face:
+                    print(f"New Face Found! Tracking Initiates (ID: {next_tracker_id})")
+                    tracker = cv2.TrackerKCF_create()
+                    tracker.init(frame, (x, y, w, h))
+                    
+                    active_trackers[next_tracker_id] = {
+                        "tracker": tracker,
+                        "user": "Identifying...",
+                        "bbox": (x, y, w, h),
+                        "retry_count": 0,
+                        "last_identify_time": current_time,
+                        "last_json_time": 0
+                    }
+                    
+                    face_roi = frame[max(0, y):y+h, max(0, x):x+w]
+                    if face_roi.size > 0:
+                        ret, buffer = cv2.imencode('.jpg', face_roi)
+                        if ret:
+                            threading.Thread(target=identify_face_from_pi, args=(buffer.tobytes(), next_tracker_id), daemon=True).start()
+                    
+                    next_tracker_id += 1
+            
+            last_detection_time = current_time
 
         try:
             ret, buffer = cv2.imencode('.jpg', frame)
@@ -133,5 +168,5 @@ def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    print("Video Feed: http://0.0.0.0:5001/video_feed")
+    print("Multi-Tracking Vision Active: http://0.0.0.0:5001/video_feed")
     app.run(host='0.0.0.0', port=5001)

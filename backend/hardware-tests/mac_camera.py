@@ -1,8 +1,13 @@
 import cv2
+import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 from flask import Flask, Response
 import time
 import threading
 import requests
+import os
+import urllib.request
 
 app = Flask(__name__)
 
@@ -16,14 +21,23 @@ camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 IDENTIFY_URL = "http://100.105.136.5:8000/vision/identify" 
 PRESENCE_URL = "http://100.105.136.5:8000/vision/update_presence"
 
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+MODEL_PATH = "blaze_face_short_range.tflite"
+
+if not os.path.exists(MODEL_PATH):
+    urllib.request.urlretrieve(
+        "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+        MODEL_PATH
+    )
+
+base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
+options = vision.FaceDetectorOptions(base_options=base_options, min_detection_confidence=0.5)
+face_detector = vision.FaceDetector.create_from_options(options)
 
 active_trackers = {}
 next_tracker_id = 0
 MAX_RETRIES = 3        
 
 def identify_face_from_pi(frame_bytes, tracker_id):
-    """It only queries the ID for the relevant box (tracker_id)."""
     global active_trackers
     try:
         print(f"[{tracker_id}] The face is being sent to Pi 5, awaiting identification...")
@@ -54,7 +68,6 @@ def identify_face_from_pi(frame_bytes, tracker_id):
             active_trackers[tracker_id]["retry_count"] += 1
 
 def send_presence_json(user_name):
-    """It only assigns JSON to recognized users."""
     try:
         payload = {"user": user_name, "status": "PRESENT", "location": "living_room"}
         requests.post(PRESENCE_URL, json=payload, timeout=0.5)
@@ -62,7 +75,6 @@ def send_presence_json(user_name):
         pass 
 
 def get_center(bbox):
-    """To determine if the two boxes belong to the same person, the center point is calculated."""
     x, y, w, h = bbox
     return (x + w/2, y + h/2)
 
@@ -118,13 +130,29 @@ def generate_frames():
             del active_trackers[t_id]
 
         if current_time - last_detection_time > 0.5:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(
-                gray, 
-                scaleFactor=1.2,
-                minNeighbors=8,
-                minSize=(90, 90)     
-)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+            detection_result = face_detector.detect(mp_image)
+
+            faces = []
+            if detection_result.detections:
+                for detection in detection_result.detections:
+                    bbox = detection.bounding_box
+                    x = bbox.origin_x
+                    y = bbox.origin_y
+                    w = bbox.width
+                    h = bbox.height
+
+                    pad_w = int(w * 0.25) 
+                    pad_h = int(h * 0.35) 
+                    
+                    x = max(0, x - pad_w)
+                    y = max(0, y - pad_h)
+                    w = w + (pad_w * 2)
+                    h = h + (pad_h * 2)
+                    
+                    faces.append((x, y, w, h))
 
             for (x, y, w, h) in faces:
                 new_cx, new_cy = get_center((x, y, w, h))
@@ -174,5 +202,5 @@ def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    print("Multi-Tracking Vision Active: http://0.0.0.0:5001/video_feed")
+    print("Multi-Tracking Vision (Tasks API) Active: http://0.0.0.0:5001/video_feed")
     app.run(host='0.0.0.0', port=5001)

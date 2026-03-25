@@ -8,6 +8,8 @@ import threading
 import requests
 import os
 import urllib.request
+import signal  
+import sys     
 
 app = Flask(__name__)
 
@@ -36,6 +38,22 @@ face_detector = vision.FaceDetector.create_from_options(options)
 active_trackers = {}
 next_tracker_id = 0
 MAX_RETRIES = 3        
+
+def graceful_shutdown(signum, frame):
+    print("\nCTRL+C Caught! Camera is being safely turned off...")
+    try:
+        payload = {"user": "System", "status": "camera_offline", "location": "living_room"}
+        requests.post(PRESENCE_URL, json=payload, timeout=2.0)
+        print("The 'camera_offline' signal was successfully sent to the backend.")
+    except Exception as e:
+        print(f"An error occurred while sending a signal to the backend: {e}")
+    finally:
+        camera.release()
+        sys.exit(0)
+
+signal.signal(signal.SIGINT, graceful_shutdown)
+signal.signal(signal.SIGTERM, graceful_shutdown)
+
 
 def identify_face_from_pi(frame_bytes, tracker_id):
     global active_trackers

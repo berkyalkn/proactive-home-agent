@@ -10,7 +10,8 @@ from api.services.websocket_manager import manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/devices", tags=["Devices"])
-load_dotenv()
+
+load_dotenv(override=True)
 
 DEVICE_REGISTRY = {
     "living_room_plug1": {
@@ -206,6 +207,7 @@ async def control_device(device_id: str, control: DeviceControl):
     """
     Controls a device. If an error occurs (SessionTimeout, etc.), it automatically reconnects and retries (Self-Healing).
     """
+
     if device_id not in DEVICE_REGISTRY:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found.")
 
@@ -266,6 +268,7 @@ async def set_brightness(device_id: str, control: BrightnessControl):
     """
     Sets the brightness of a smart bulb (1-100).
     """
+
     if device_id not in DEVICE_REGISTRY:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found.")
     
@@ -314,6 +317,7 @@ async def set_color(device_id: str, control: ColorControl):
     """
     Sets the color of a smart bulb (hue: 0-360, saturation: 0-100).
     """
+
     if device_id not in DEVICE_REGISTRY:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found.")
     
@@ -366,6 +370,7 @@ async def get_bulb_status(device_id: str):
     """
     Gets the detailed status of a smart bulb (for UI synchronization).
     """
+    
     if device_id not in DEVICE_REGISTRY:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found.")
     

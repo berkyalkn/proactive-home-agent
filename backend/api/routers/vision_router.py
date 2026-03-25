@@ -31,14 +31,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
     tr_timezone = timezone(timedelta(hours=3))
     current_time = datetime.now(tr_timezone).strftime("%H:%M")
 
-    lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
-    temp = lr_sensors.get("temperature", "Unknown")
-    light = lr_sensors.get("light_level", "Unknown")
-    
-    devices = get_cached("all_devices") or {}
-    device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
-    device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
-
     if event_type == "entered":
         if person_name in ["Guest", "Unknown", "A Stranger"]:
             system_prompt = (
@@ -47,22 +39,48 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"Keep it brief (max 2 sentences). CRITICAL: Do NOT call any tools right now."
             )
         else:
+            lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
+            temp = lr_sensors.get("temperature", "Unknown")
+            light = lr_sensors.get("light_level", "Unknown")
+            
+            devices = get_cached("all_devices") or {}
+            device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
+            device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
+
+            last_exit_time = None
+            for event in reversed(presence_service.history_ledger):
+                if event["user"] == person_name and event["action"] == "EXITED":
+                    last_exit_time = event["time"]
+                    break
+            
+            if last_exit_time:
+                time_context = f" The user's last recorded exit from this room was at {last_exit_time}."
+                time_instruction = f"Proactively mention the time gap naturally (e.g., 'Welcome back, it's been a while since {last_exit_time}'). "
+            else:
+                time_context = ""
+                time_instruction = "" 
+
             system_prompt = (
                 f"[User: {person_name}] [System Event: User {person_name} has just entered the room at {current_time}.] "
-                f"[Current Context: The Living Room temperature is {temp}°C, light level is {light}, and smart devices are {device_status}.] "
+                f"[Current Context: The Living Room temperature is {temp}°C, light level is {light}, and smart devices are {device_status}.{time_context}] "
                 f"You are the Proactive AI Home Agent. Greet {person_name} warmly considering the current time ({current_time}). "
+                f"{time_instruction}"
                 f"If the light level is low or devices are OFF, proactively ask if they want you to turn on the desk lamp or main lights. "
                 f"CRITICAL: Do NOT call any tools right now, just speak a natural 2-sentence greeting and offer."
             )
             
     elif event_type == "camera_offline":
         system_prompt = (
-            f"[System Event: The camera feed from the room has been unexpectedly disconnected or turned off.] "
-            f"You are the Proactive Home Agent. Briefly (max 2 sentences) state that the camera feed has been disconnected and you are pausing presence tracking. "
-            f"Do NOT say goodbye to the user, as they might still be in the room. Do NOT call tools."
+            f"[System Event: The camera feed from the room has been unexpectedly disconnected or turned off at {current_time}.] "
+            f"IGNORE ALL PREVIOUS GREETINGS OR CONVERSATIONS IN YOUR MEMORY. Your ONLY task right now is to state that the camera feed has been disconnected and you are pausing presence tracking. "
+            f"CRITICAL: Do NOT say welcome back. Do NOT say goodbye. Do NOT call tools. Keep it to exactly one strict sentence."
         )
 
     else: 
+        devices = get_cached("all_devices") or {}
+        device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
+        device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
+
         system_prompt = (
             f"[User: {person_name}] [System Event: User {person_name} has just exited the room at {current_time}.] "
             f"[Current Context: Smart devices status: {device_status}.] "

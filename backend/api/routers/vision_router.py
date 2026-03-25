@@ -7,7 +7,9 @@ from api.services.tts_service import text_to_speech
 from api.services.websocket_manager import manager
 from datetime import datetime, timezone, timedelta
 from api.drivers.mqtt_service import LATEST_SENSOR_DATA
-from api.agent.cache import get_cached
+from api.agent.cache import get_cached, set_cache
+from api.agent.tools import HOME_INVENTORY
+from api.routers.devices_router import get_all_devices
 
 import logging
 import cv2
@@ -29,66 +31,83 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
     logger.info(f"Agent Wakes Up: {person_name} set {event_type} to the room...")
     
     tr_timezone = timezone(timedelta(hours=3))
-    current_time = datetime.now(tr_timezone).strftime("%H:%M")
+    now = datetime.now(tr_timezone)
+    current_time = now.strftime("%H:%M")
+
+    try:
+        devices = await asyncio.wait_for(get_all_devices(), timeout=4.0)
+        set_cache("all_devices", devices)
+    except Exception as e:
+        logger.warning(f"Real-time scan failed: {e}")
+        devices = get_cached("all_devices", ttl=3600) or {}
+
+    device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
+    for room, config in HOME_INVENTORY.items():
+        for bulb_id in config.get("smart_bulbs", []):
+            bulb_data = get_cached(f"bulb_{bulb_id}", ttl=3600)
+            if bulb_data:
+                state = "ON" if bulb_data.get("on") else "OFF"
+                device_status_list.append(f"{bulb_data.get('name', bulb_id)} is {state}")
+
+    device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
 
     if event_type == "entered":
         if person_name in ["Guest", "Unknown", "A Stranger"]:
             system_prompt = (
                 f"[System Event: An unrecognized person has just entered the room.] "
-                f"You are the Proactive AI Home Agent. Greet the person politely, mention that you don't recognize their face in your database, and kindly ask for their name. "
-                f"Keep it brief (max 2 sentences). CRITICAL: Do NOT call any tools right now."
+                f"Greet politely, ask for their name, and mention you don't recognize them."
             )
         else:
             lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
             temp = lr_sensors.get("temperature", "Unknown")
             light = lr_sensors.get("light_level", "Unknown")
             
-            devices = get_cached("all_devices") or {}
-            device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
-            device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
-
-            last_exit_time = None
+            last_exit_time_str = None
             for event in reversed(presence_service.history_ledger):
                 if event["user"] == person_name and event["action"] == "EXITED":
-                    last_exit_time = event["time"]
+                    last_exit_time_str = event["time"]
                     break
             
-            if last_exit_time:
-                time_context = f" The user's last recorded exit from this room was at {last_exit_time}."
-                time_instruction = f"Proactively mention the time gap naturally (e.g., 'Welcome back, it's been a while since {last_exit_time}'). "
-            else:
-                time_context = ""
-                time_instruction = "" 
+            time_context = ""
+            time_instruction = "Give a standard warm greeting." 
+
+            if last_exit_time_str:
+                try:
+                    last_exit_dt = datetime.strptime(last_exit_time_str, "%H:%M").replace(
+                        year=now.year, month=now.month, day=now.day, tzinfo=tr_timezone
+                    )
+                    
+                    diff_minutes = (now - last_exit_dt).total_seconds() / 60
+                    
+                    if diff_minutes >= 60:
+                        time_context = f" The user has been away for {int(diff_minutes)} minutes (last exit at {last_exit_time_str})."
+                        time_instruction = f"Mention that they've been away for a while or over an hour in a natural way."
+                    else:
+                        time_instruction = "The user was just here recently. DO NOT mention how long they were gone or what time they left. Just say welcome back."
+                except Exception as e:
+                    logger.error(f"Time calculation error: {e}")
 
             system_prompt = (
-                f"[User: {person_name}] [System Event: User {person_name} has just entered the room at {current_time}.] "
-                f"[Current Context: The Living Room temperature is {temp}°C, light level is {light}, and smart devices are {device_status}.{time_context}] "
-                f"You are the Proactive AI Home Agent. Greet {person_name} warmly considering the current time ({current_time}). "
-                f"{time_instruction}"
-                f"If the light level is low or devices are OFF, proactively ask if they want you to turn on the desk lamp or main lights. "
-                f"CRITICAL: Do NOT call any tools right now, just speak a natural 2-sentence greeting and offer."
+                f"[User: {person_name}] [System Event: User {person_name} entered at {current_time}.] "
+                f"[Current Context: Temp: {temp}°C, Light: {light}, Devices: {device_status}.{time_context}] "
+                f"You are the Proactive AI Home Agent. Greet {person_name} warmly. {time_instruction} "
+                f"If the light level is low, ask if they want the lights on. "
+                f"CRITICAL: Keep it to 2 natural sentences."
             )
             
     elif event_type == "camera_offline":
         system_prompt = (
-            f"[System Event: The camera feed from the room has been unexpectedly disconnected or turned off at {current_time}.] "
-            f"IGNORE ALL PREVIOUS GREETINGS OR CONVERSATIONS IN YOUR MEMORY. Your ONLY task right now is to state that the camera feed has been disconnected and you are pausing presence tracking. "
-            f"CRITICAL: Do NOT say welcome back. Do NOT say goodbye. Do NOT call tools. Keep it to exactly one strict sentence."
+            f"[System Event: Camera disconnected at {current_time}.] "
+            f"IGNORE PREVIOUS MEMORY. Strictly state that the camera feed is lost and presence tracking is paused. One sentence only."
         )
 
     else: 
-        devices = get_cached("all_devices") or {}
-        device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
-        device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
-
         system_prompt = (
-            f"[User: {person_name}] [System Event: User {person_name} has just exited the room at {current_time}.] "
-            f"[Current Context: Smart devices status: {device_status}.] "
-            f"You are the Proactive Home Agent. The user left the room 2 minutes ago. "
-            f"RULES FOR EXIT: "
-            f"1. If any devices in the context are currently ON, you MUST use your tools (like control_smart_device or control_bulb) to turn them OFF right now. "
-            f"2. If all devices are OFF, or if their status is 'Unknown or Offline', do NOT use tools. Just say a contextual goodbye and explicitly mention that devices are already off or unreachable. "
-            f"3. Keep your verbal confirmation very brief (max 2 sentences) stating exactly what you did or saw."
+            f"[User: {person_name}] [System Event: User {person_name} exited at {current_time}.] "
+            f"[Current Context: Devices: {device_status}.] "
+            f"You are the Proactive Home Agent. RULES: 1. If any device is ON, turn it OFF. 2. Skip Unknown/Offline devices. "
+            f"3. PERSONALITY: Explain you're saving energy because they left. "
+            f"4. EXAMPLE: 'Since you've left, I've turned off the lights to save energy.' 2 sentences max."
         )
 
     async def broadcast(message_dict: dict):
@@ -138,7 +157,6 @@ async def continuous_presence_check():
 
     await asyncio.sleep(10) 
     logger.info("Continuous presence check active.")
-    
     while True:
         try:
             exited_people = presence_service.check_timeouts()
@@ -147,33 +165,30 @@ async def continuous_presence_check():
                 await trigger_agent_proactively(person, "exited")
         except Exception as e:
             logger.error(f"Watchdog Error: {e}")
-        
         await asyncio.sleep(15) 
 
 @router.on_event("startup")
 async def startup_event():
     """When FastAPI starts, it starts the watchdog in the background."""
+
     asyncio.create_task(continuous_presence_check())
 
 
 @router.post("/identify")
 async def identify_face(image_file: UploadFile = File(...)):
-    """It takes the photo from the MacBook, but only returns its name. It doesn't touch the memory or the Agent."""
+    
     try:
         image_bytes = await image_file.read()
         nparr = np.frombuffer(image_bytes, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
         result = vision_service.recognize(frame)
-        
         if not result["face_found"]:
             return {"status": "no_face"}
-            
         person_name = result["name"]
-        
+
         if person_name == "Unknown" or person_name is None:
+
             return {"status": "unknown_person"}
-            
         return {"status": "authorized", "user": person_name, "confidence": result["confidence"]}
 
     except Exception as e:
@@ -183,10 +198,11 @@ async def identify_face(image_file: UploadFile = File(...)):
 
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
+
     person_name = event.user
     location = event.location 
     status = event.status 
-    
+
     if status == "camera_offline":
         logger.warning("HARDWARE EVENT: Camera connection disconnected. Physical output will not be counted.")
         presence_service.active_people.clear() 
@@ -200,19 +216,14 @@ async def update_presence(event: PresenceEvent, background_tasks: BackgroundTask
             name for name, data in presence_service.active_people.items() 
             if data.get("location") == location and name not in ["Unknown", "Identifying...", "A Stranger", "Guest", person_name]
         ]
-
         if person_name in ["Unknown", "Identifying...", "A Stranger", "Guest"]:
             if len(authorized_hosts) > 0:
                 logger.info(f"Silent Protocol: The stranger entered the room, but the host ({authorized_hosts[0]}) was already inside. The agent was silenced.")
             else:
                 logger.warning("SECURITY ALERT: A stranger has entered an EMPTY room!")
                 background_tasks.add_task(trigger_agent_proactively, "Guest", "entered")
-                
         else:
             logger.info(f"NEW EVENT: {person_name} entered the room! The agent is being awakened...")
             background_tasks.add_task(trigger_agent_proactively, person_name, "entered")
 
     return {"status": "ok"}
-
-
-

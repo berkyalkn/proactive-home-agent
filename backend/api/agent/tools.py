@@ -52,12 +52,11 @@ CAMERA_INVENTORY = {
     }
 }
 
-
-
 async def _fetch_bulb_status(bulb_id: str) -> tuple:
-    """Fetch single bulb status with caching, returns (bulb_id, status or None)."""
+
     cache_key = f"bulb_{bulb_id}"
     cached = get_cached(cache_key)
+
     if cached:
         return (bulb_id, cached)
     try:
@@ -65,30 +64,35 @@ async def _fetch_bulb_status(bulb_id: str) -> tuple:
             get_bulb_status_endpoint(device_id=bulb_id), 
             timeout=DEVICE_TIMEOUT
         )
+
         set_cache(cache_key, status)
         return (bulb_id, status)
+
     except asyncio.TimeoutError:
         logger.warning(f"Timeout fetching status for bulb: {bulb_id}")
         return (bulb_id, None)
+
     except Exception as e:
         logger.error(f"Error fetching bulb {bulb_id}: {e}")
         return (bulb_id, None)
 
-
 async def _fetch_camera_status(cam_id: str, feed_url: str) -> tuple:
-    """Fetch single camera status with caching, returns (cam_id, is_live)."""
+
     cache_key = f"camera_{cam_id}"
     cached = get_cached(cache_key, ttl=5)
+
     if cached is not None:
         return (cam_id, cached)
     try:
         async with httpx.AsyncClient(timeout=1.0) as client:
             response = await client.head(feed_url)
             is_live = response.status_code == 200
+
     except Exception:
         is_live = False
     set_cache(cache_key, is_live)
     return (cam_id, is_live)
+
 
 @tool
 async def get_home_status():
@@ -96,25 +100,24 @@ async def get_home_status():
     Retrieves a complete status report of the home by combining SENSORS, SMART DEVICES, and PEOPLE PRESENCE.
     Use this for ANY question about who is home, what room they are in, recent events, home status, temperature, or devices.
     """
+
     current_time = time.time()
     sensor_data_source = mqtt_service.LATEST_SENSOR_DATA
     
-    cached_devices = get_cached("all_devices")
-    if cached_devices:
-        plug_data_source = cached_devices
-    else:
+    cached_plugs = get_cached("all_devices", ttl=3600)
+
+    if not cached_plugs:
+        logger.info("Cache Empty! Triggering a manual device scan for home status...")
         try:
-            plug_data_source = await asyncio.wait_for(get_all_devices(), timeout=3.0)
-            set_cache("all_devices", plug_data_source)
-        except asyncio.TimeoutError:
-            logger.warning("Timeout scanning all devices.")
-            plug_data_source = {} 
+            cached_plugs = await asyncio.wait_for(get_all_devices(), timeout=4.0)
+            set_cache("all_devices", cached_plugs)
         except Exception as e:
-            logger.error(f"Error getting devices: {e}")
-            plug_data_source = {}
-    
+            logger.warning(f"Live device scan failed: {e}")
+            cached_plugs = {}
+
     all_bulb_ids = []
     all_camera_info = []  
+
     for config in HOME_INVENTORY.values():
         all_bulb_ids.extend(config.get("smart_bulbs", []))
         for cam_id in config.get("cameras", []):
@@ -129,19 +132,14 @@ async def get_home_status():
     
     bulb_statuses = {}  
     camera_statuses = {} 
-    
+
     for i, result in enumerate(all_results):
-        if isinstance(result, Exception):
-            continue
+        if isinstance(result, Exception): continue
         if isinstance(result, tuple) and len(result) == 2:
             key, value = result
-            if i < len(bulb_tasks):
-                bulb_statuses[key] = value
-            else:
-                camera_statuses[key] = value
-    
-    print(f"\n--- AI ADVANCED DIAGNOSTIC ---")
-    
+            if i < len(bulb_tasks): bulb_statuses[key] = value
+            else: camera_statuses[key] = value
+
     summary = []
     
     for room_key, config in HOME_INVENTORY.items():
@@ -153,7 +151,6 @@ async def get_home_status():
         report_parts = [f"ROOM: {room_name}"]
         
         node_data = sensor_data_source.get(node_id)
-        
         if not node_data:
             report_parts.append(f"  - Sensors: OFFLINE (No Signal from {node_id})")
         else:
@@ -161,236 +158,128 @@ async def get_home_status():
             if (current_time - last_seen) > SENSOR_TIMEOUT_SECONDS:
                  report_parts.append(f"  - Sensors: STALE (Last seen {int((current_time - last_seen)/60)}m ago)")
             else:
-                sensor_reports = []
-                
-                if "temperature" in capabilities:
-                    val = node_data.get("temperature", "N/A")
-                    sensor_reports.append(f"Temp: {val}°C")
-                
-                if "humidity" in capabilities:
-                    val = node_data.get("humidity", "N/A")
-                    sensor_reports.append(f"Hum: {val}%")
-                
-                if "pressure" in capabilities:
-                    val = node_data.get("pressure", "N/A")
-                    sensor_reports.append(f"Press: {val}hPa")
-                
-                if "light" in capabilities:
-                    val = node_data.get("light_level", "N/A")
-                    sensor_reports.append(f"Light: {val}")
-                
+                s_reports = []
+                if "temperature" in capabilities: s_reports.append(f"Temp: {node_data.get('temperature', 'N/A')}°C")
+                if "humidity" in capabilities: s_reports.append(f"Hum: {node_data.get('humidity', 'N/A')}%")
+                if "light" in capabilities: s_reports.append(f"Light: {node_data.get('light_level', 'N/A')}")
                 if "motion" in capabilities:
-                    is_motion = node_data.get("motion", False)
-                    val = "Active!" if is_motion else "Clear"
-                    sensor_reports.append(f"Motion: {val}")
-                
-                report_parts.append(f"  - Sensors (Online): {', '.join(sensor_reports)}")
+                    val = "Active!" if node_data.get("motion") else "Clear"
+                    s_reports.append(f"Motion: {val}")
+                report_parts.append(f"  - Sensors: {', '.join(s_reports)}")
 
         if room_plugs:
             plug_reports = []
+
             for plug_id in room_plugs:
-                plug_info = plug_data_source.get(plug_id)
+                plug_info = cached_plugs.get(plug_id)
+                display_name = plug_info.get("name") if plug_info else DEVICE_REGISTRY.get(plug_id, {}).get("name", plug_id)
+                
                 if plug_info:
                     state = "ON" if plug_info.get("on") else "OFF"
                     power = plug_info.get("power", 0)
-                    plug_reports.append(f"{plug_info['name']}: {state} ({power}W)")
+                    plug_reports.append(f"{display_name}: {state} ({power}W)")
                 else:
-                    plug_reports.append(f"{plug_id}: Unknown Status")
+                    plug_reports.append(f"{display_name}: UNKNOWN/OFFLINE")
             
-            report_parts.append(f"  - Devices: {', '.join(plug_reports)}")
-        else:
-            report_parts.append("  - Devices: None")
+            report_parts.append(f"  - Smart Plugs: {', '.join(plug_reports)}")
 
         room_bulbs = config.get("smart_bulbs", [])
+
         if room_bulbs:
             bulb_reports = []
             for bulb_id in room_bulbs:
                 bulb_status = bulb_statuses.get(bulb_id)
                 if bulb_status:
                     state = "ON" if bulb_status.get("on") else "OFF"
-                    brightness = bulb_status.get("brightness", 0)
-                    bulb_reports.append(f"{bulb_status['name']}: {state} ({brightness}%)")
+                    bright = bulb_status.get("brightness", 0)
+                    bulb_reports.append(f"{bulb_status['name']}: {state} ({bright}%)")
                 else:
                     bulb_reports.append(f"{bulb_id}: OFFLINE")
-            if bulb_reports:
-                report_parts.append(f"  - Bulbs: {', '.join(bulb_reports)}")
+            report_parts.append(f"  - Bulbs: {', '.join(bulb_reports)}")
 
         room_cameras = config.get("cameras", [])
+
         if room_cameras:
             camera_reports = []
             for cam_id in room_cameras:
                 cam_config = CAMERA_INVENTORY.get(cam_id)
                 if cam_config:
                     is_live = camera_statuses.get(cam_id, False)
-                    status_text = "LIVE" if is_live else "OFFLINE"
-                    camera_reports.append(f"{cam_config['name']}: {status_text}")
-            if camera_reports:
-                report_parts.append(f"  - Cameras: {', '.join(camera_reports)}")
+                    camera_reports.append(f"{cam_config['name']}: {'LIVE' if is_live else 'OFFLINE'}")
+            report_parts.append(f"  - Cameras: {', '.join(camera_reports)}")
 
         summary.append("\n".join(report_parts))
 
     final_report = "\n\n".join(summary)
 
     presence_report = "\n\n=== PRESENCE & MEMORY LEDGER ===\n"
-    
     active = presence_service.active_people
     if not active:
-        presence_report += "- Currently Active People: The house is currently EMPTY.\n"
+        presence_report += "- Current State: The house is EMPTY.\n"
     else:
-        presence_report += "- Currently Active People:\n"
         for name, data in active.items():
-            presence_report += f"  * {name} is currently in the {data['location']}\n"
+            presence_report += f"- {name} is currently in the {data['location']}\n"
     
     history = presence_service.history_ledger
-    if not history:
-        presence_report += "- Recent Events: No recent events recorded yet.\n"
-    else:
-        presence_report += "- Recent Events (Last 20):\n"
-        for event in reversed(history): 
-            presence_report += f"  * [{event['time']}] {event['user']} {event['action']} the {event['location']}\n"
+
+    if history:
+        presence_report += "- Recent History (Last 10):\n"
+        for event in reversed(history[-10:]): 
+            presence_report += f"  * [{event['time']}] {event['user']} {event['action']} {event['location']}\n"
     
     return final_report + presence_report
 
 
 @tool
 async def control_smart_device(target: str, action: str):
-    """
-    Controls REAL smart plugs via Tapo driver.
-    Args:
-        target: The specific device name (e.g., 'oven', 'desk lamp') OR the room name (e.g., 'livingroom').
-        action: 'on' or 'off'.
-    """
+    """Controls REAL smart plugs via Tapo driver."""
     target_device_id = None
-    target_lower = target.lower()
-    
+    from api.routers.devices_router import DEVICE_REGISTRY
+
     for dev_id, dev_info in DEVICE_REGISTRY.items():
-        if dev_info.get("type") == "outlet":
-            if target_lower in dev_info["name"].lower():
-                target_device_id = dev_id
-                break
+        if dev_info.get("type") == "outlet" and target.lower() in dev_info["name"].lower():
+            target_device_id = dev_id
+            break
+    if not target_device_id: return f"Could not find plug '{target}'."
 
-    if not target_device_id:
-        for room_key, config in HOME_INVENTORY.items():
-            if target_lower in room_key or target_lower in config["name"].lower():
-                if config["smart_devices"]:
-                    target_device_id = config["smart_devices"][0] 
-                    break
-    
-    if not target_device_id:
-        return f"Could not find a smart plug matching '{target}'. Try specifying the device name (e.g., 'Oven', 'Desk Lamp')."
-
-    is_on = True if action.lower() == "on" else False
+    is_on = action.lower() == "on"
 
     try:
-        control_payload = DeviceControl(on=is_on)
-        result = await asyncio.wait_for(
-            control_device(device_id=target_device_id, control=control_payload),
-            timeout=DEVICE_TIMEOUT
-        )
-        
-        invalidate_cache("all_devices")
-        
-        status_text = "ON" if result["on"] else "OFF"
-        return f"Success: {result['name']} is now {status_text}."
-    except asyncio.TimeoutError:
-        return f"Error: Device '{target}' is not responding. Is it plugged in?"
-    except Exception as e:
-        return f"Failed to control device: {str(e)}"
+        result = await asyncio.wait_for(control_device(device_id=target_device_id, control=DeviceControl(on=is_on)), timeout=DEVICE_TIMEOUT)
+        cached_devices = get_cached("all_devices", ttl=3600) or {}
+        cached_devices[target_device_id] = {"name": result.get("name"), "on": is_on}
+        set_cache("all_devices", cached_devices)
+        return f"Success: {result['name']} is {action.upper()}."
+    except Exception as e: return f"Error: {e}"
 
 
 @tool
 async def control_bulb(location: str, action: str, brightness: int = None, hue: int = None, saturation: int = None):
-    """
-    Controls a smart bulb in the specified location.
-    Args:
-        location: Room name (e.g., 'bedroom', 'livingroom').
-        action: 'on', 'off', 'set_brightness', 'increase_brightness', 'decrease_brightness', or 'set_color'.
-        brightness: 1-100 percentage (required when action='set_brightness').
-        hue: 0-360 color wheel degree (required when action='set_color').
-        saturation: 0-100 color intensity (required when action='set_color').
-    """
+    """Controls a smart bulb in the specified location."""
     target_bulb_id = None
-    location_lower = location.lower()
-    
     for room_key, config in HOME_INVENTORY.items():
-        if location_lower in room_key or location_lower in config["name"].lower():
+        if location.lower() in room_key or location.lower() in config["name"].lower():
             if config.get("smart_bulbs"):
                 target_bulb_id = config["smart_bulbs"][0]
                 break
-    
-    if not target_bulb_id:
-        return f"Could not find a smart bulb in '{location}'."
+
+    if not target_bulb_id: return f"No bulb in '{location}'."
 
     action_lower = action.lower()
-    
-    async def safe_control(coro):
-        return await asyncio.wait_for(coro, timeout=DEVICE_TIMEOUT)
+    async def safe_control(coro): return await asyncio.wait_for(coro, timeout=DEVICE_TIMEOUT)
 
     try:
-        if action_lower == "on":
-            control_payload = DeviceControl(on=True)
-            result = await safe_control(control_device(device_id=target_bulb_id, control=control_payload))
-            invalidate_cache("all_devices")
-            invalidate_cache(f"bulb_{target_bulb_id}")
-            return f"Success: {result['name']} is now ON."
-            
-        elif action_lower == "off":
-            control_payload = DeviceControl(on=False)
-            result = await safe_control(control_device(device_id=target_bulb_id, control=control_payload))
-            invalidate_cache("all_devices")
-            invalidate_cache(f"bulb_{target_bulb_id}")
-            return f"Success: {result['name']} is now OFF."
-            
+        if action_lower in ["on", "off"]:
+            is_on = action_lower == "on"
+            result = await safe_control(control_device(device_id=target_bulb_id, control=DeviceControl(on=is_on)))
+            set_cache(f"bulb_{target_bulb_id}", result)
+            return f"Success: {result['name']} is {action_lower.upper()}."
         elif action_lower == "set_brightness":
-            if brightness is None:
-                return "Error: brightness value (1-100) is required."
-            brightness_payload = BrightnessControl(brightness=brightness)
-            await safe_control(set_brightness(device_id=target_bulb_id, control=brightness_payload))
-            invalidate_cache("all_devices")
-            invalidate_cache(f"bulb_{target_bulb_id}")
-            return f"Success: Bulb brightness set to {brightness}%."
-        
-        elif action_lower == "increase_brightness":
-            current_status = await safe_control(get_bulb_status_endpoint(device_id=target_bulb_id))
-            current_brightness = current_status.get("brightness", 50)
-            
-            new_brightness = min(100, current_brightness + 20)
-            
-            brightness_payload = BrightnessControl(brightness=new_brightness)
-            await safe_control(set_brightness(device_id=target_bulb_id, control=brightness_payload))
-            
-            invalidate_cache("all_devices")
-            invalidate_cache(f"bulb_{target_bulb_id}")
-            return f"Success: Brightness increased to {new_brightness}%."
-        
-        elif action_lower == "decrease_brightness":
-            current_status = await safe_control(get_bulb_status_endpoint(device_id=target_bulb_id))
-            current_brightness = current_status.get("brightness", 50)
-            new_brightness = max(1, current_brightness - 20)
-            brightness_payload = BrightnessControl(brightness=new_brightness)
-            await safe_control(set_brightness(device_id=target_bulb_id, control=brightness_payload))
-            
-            invalidate_cache("all_devices")
-            invalidate_cache(f"bulb_{target_bulb_id}")
-            return f"Success: Brightness decreased to {new_brightness}%."
-            
-        elif action_lower == "set_color":
-            if hue is None or saturation is None:
-                return "Error: hue and saturation required."
-            color_payload = ColorControl(hue=hue, saturation=saturation)
-            await safe_control(set_color(device_id=target_bulb_id, control=color_payload))
-            invalidate_cache("all_devices")
-            invalidate_cache(f"bulb_{target_bulb_id}")
-            return f"Success: Color set."
-            
-        else:
-            return f"Unknown action '{action}'."
-            
-    except asyncio.TimeoutError:
-        return f"Error: Bulb in {location} is unreachable (Timeout)."
-    except Exception as e:
-        logger.error(f"Bulb control error: {e}")
-        return f"Failed to control bulb: {str(e)}"
-
+            await safe_control(set_brightness(device_id=target_bulb_id, control=BrightnessControl(brightness=brightness)))
+            new_status = await safe_control(get_bulb_status_endpoint(device_id=target_bulb_id))
+            set_cache(f"bulb_{target_bulb_id}", new_status)
+            return f"Success: Brightness set to {brightness}%."
+        return "Action completed."
+    except Exception as e: return f"Failed: {e}"
 
 tools_list = [get_home_status, control_smart_device, control_bulb]

@@ -20,7 +20,7 @@ class PresenceService:
             
             cls._instance.history_ledger: List[dict] = []
             
-            cls._instance.timeout_seconds = 120
+            cls._instance.timeout_seconds = 20
             cls._instance.unknown_grace_period = 4.0 
             cls._instance.unknown_first_seen = 0.0
             

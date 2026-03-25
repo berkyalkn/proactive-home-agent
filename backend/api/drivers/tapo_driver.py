@@ -2,9 +2,11 @@ from tapo import ApiClient
 import logging
 
 logger = logging.getLogger(__name__)
+logging.getLogger("tapo.api.protocol.klap_protocol").setLevel(logging.CRITICAL)
 
 async def connect_tapo_device(ip: str, username: str, password: str) -> ApiClient | None:
     """Tries to connect to a Tapo device at a specific IP address."""
+
     try:
         client = ApiClient(username, password)
         device = await client.p110(ip)
@@ -16,6 +18,7 @@ async def connect_tapo_device(ip: str, username: str, password: str) -> ApiClien
 
 async def get_tapo_status(device: ApiClient) -> dict:
     """Gets the status of a connected Tapo device."""
+
     try:
         info = await device.get_device_info()
         is_on = info.to_dict().get("device_on", False)
@@ -26,6 +29,7 @@ async def get_tapo_status(device: ApiClient) -> dict:
 
 async def set_tapo_status(device: ApiClient, set_on: bool):
     """Sets the status of a connected Tapo device (turns it on/off)."""
+
     try:
         if set_on:
             await device.on()
@@ -36,9 +40,9 @@ async def set_tapo_status(device: ApiClient, set_on: bool):
         raise e
 
 
-
 async def connect_tapo_bulb(ip: str, username: str, password: str):
     """Connects to a Tapo L530 smart bulb at the specified IP address."""
+
     try:
         client = ApiClient(username, password)
         device = await client.l530(ip)
@@ -51,6 +55,7 @@ async def connect_tapo_bulb(ip: str, username: str, password: str):
 
 async def get_bulb_status(device) -> dict:
     """Gets the current status of a Tapo L530 bulb (on/off, brightness, hue, saturation)."""
+
     try:
         info = await device.get_device_info()
         data = info.to_dict()
@@ -84,6 +89,7 @@ async def get_bulb_status(device) -> dict:
 
 async def set_bulb_status(device, set_on: bool):
     """Turns a Tapo L530 bulb on or off."""
+
     try:
         if set_on:
             await device.on()
@@ -96,6 +102,7 @@ async def set_bulb_status(device, set_on: bool):
 
 async def set_bulb_brightness(device, brightness: int):
     """Sets the brightness of a Tapo L530 bulb (1-100)."""
+
     try:
         clamped = max(1, min(100, brightness))
         await device.set_brightness(clamped)
@@ -109,6 +116,7 @@ async def set_bulb_color(device, hue: int, saturation: int):
     """Sets the color of a Tapo L530 bulb (hue: 0-360, saturation: 0-100).
     If saturation is 0 (white/daylight), uses color temperature instead.
     """
+
     try:
         hue_clamped = max(0, min(360, hue))
         sat_clamped = max(0, min(100, saturation))
@@ -126,6 +134,7 @@ async def set_bulb_color(device, hue: int, saturation: int):
 
 async def set_bulb_color_temperature(device, color_temp: int):
     """Sets the color temperature of a Tapo L530 bulb (2500-6500K)."""
+    
     try:
         temp_clamped = max(2500, min(6500, color_temp))
         await device.set_color_temperature(temp_clamped)

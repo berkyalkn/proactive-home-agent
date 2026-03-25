@@ -55,11 +55,18 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"CRITICAL: Do NOT call any tools right now, just speak a natural 2-sentence greeting and offer."
             )
             
+    elif event_type == "camera_offline":
+        system_prompt = (
+            f"[System Event: The camera feed from the room has been unexpectedly disconnected or turned off.] "
+            f"You are the Proactive Home Agent. Briefly (max 2 sentences) state that the camera feed has been disconnected and you are pausing presence tracking. "
+            f"Do NOT say goodbye to the user, as they might still be in the room. Do NOT call tools."
+        )
+
     else: 
         system_prompt = (
             f"[User: {person_name}] [System Event: User {person_name} has just exited the room at {current_time}.] "
             f"[Current Context: Smart devices status: {device_status}.] "
-            f"You are the Proactive Home Agent. The user left the room 15 seconds ago. "
+            f"You are the Proactive Home Agent. The user left the room 2 minutes ago. "
             f"RULES FOR EXIT: "
             f"1. If any devices in the context are currently ON, you MUST use your tools (like control_smart_device or control_bulb) to turn them OFF right now. "
             f"2. If all devices are OFF, or if their status is 'Unknown or Offline', do NOT use tools. Just say a contextual goodbye and explicitly mention that devices are already off or unreachable. "
@@ -158,11 +165,16 @@ async def identify_face(image_file: UploadFile = File(...)):
 
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
-    """It receives text messages from the MacBook 5 times per second. It manages the Presence and the Agent."""
-
     person_name = event.user
     location = event.location 
+    status = event.status 
     
+    if status == "camera_offline":
+        logger.warning("HARDWARE EVENT: Camera connection disconnected. Physical output will not be counted.")
+        presence_service.active_people.clear() 
+        background_tasks.add_task(trigger_agent_proactively, "System", "camera_offline")
+        return {"status": "camera_offline_handled"}
+
     state = presence_service.handle_detection(person_name, location)
     
     if state == "ENTRY":

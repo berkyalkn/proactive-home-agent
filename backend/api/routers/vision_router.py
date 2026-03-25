@@ -28,6 +28,17 @@ class PresenceEvent(BaseModel):
 async def trigger_agent_proactively(person_name: str, event_type: str):
     logger.info(f"Agent Wakes Up: {person_name} set {event_type} to the room...")
     
+    tr_timezone = timezone(timedelta(hours=3))
+    current_time = datetime.now(tr_timezone).strftime("%H:%M")
+
+    lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
+    temp = lr_sensors.get("temperature", "Unknown")
+    light = lr_sensors.get("light_level", "Unknown")
+    
+    devices = get_cached("all_devices") or {}
+    device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
+    device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
+
     if event_type == "entered":
         if person_name in ["Guest", "Unknown", "A Stranger"]:
             system_prompt = (
@@ -36,31 +47,23 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"Keep it brief (max 2 sentences). CRITICAL: Do NOT call any tools right now."
             )
         else:
-            tr_timezone = timezone(timedelta(hours=3))
-            current_time = datetime.now(tr_timezone).strftime("%H:%M")
-
-            lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
-            temp = lr_sensors.get("temperature", "Unknown")
-            light = lr_sensors.get("light_level", "Unknown")
-            
-            devices = get_cached("all_devices") or {}
-            device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
-            device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
-
             system_prompt = (
                 f"[User: {person_name}] [System Event: User {person_name} has just entered the room at {current_time}.] "
                 f"[Current Context: The Living Room temperature is {temp}°C, light level is {light}, and smart devices are {device_status}.] "
                 f"You are the Proactive AI Home Agent. Greet {person_name} warmly considering the current time ({current_time}). "
-                f"If the light level is low or devices are OFF, proactively ask if they want you to turn on the study lamp or main lights. "
+                f"If the light level is low or devices are OFF, proactively ask if they want you to turn on the desk lamp or main lights. "
                 f"CRITICAL: Do NOT call any tools right now, just speak a natural 2-sentence greeting and offer."
             )
             
     else: 
         system_prompt = (
-            f"[User: {person_name}] [System Event: User {person_name} has just exited the room.] "
+            f"[User: {person_name}] [System Event: User {person_name} has just exited the room at {current_time}.] "
+            f"[Current Context: Smart devices status: {device_status}.] "
             f"You are the Proactive Home Agent. The user left the room 15 seconds ago. "
-            f"Acknowledge their departure briefly (max 2 sentences) and state that you are switching to energy-saving mode. "
-            f"CRITICAL: Do NOT call any tools, just give a short verbal confirmation."
+            f"RULES FOR EXIT: "
+            f"1. If any devices in the context are currently ON, you MUST use your tools (like control_smart_device or control_bulb) to turn them OFF right now. "
+            f"2. If all devices are OFF, or if their status is 'Unknown or Offline', do NOT use tools. Just say a contextual goodbye and explicitly mention that devices are already off or unreachable. "
+            f"3. Keep your verbal confirmation very brief (max 2 sentences) stating exactly what you did or saw."
         )
 
     async def broadcast(message_dict: dict):

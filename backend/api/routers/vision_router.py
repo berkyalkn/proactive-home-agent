@@ -5,6 +5,9 @@ from api.services.presence_service import presence_service
 from api.agent.graph import chat_with_ai 
 from api.services.tts_service import text_to_speech
 from api.services.websocket_manager import manager
+from datetime import datetime, timezone, timedelta
+from api.drivers.mqtt_service import LATEST_SENSOR_DATA
+from api.agent.cache import get_cached
 
 import logging
 import cv2
@@ -33,10 +36,23 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"Keep it brief (max 2 sentences). CRITICAL: Do NOT call any tools right now."
             )
         else:
+            tr_timezone = timezone(timedelta(hours=3))
+            current_time = datetime.now(tr_timezone).strftime("%H:%M")
+
+            lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
+            temp = lr_sensors.get("temperature", "Unknown")
+            light = lr_sensors.get("light_level", "Unknown")
+            
+            devices = get_cached("all_devices") or {}
+            device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
+            device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
+
             system_prompt = (
-                f"[User: {person_name}] [System Event: User {person_name} has just entered the room.] "
-                f"You are the Proactive AI Home Agent. Greet {person_name} warmly and briefly (max 2 sentences). "
-                f"CRITICAL: Do NOT call any tools right now, just say a quick, natural welcome."
+                f"[User: {person_name}] [System Event: User {person_name} has just entered the room at {current_time}.] "
+                f"[Current Context: The Living Room temperature is {temp}°C, light level is {light}, and smart devices are {device_status}.] "
+                f"You are the Proactive AI Home Agent. Greet {person_name} warmly considering the current time ({current_time}). "
+                f"If the light level is low or devices are OFF, proactively ask if they want you to turn on the study lamp or main lights. "
+                f"CRITICAL: Do NOT call any tools right now, just speak a natural 2-sentence greeting and offer."
             )
             
     else: 
@@ -56,7 +72,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
 
     try:
         await broadcast({"status": "processing"})
-        print(f"\n=== THE AGENT'S PROACTIVE RESPONSE ({event_type.upper()}) ===")
         sentence_buffer = ""
 
         async for chunk in chat_with_ai(user_input=system_prompt, thread_id="home_system_thread"):
@@ -81,7 +96,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
                 await broadcast({"status": "audio_chunk", "audio": audio_base64})
 
-        print("\n==============================\n")
         await asyncio.sleep(0.05)
         await broadcast({"status": "stream_finished"})
 

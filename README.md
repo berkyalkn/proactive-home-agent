@@ -10,6 +10,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)
 ![YOLO](https://img.shields.io/badge/YOLO-00FFFF?style=for-the-badge&logo=yolo&logoColor=black)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-00B2A9?style=for-the-badge&logo=google&logoColor=white)
 ![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 
@@ -42,10 +43,10 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 | Layer | Component | Description |
 | :--- | :--- | :--- |
 | **L5** | **Presentation** | Next.js Dashboard & Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds). |
-| **L4** | **Intelligence** | Hosts the LangGraph Agent, Voice/Facial Biometrics (Resemblyzer & GhostFaceNet), and Predictive Models. It filters intents through a 3-stage logic (Edge -> Local RAG -> Cloud LLM). |
+| **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision (YOLOv8-Face Alignment + GhostFaceNet Biometrics), and Predictive Models. It filters intents through a 3-stage logic (Edge -> Local RAG -> Cloud LLM) and utilizes Zero-Latency Context Injection. |
 | **L3** | **Backend Services** | FastAPI Microservices that manage logic routing, data persistence (PostgreSQL), and background polling tasks.|
 | **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and HTTP/REST (Edge Node Image Transmission) ensuring <50ms latency. |
-| **L1** | **Physical** |The distributed hardware layer consisting of the Raspberry Pi 5 Hub, ESP32 Sensor Nodes (Environmental Data), Tapo Actuator and Edge Camera Nodes. |
+| **L1** | **Physical** |The distributed hardware layer consisting of the Raspberry Pi 5 Hub, ESP32 Sensor Nodes, Tapo Actuators, and Edge Camera Nodes running MediaPipe BlazeFace. |
 
 
 
@@ -101,24 +102,17 @@ The Agent interacts with the physical world through a set of "Robust Tools" that
 
 No command is executed without continuous authentication, utilizing both visual and vocal verification.
 
--  **Visual Authentication (5-Angle FaceID):** Uses the ultra-lightweight **GhostFaceNet (17MB)**. The system utilizes an Apple FaceID-style enrollment process, capturing and storing 5 different facial embeddings (Front, Left, Right, Up, Down) per user in PostgreSQL. This ensures flawless recognition from any perspective via Cosine Similarity.
-
-- **Vocal Authentication:** Uses **Resemblyzer** for real-time speaker diarization and embedding matching.
-
+- **Visual Authentication (Edge-to-Hub Pipeline):** The system utilizes an Apple FaceID-style 5-angle enrollment stored in PostgreSQL. For real-time inference, it uses a dual-stage architecture: Google's **MediaPipe BlazeFace** handles high-speed detection on the Edge, sending only 15KB cropped frames to the Hub. The Hub then deploys **YOLOv8-Face** for surgical facial alignment before feeding the flawless image to the ultra-lightweight **GhostFaceNet (17MB)** for 512-dimensional vector matching via Cosine Similarity.
+- **Vocal Authentication:** Uses **Resemblyzer** for real-time speaker diarization and embedding matching to ensure the voice command comes from an authorized resident.
 - **Dynamic RBAC (Role-Based Access Control):** The System Prompt dynamically adjusts based on identity. Admins have full execution rights, while "Guests" or "Unknown/Intruder" entities trigger guardrails, restricting them to read-only interactions or firing security alerts.
-
 
 #### 4. Event-Driven Edge Vision & State Machine
 
-The system does not just wait for voice commands; it visually monitors the environment and acts autonomously without melting the central CPU.
+The system visually monitors the environment and acts autonomously without melting the central CPU.
 
-- **Edge-Native Object Tracking (Zero Latency)**: Camera nodes operate as Smart Edge Sensors. Once a user is identified, the edge node switches to a lightweight OpenCV KCF Tracker, following the user's bounding box locally. It stops sending heavy JPEG frames to the backend and instead streams lightweight 1KB JSON payloads (`{"user": "Berkay", "status": "PRESENT", "location": "living_room"}`) at high frequencies.
-
-- **Spatial & Temporal Ledger:** Maintains a rolling history of the last 20 room events with strict timezone constraints to prevent time drift. It utilizes an Event-Driven Persistent Memory approach, updating the PostgreSQL `last_seen` column only upon Entry/Exit to prevent I/O bottlenecks while ensuring the AI retains context across system reboots.
-
-- **Identity Flickering Prevention (Grace Period)**: A custom debounce algorithm in the `PresenceService` acts as a memory shield. If a tracked user momentarily loses visibility, the system grants a 4-second grace period with a self-correcting retry mechanism, preventing false alarms.
-
-- **Asynchronous LLM Awakening:** Upon a valid `ENTRY` or `EXIT` event, FastAPI `BackgroundTasks` silently inject a system prompt into the LangGraph Agent. The Agent assesses the home status and streams a proactive audio greeting/action via WebSockets autonomously
+- **Zero-Latency Multi-Tracking:** Once MediaPipe detects a face, the edge node switches to an asynchronous **KCF Tracker**, following the user locally at 30 FPS. It stops sending heavy image payloads and instead streams lightweight JSON telemetries (`{"user": "Berkay", "status": "PRESENT"}`) to the backend.
+- **Zero-Latency Context Injection:** Upon entry, FastAPI `BackgroundTasks` awaken the LangGraph Agent. Before the LLM generates a single token, current MQTT telemetry (Temp, Light) and smart plug states are injected directly from RAM into the `system_prompt`, enabling instant, proactive suggestions (e.g., offering to turn on the study lamp at 2 AM).
+- **Persistent Spatial Ledger & Silent Guest Protocol:** Maintains a debounced, time-zone-aware history of room events. If an unrecognized face is detected while an authorized user is already present, the system intelligently suppresses security alerts to maintain social grace.
 
 ---
 
@@ -132,6 +126,8 @@ The system does not just wait for voice commands; it visually monitors the envir
 | **Framework** | **LangChain** | Used for creating structured Tools (@tool decorators) and managing prompt templates.|
 | **LLM** | **Google Gemini 3.0** | The primary reasoning engine (gemini-3-flash-preview) accessed via Vertex AI for high-speed intent processing. |
 | **Computer Vision**| **OpenCV & KCF** | Lightweight motion detection and high-speed bounding box tracking on edge nodes. |
+| **Edge Vision**| **MediaPipe BlazeFace** | Ultra-lightweight mobile-optimized face detection for extracting ROIs at high FPS on edge devices. |
+| **Alignment**| **YOLOv8-Face** | Executes 5-point facial landmark detection on the Hub for surgical face alignment before recognition. |
 | **Face Recognition**| **DeepFace (GhostFaceNet)**| Extracts high-dimensional facial embeddings for real-time biometric verification. |
 | **Biometrics** | **Resemblyzer** | Generates 256-dimensional voice embeddings for real-time speaker identification. |
 | **Math** | **Numpy** | Performs Cosine Similarity calculations to match live audio vectors against stored user profiles. |
@@ -180,13 +176,22 @@ The system does not just wait for voice commands; it visually monitors the envir
 
 ## Key Features
 
+#### Proactive Context-Aware AI (LangGraph)
+
+Instead of passively waiting for explicit commands, the LangGraph agent actively observes the environment and engages the user with intelligent, situation-specific actions.
+
+- **Zero-Latency Context Injection:** Upon a user entering a room, current telemetry (temperature, light levels, smart device states) and the exact local time are injected directly from RAM caching into the LLM's system prompt. This bypasses the 3-5 second delay of traditional API tool-calling, enabling instantaneous reasoning.
+- **Temporal & Environmental Awareness:** The AI synthesizes the injected data to make logical deductions without hardcoded rules. For example, if a user enters the room at 6:30 PM, the AI can independently deduce that it is around sunset and proactively offer to turn on the study lamp or adjust the room's ambiance, delivering a true "J.A.R.V.I.S-like" experience.
+
 #### Extreme CPU Optimization via Edge Computing
 
-By shifting the burden of frame processing to the edge nodes (cameras) and utilizing **KCF Object Tracking**, the central Raspberry Pi 5 Hub is relieved from analyzing continuous video feeds. The Pi only runs the heavy GhostFaceNet model once during initial entry. Subsequent presence updates are handled via lightweight JSON payloads, keeping the Hub's CPU usage minimal and preventing Thermal Throttling.
+- By shifting the burden of frame processing to the edge nodes (cameras) and utilizing **KCF Object Tracking**, the central Raspberry Pi 5 Hub is relieved from analyzing continuous video feeds. The Pi only runs the heavy GhostFaceNet model once during initial entry. Subsequent presence updates are handled via lightweight JSON payloads, keeping the Hub's CPU usage minimal and preventing Thermal Throttling.
 
 #### Spatial & Temporal Context Awareness
 
-The system doesn't just know who is home; it knows where they are and when they moved. Edge nodes inject room-specific spatial data, and the Presence Service maintains a timezone-aware history ledger. Combined with an event-driven last_seen database update mechanism, the AI agent possesses a persistent, true sense of time and location across reboots.
+- The system doesn't just know who is home; it knows where they are and when they moved. Edge nodes inject room-specific spatial data, and the Presence Service maintains a timezone-aware history ledger. Combined with an event-driven last_seen database update mechanism, the AI agent possesses a persistent, true sense of time and location across reboots.
+
+- **Social Intelligence (Silent Guest Protocol):** The system distinguishes between an empty home intrusion and a social gathering. If an unrecognized face is detected while an authorized user is already present in the room, the AI intelligently suppresses security alerts and redundant greetings to avoid interrupting conversations.
 
 #### Robust & Hybrid Architecture
 
@@ -198,13 +203,15 @@ The system doesn't just know who is home; it knows where they are and when they 
 
 - **Parallel Async Processing:** The backend processes Voice Identification (CPU-bound) and Speech-to-Text (I/O-bound) in parallel using `asyncio.gather`, reducing response time by 50%.
 
-Streamed Intelligence: Utilizes a Smart Audio Queue on the frontend to seamlessly buffer and play synthesized speech responses via WebSockets in real-time.
+- **Streamed Intelligence:** Utilizes a Smart Audio Queue on the frontend to seamlessly buffer and play synthesized speech responses via WebSockets in real-time.
 
 #### Interactive Dashboard & Biometric Management
 
 - **Dynamic Floor Plan & Granular Control:** SVG-based interactive maps for room selection, real-time environmental metrics (Temp, Humidity, Light), and HSL-supported smart lighting control.
 
 - **5-Point Identity Enrollment:** A sophisticated UI guides users to register their face from 5 different angles (Front, Left, Right, Up, Down) while simultaneously capturing voice signatures, ensuring bulletproof identity verification across all lighting and positional conditions.
+
+- **Real-Time Edge Video Streaming:** Integrates MJPEG streams with aggressive frontend cache-busting mechanisms and dynamic skeleton loaders, eliminating browser ghost-connections and ensuring zero-refresh, instant live camera feeds.
 
 ---
 

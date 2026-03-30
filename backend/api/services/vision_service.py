@@ -27,7 +27,6 @@ class VisionService:
             config = Config()
             config.detection.confidence = 0.6 
             config.detection.device = "cpu"
-            
             config.face_recognition.alignment_backend = "none" 
             
             cls._instance.aligner = FaceAligner(device="cpu") if config.face_recognition.alignment_backend == "fan" else None
@@ -41,8 +40,6 @@ class VisionService:
         return cls._instance
 
     def load_faces_from_db(self):
-        """Loads vectors from the DB to RAM. Now each user can have MORE THAN ONE face (profile)."""
-
         self.known_faces = {}
         try:
             with Session(engine) as session:
@@ -62,7 +59,6 @@ class VisionService:
             logger.error(f"Error loading faces from DB: {e}")
 
     def register_face(self, username: str, image_bytes: bytes) -> bool:
-        """It processes a new photo and adds it to the user's face collection (FaceID)."""
         try:
             nparr = np.frombuffer(image_bytes, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -100,12 +96,10 @@ class VisionService:
                 
                 if existing_user:
                     current_data = existing_user.face_embedding or []
-                    
                     if len(current_data) > 0 and not isinstance(current_data[0], list):
                         current_data = [current_data]
                     
                     current_data.append(embedding_list)
-                    
                     if len(current_data) >= 5:
                         current_data.pop(0)
 
@@ -139,7 +133,6 @@ class VisionService:
     def _extract_embedding(self, face_image: np.ndarray) -> np.ndarray | None:
         try:
             input_image = face_image
-            
             if self.aligner is not None:
                 aligned = self.aligner.align(face_image)
                 input_image = aligned if aligned is not None else face_image
@@ -156,21 +149,23 @@ class VisionService:
             logger.error(f"Extraction error: {e}")
         return None
 
-    def recognize(self, frame: np.ndarray) -> dict:
-        """The incoming view compares the user's ALL profiles (Front, Right, Left, Top, Bottom)."""
+    def recognize(self, frame: np.ndarray, is_cropped: bool = False) -> dict:
         try:
-            detection = self.detector.detect(frame)
-            if not detection["faces_found"]:
-                return {"face_found": False, "name": None, "confidence": 0.0}
+            if is_cropped:
+                face_roi = frame
+            else:
+                detection = self.detector.detect(frame)
+                if not detection["faces_found"]:
+                    return {"face_found": False, "name": None, "confidence": 0.0}
 
-            face_data = max(
-                detection["faces"],
-                key=lambda f: (f["box"][2] - f["box"][0]) * (f["box"][3] - f["box"][1]),
-            )
-            x1, y1, x2, y2 = face_data["box"]
-            face_roi = self._extract_padded_roi(frame, x1, y1, x2, y2)
+                face_data = max(
+                    detection["faces"],
+                    key=lambda f: (f["box"][2] - f["box"][0]) * (f["box"][3] - f["box"][1]),
+                )
+                x1, y1, x2, y2 = face_data["box"]
+                face_roi = self._extract_padded_roi(frame, x1, y1, x2, y2)
+
             embedding = self._extract_embedding(face_roi)
-            
             if embedding is None:
                 return {"face_found": False, "name": None, "confidence": 0.0}
 

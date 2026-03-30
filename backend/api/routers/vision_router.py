@@ -26,6 +26,12 @@ class PresenceEvent(BaseModel):
     status: str
     location: str = "living_room"
 
+class GestureEvent(BaseModel):
+    gesture: str
+    user: str
+    location: str = "living_room"
+    timestamp: float
+
 
 async def trigger_agent_proactively(person_name: str, event_type: str):
     logger.info(f"Agent Wakes Up: {person_name} set {event_type} to the room...")
@@ -35,13 +41,15 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
     current_time = now.strftime("%H:%M")
 
     try:
+        logger.info("Triggering real-time device scan for proactive context...")
         devices = await asyncio.wait_for(get_all_devices(), timeout=4.0)
         set_cache("all_devices", devices)
     except Exception as e:
-        logger.warning(f"Real-time scan failed: {e}")
+        logger.warning(f"Real-time scan failed, using fallback cache: {e}")
         devices = get_cached("all_devices", ttl=3600) or {}
 
     device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
+
     for room, config in HOME_INVENTORY.items():
         for bulb_id in config.get("smart_bulbs", []):
             bulb_data = get_cached(f"bulb_{bulb_id}", ttl=3600)
@@ -154,7 +162,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
 
 async def continuous_presence_check():
     """It checks the room every 15-30 seconds without anyone needing to trigger it."""
-
     await asyncio.sleep(10) 
     logger.info("Continuous presence check active.")
     while True:
@@ -170,25 +177,26 @@ async def continuous_presence_check():
 @router.on_event("startup")
 async def startup_event():
     """When FastAPI starts, it starts the watchdog in the background."""
-
     asyncio.create_task(continuous_presence_check())
 
 
 @router.post("/identify")
 async def identify_face(image_file: UploadFile = File(...)):
-    
     try:
         image_bytes = await image_file.read()
         nparr = np.frombuffer(image_bytes, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        result = vision_service.recognize(frame)
+        
+        result = vision_service.recognize(frame, is_cropped=True)
+        
         if not result["face_found"]:
             return {"status": "no_face"}
+        
         person_name = result["name"]
 
         if person_name == "Unknown" or person_name is None:
-
             return {"status": "unknown_person"}
+            
         return {"status": "authorized", "user": person_name, "confidence": result["confidence"]}
 
     except Exception as e:
@@ -196,9 +204,18 @@ async def identify_face(image_file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Identify Error")
 
 
+@router.post("/gesture")
+async def handle_gesture(event: GestureEvent):
+    try:
+        presence_service.log_gesture(event.user, event.gesture, event.location)
+        return {"status": "gesture_logged", "gesture": event.gesture}
+    except Exception as e:
+        logger.error(f"Gesture Logging Error: {e}")
+        raise HTTPException(status_code=500, detail="Gesture Logging Error")
+
+
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
-
     person_name = event.user
     location = event.location 
     status = event.status 

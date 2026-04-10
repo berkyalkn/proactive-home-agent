@@ -61,6 +61,10 @@ latest_gesture = ""
 latest_gesture_time = 0
 is_gesture_processing = False
 
+last_sent_gesture = ""
+last_sent_gesture_time = 0
+GESTURE_COOLDOWN = 3.0
+
 def send_gesture_event(gesture_name):
     try:
         detected_user = "Unknown"
@@ -82,14 +86,22 @@ def send_gesture_event(gesture_name):
 
 def gesture_callback(result, output_image: mp.Image, timestamp_ms: int):
     global latest_gesture, latest_gesture_time, is_gesture_processing
+    global last_sent_gesture, last_sent_gesture_time 
+
     if result.gestures:
         for hand_gestures in result.gestures:
             top_gesture = hand_gestures[0].category_name
             if top_gesture and top_gesture != "None":
                 latest_gesture = top_gesture
                 latest_gesture_time = time.time()
-                print(f"[Async Gesture] Detected: {top_gesture}")
-                network_executor.submit(send_gesture_event, top_gesture)
+                
+                if top_gesture != last_sent_gesture or (time.time() - last_sent_gesture_time) > GESTURE_COOLDOWN:
+                    print(f"[Async Gesture] Sending to Backend: {top_gesture}")
+                    network_executor.submit(send_gesture_event, top_gesture)
+                    
+                    last_sent_gesture = top_gesture
+                    last_sent_gesture_time = time.time()
+
     is_gesture_processing = False
 
 base_options_gesture = python.BaseOptions(model_asset_path=GESTURE_MODEL_PATH)

@@ -82,6 +82,7 @@ class User(SQLModel, table=True):
     username: str = Field(index=True, unique=True)
     role: str = Field(default="guest") 
     voice_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))
-    face_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))    
+    face_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON)) 
+    hashed_password: str = Field(nullable=False)   
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_seen: Optional[datetime] = Field(default=None)

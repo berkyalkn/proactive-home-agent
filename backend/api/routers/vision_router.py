@@ -8,14 +8,15 @@ from api.services.websocket_manager import manager
 from datetime import datetime, timezone, timedelta
 from api.drivers.mqtt_service import LATEST_SENSOR_DATA
 from api.agent.cache import get_cached, set_cache
-from api.agent.tools import HOME_INVENTORY
-from api.routers.devices_router import get_all_devices
+from api.agent.tools import HOME_INVENTORY, control_bulb
+from api.routers.devices_router import get_all_devices, set_color, ColorControl
 
 import logging
 import cv2
 import numpy as np
 import asyncio
 import base64
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,13 @@ class GestureEvent(BaseModel):
     user: str
     location: str = "living_room"
     timestamp: float
+    duration: float
+
+
+class ActionState:
+    last_executions = {}
+
+ACTION_COOLDOWN = 10.0
 
 
 async def trigger_agent_proactively(person_name: str, event_type: str):
@@ -114,6 +122,14 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
         system_prompt = (
             f"[System Event: Camera disconnected at {current_time}.] "
             f"IGNORE PREVIOUS MEMORY. Strictly state that the camera feed is lost and presence tracking is paused. One sentence only."
+        )
+
+    elif event_type == "security_alert":
+        system_prompt = (
+            f"[System Event: SECURITY ALERT! User {person_name} triggered a 3-second Closed Fist gesture.] "
+            f"You are J.A.R.V.I.S, the Home Security Agent. "
+            f"Immediately confirm that you have received the silent alarm and are initiating lockdown protocols. "
+            f"Be extremely brief, serious, and reassuring. (Max 2 sentences)."
         )
 
     else: 
@@ -217,14 +233,49 @@ async def identify_face(image_file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Identify Error")
 
 
+
 @router.post("/gesture")
-async def handle_gesture(event: GestureEvent):
+async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks):
     try:
         presence_service.log_gesture(event.user, event.gesture, event.location)
-        return {"status": "gesture_logged", "gesture": event.gesture}
+        
+        current_time = time.time()
+        
+        if event.gesture == "Victory" and event.duration >= 1.5:
+            last_exec = ActionState.last_executions.get(f"{event.user}_victory", 0)
+            
+            if current_time - last_exec > ACTION_COOLDOWN:
+                logger.info(f"Low-Risk Action: '{event.gesture}' held for {event.duration:.1f}s. Turning off living room lights.")
+                
+                try:
+                    await control_bulb.ainvoke({"location": "livingroom", "action": "OFF"})
+                except AttributeError:
+                    control_bulb.invoke({"location": "livingroom", "action": "OFF"})
+                
+                ActionState.last_executions[f"{event.user}_victory"] = current_time
+
+        elif event.gesture == "Closed_Fist" and event.duration >= 3.0:
+            last_exec = ActionState.last_executions.get(f"{event.user}_fist", 0)
+            
+            if current_time - last_exec > ACTION_COOLDOWN:
+                logger.warning(f"SECURITY PROTOCOL TRIGGERED! '{event.gesture}' held for {event.duration:.1f}s by {event.user}.")
+                
+                background_tasks.add_task(trigger_agent_proactively, event.user, "security_alert")
+                
+                async def safe_red_light():
+                    try:
+                        await set_color(device_id="living_room_bulb", control=ColorControl(hue=0, saturation=100))
+                    except Exception as e:
+                        logger.warning(f"Lockdown lights could not be turned on (Device Offline): {e}")
+                
+                background_tasks.add_task(safe_red_light)
+                
+                ActionState.last_executions[f"{event.user}_fist"] = current_time
+                
+        return {"status": "gesture_processed", "gesture": event.gesture, "duration": event.duration}
     except Exception as e:
-        logger.error(f"Gesture Logging Error: {e}")
-        raise HTTPException(status_code=500, detail="Gesture Logging Error")
+        logger.error(f"Gesture Processing Error: {e}")
+        raise HTTPException(status_code=500, detail="Gesture Processing Error")
 
 
 @router.post("/update_presence")

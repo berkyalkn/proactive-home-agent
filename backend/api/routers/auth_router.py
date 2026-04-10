@@ -55,6 +55,7 @@ async def register(user_data: UserRegister):
         new_user = User(
             username=user_data.username,
             role=user_data.role,
+            hashed_password=hashed_pwd,
             face_embedding=user_data.face_embedding,
             voice_embedding=user_data.voice_embedding
         )
@@ -68,7 +69,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     with Session(engine) as session:
         user = session.exec(select(User).where(User.username == form_data.username)).first()
         
-        if not user or not auth_service.verify_password(form_data.password, "MODELDEN_GELECEK_HASH"):
+        if not user or not auth_service.verify_password(form_data.password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password"

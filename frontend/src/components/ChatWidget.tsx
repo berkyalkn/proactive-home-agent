@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { usePathname } from "next/navigation"; 
 import { Bot, X, Send, Sparkles, RefreshCw } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +9,8 @@ import { Card } from "@/components/ui/card";
 import { useChat } from "@/context/ChatContext"; 
 
 export function ChatWidget() {
+  const pathname = usePathname();
   const { messages, addMessage, isConnected, socketRef, isOpen, setIsOpen, agentStatus } = useChat();
-  
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -20,21 +21,19 @@ export function ChatWidget() {
   }, [messages, isOpen]);
 
   const sendMessage = () => {
-    if (!input.trim()) return;
-    
-    if (!isConnected || socketRef.current?.readyState !== WebSocket.OPEN) {
-        return;
-    }
-    
+    if (!input.trim() || !isConnected || socketRef.current?.readyState !== WebSocket.OPEN) return;
     const userMessage = input.trim();
     setInput("");
-    
     addMessage("user", userMessage);
-    
     socketRef.current.send(userMessage);
   };
 
   const isTyping = agentStatus === "processing";
+
+  const hiddenRoutes = ["/", "/login", "/register"];
+  if (hiddenRoutes.includes(pathname)) {
+    return null; 
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">

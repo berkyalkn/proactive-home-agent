@@ -49,15 +49,22 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
         devices = get_cached("all_devices", ttl=3600) or {}
 
     device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
-
     for room, config in HOME_INVENTORY.items():
         for bulb_id in config.get("smart_bulbs", []):
             bulb_data = get_cached(f"bulb_{bulb_id}", ttl=3600)
             if bulb_data:
                 state = "ON" if bulb_data.get("on") else "OFF"
                 device_status_list.append(f"{bulb_data.get('name', bulb_id)} is {state}")
-
+    
     device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
+
+    lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
+    if not lr_sensors:
+        sensor_context = "ESP32 Livingroom Sensor is OFFLINE or UNREACHABLE."
+    else:
+        temp = lr_sensors.get("temperature", "Unknown")
+        light = lr_sensors.get("light_level", "Unknown")
+        sensor_context = f"Temperature: {temp}°C, Light Level: {light}"
 
     if event_type == "entered":
         if person_name in ["Guest", "Unknown", "A Stranger"]:
@@ -66,10 +73,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"Greet politely, ask for their name, and mention you don't recognize them."
             )
         else:
-            lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
-            temp = lr_sensors.get("temperature", "Unknown")
-            light = lr_sensors.get("light_level", "Unknown")
-            
             last_exit_time_str = None
             for event in reversed(presence_service.history_ledger):
                 if event["user"] == person_name and event["action"] == "EXITED":
@@ -78,15 +81,12 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
             
             time_context = ""
             time_instruction = "Give a standard warm greeting." 
-
             if last_exit_time_str:
                 try:
                     last_exit_dt = datetime.strptime(last_exit_time_str, "%H:%M").replace(
                         year=now.year, month=now.month, day=now.day, tzinfo=tr_timezone
                     )
-                    
                     diff_minutes = (now - last_exit_dt).total_seconds() / 60
-                    
                     if diff_minutes >= 60:
                         time_context = f" The user has been away for {int(diff_minutes)} minutes (last exit at {last_exit_time_str})."
                         time_instruction = f"Mention that they've been away for a while or over an hour in a natural way."
@@ -96,11 +96,18 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                     logger.error(f"Time calculation error: {e}")
 
             system_prompt = (
-                f"[User: {person_name}] [System Event: User {person_name} entered at {current_time}.] "
-                f"[Current Context: Temp: {temp}°C, Light: {light}, Devices: {device_status}.{time_context}] "
-                f"You are the Proactive AI Home Agent. Greet {person_name} warmly. {time_instruction} "
-                f"If the light level is low, ask if they want the lights on. "
-                f"CRITICAL: Keep it to 2 natural sentences."
+                f"[User: {person_name}] [System Event: User {person_name} entered at {current_time}.] \n"
+                f"--- CURRENT HOME CONTEXT ---\n"
+                f"Sensors: {sensor_context}\n"
+                f"Devices: {device_status}\n"
+                f"---------------------------\n"
+                f"{time_context}\n"
+                f"You are J.A.R.V.I.S, the Proactive AI Home Agent. Greet {person_name} warmly. {time_instruction} \n"
+                f"CRITICAL RULES FOR LIGHTING:\n"
+                f"- Analyze the 'Devices' list. If the main lights or bulbs are ALREADY 'ON', DO NOT ask to turn them on, even if the light level is low.\n"
+                f"- ONLY offer to turn on the lights IF the 'Light Level' is low AND the lights are currently 'OFF'.\n"
+                f"- If a device or sensor is 'Offline' or 'Unreachable', do not panic, just don't offer services related to it.\n"
+                f"Keep your response natural, conversational, and strict to 2 sentences."
             )
             
     elif event_type == "camera_offline":
@@ -111,11 +118,17 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
 
     else: 
         system_prompt = (
-            f"[User: {person_name}] [System Event: User {person_name} exited at {current_time}.] "
-            f"[Current Context: Devices: {device_status}.] "
-            f"You are the Proactive Home Agent. RULES: 1. If any device is ON, turn it OFF. 2. Skip Unknown/Offline devices. "
-            f"3. PERSONALITY: Explain you're saving energy because they left. "
-            f"4. EXAMPLE: 'Since you've left, I've turned off the lights to save energy.' 2 sentences max."
+            f"[User: {person_name}] [System Event: User {person_name} exited at {current_time}.] \n"
+            f"--- CURRENT HOME CONTEXT ---\n"
+            f"Sensors: {sensor_context}\n"
+            f"Devices: {device_status}\n"
+            f"---------------------------\n"
+            f"You are J.A.R.V.I.S, the Proactive Home Agent. RULES:\n"
+            f"1. Analyze the 'Devices' list. If ANY device is 'ON', you MUST turn it OFF to save energy.\n"
+            f"2. Skip 'Unknown' or 'Offline' devices silently.\n"
+            f"3. PERSONALITY: Explain briefly what you turned off to save energy because they left.\n"
+            f"4. If all devices were ALREADY OFF, just say a polite goodbye and mention the current temperature if available.\n"
+            f"Keep your response natural, conversational, and strict to 2 sentences max."
         )
 
     async def broadcast(message_dict: dict):

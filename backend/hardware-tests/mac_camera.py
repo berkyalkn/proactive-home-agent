@@ -61,11 +61,16 @@ latest_gesture = ""
 latest_gesture_time = 0
 is_gesture_processing = False
 
+current_sustained_gesture = ""    
+gesture_start_time = 0.0
+
 last_sent_gesture = ""
 last_sent_gesture_time = 0
-GESTURE_COOLDOWN = 3.0
+GESTURE_COOLDOWN = 1.0
 
-def send_gesture_event(gesture_name):
+current_face_is_frontal = False
+
+def send_gesture_event(gesture_name, duration):
     try:
         detected_user = "Unknown"
         with trackers_lock:
@@ -78,7 +83,8 @@ def send_gesture_event(gesture_name):
             "gesture": gesture_name,
             "user": detected_user,
             "location": "living_room",
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "duration": duration
         }
         presence_session.post(GESTURE_URL, json=payload, timeout=0.5)
     except Exception as e:
@@ -87,20 +93,38 @@ def send_gesture_event(gesture_name):
 def gesture_callback(result, output_image: mp.Image, timestamp_ms: int):
     global latest_gesture, latest_gesture_time, is_gesture_processing
     global last_sent_gesture, last_sent_gesture_time 
+    global current_sustained_gesture, gesture_start_time 
+    global current_face_is_frontal
 
     if result.gestures:
         for hand_gestures in result.gestures:
             top_gesture = hand_gestures[0].category_name
+
+            if top_gesture in ["Thumb_Up", "Victory"] and not current_face_is_frontal:
+                 print(f"[Gaze Lock] Ignoring '{top_gesture}' because the user is not looking at the camera.")
+                 current_sustained_gesture = "" 
+                 continue 
+
             if top_gesture and top_gesture != "None":
                 latest_gesture = top_gesture
                 latest_gesture_time = time.time()
                 
-                if top_gesture != last_sent_gesture or (time.time() - last_sent_gesture_time) > GESTURE_COOLDOWN:
-                    print(f"[Async Gesture] Sending to Backend: {top_gesture}")
-                    network_executor.submit(send_gesture_event, top_gesture)
-                    
-                    last_sent_gesture = top_gesture
-                    last_sent_gesture_time = time.time()
+                if top_gesture == current_sustained_gesture:
+                    duration = time.time() - gesture_start_time
+                else:
+                    current_sustained_gesture = top_gesture
+                    gesture_start_time = time.time()
+                    duration = 0.0
+                
+                if duration > 1.0:
+                    if top_gesture != last_sent_gesture or (time.time() - last_sent_gesture_time) > GESTURE_COOLDOWN:
+                        print(f"[Async Gesture] Sustained Action: {top_gesture} (Duration: {duration:.1f}s)")
+                        network_executor.submit(send_gesture_event, top_gesture, duration)
+                        
+                        last_sent_gesture = top_gesture
+                        last_sent_gesture_time = time.time()
+    else:
+        current_sustained_gesture = ""
 
     is_gesture_processing = False
 
@@ -307,6 +331,12 @@ def camera_processing_loop():
                 cv2.putText(frame, f"ID: {user}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
                 if user not in ["Unknown", "Identifying..."]:
+                    cached_kps = t_data.get("detection_keypoints")
+                    is_frontal = estimate_face_frontality(cached_kps, frame_w, frame_h, (x, y, w, h))
+                    
+                    global current_face_is_frontal
+                    current_face_is_frontal = is_frontal
+
                     if current_time - t_data.get("last_json_time", 0) > 3.0:
                         network_executor.submit(send_presence_json, user)
                         with trackers_lock:

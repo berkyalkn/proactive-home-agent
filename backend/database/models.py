@@ -4,13 +4,21 @@ from sqlmodel import Field, SQLModel, Relationship
 import uuid
 from sqlalchemy import Column, JSON
 
+class Room(SQLModel, table=True):
+    __tablename__ = "rooms"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(unique=True, index=True)
+    room_type: str 
+    devices: List["Device"] = Relationship(back_populates="room")
+
 class Device(SQLModel, table=True):
     __tablename__ = "devices"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
     device_type: str      
     protocol: str          
-    location: str          
+    room_id: uuid.UUID = Field(foreign_key="rooms.id")
+    room: Room = Relationship(back_populates="devices")
     ip_address: Optional[str] = None
     is_active: bool = True
     
@@ -73,10 +81,7 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
     role: str = Field(default="guest") 
-    
-    voice_embedding: List[float] = Field(default=None, sa_column=Column(JSON))
-    
-    face_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))
-    
+    voice_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))
+    face_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))    
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_seen: Optional[datetime] = Field(default=None)

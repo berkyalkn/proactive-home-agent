@@ -155,7 +155,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
       <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-30 mb-6">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Link
-            href="/"
+            href="/dashboard"
             className="p-2 bg-secondary hover:bg-secondary/80 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
           >
             <ArrowLeft className="h-5 w-5" />

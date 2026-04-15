@@ -16,6 +16,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
     try {
       const params = new URLSearchParams();
       params.append('username', username);
@@ -25,10 +26,27 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
       
-      localStorage.setItem('token', res.data.access_token);
+      const token = res.data.access_token;
+      localStorage.setItem('token', token);
       localStorage.setItem('username', res.data.username);
       
-      setTimeout(() => router.push('/onboarding'), 500);
+      try {
+        const meRes = await api.get('/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (meRes.data.has_face) {
+          console.log("Registered biometric profile detected, redirecting to Dashboard...");
+          router.push('/dashboard');
+        } else {
+          console.log("The incomplete biometric profile is being forwarded to Onboarding...");
+          router.push('/onboarding');
+        }
+      } catch (meError) {
+        console.warn("The user profile could not be verified; for security reasons, they are being redirected to Onboarding.", meError);
+        router.push('/onboarding'); 
+      }
+
     } catch (err: any) {
       alert("Incorrect username or password! Please try again.");
     } finally {

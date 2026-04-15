@@ -93,6 +93,14 @@ async def setup_home(request: SetupRequest, current_user: User = Depends(get_cur
                         protocol="tapo_bulb", 
                         room_id=new_room.id
                     ))
+
+                if r_data.hasCamera:
+                    session.add(Device(
+                        name=f"{r_data.name} Camera", 
+                        device_type="camera", 
+                        protocol="rtsp", 
+                        room_id=new_room.id
+                    ))
             
             session.commit()
             logger.info(f"SUCCESS: {request.homeName} setup complete for {current_user.username}")

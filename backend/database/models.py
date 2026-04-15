@@ -6,9 +6,11 @@ from sqlalchemy import Column, JSON
 
 class Room(SQLModel, table=True):
     __tablename__ = "rooms"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    name: str = Field(unique=True, index=True)
-    room_type: str 
+    id: Optional[int] = Field(default=None, primary_key=True)
+    room_key: str = Field(index=True) 
+    display_name: str 
+    icon_name: str = Field(default="MapPin") 
+    owner_id: int = Field(foreign_key="users.id", index=True)
     devices: List["Device"] = Relationship(back_populates="room")
 
 class Device(SQLModel, table=True):
@@ -17,7 +19,7 @@ class Device(SQLModel, table=True):
     name: str
     device_type: str      
     protocol: str          
-    room_id: uuid.UUID = Field(foreign_key="rooms.id")
+    room_id: int = Field(foreign_key="rooms.id")
     room: Room = Relationship(back_populates="devices")
     ip_address: Optional[str] = None
     is_active: bool = True

@@ -28,7 +28,7 @@ export function FloorPlan() {
           setRooms(data.rooms); 
         }
       } catch (err) {
-        console.error("Odalar çekilemedi", err);
+        console.error("Rooms could not be taken", err);
       } finally {
         setIsLoading(false);
       }

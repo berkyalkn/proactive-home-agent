@@ -29,7 +29,7 @@
 
 ## Introduction
 
-This project is a local-first, privacy-centric smart home ecosystem designed to bridge the gap between traditional reactive IoT systems and true agentic intelligence. While standard hubs wait for explicit commands, Homify leverages a Hybrid AI Architecture running on a Raspberry Pi 5 to proactively manage the environment based on context, visual observation, spatial-episodic memory, and physical gestures.
+This project is a local-first, privacy-centric smart home ecosystem designed to bridge the gap between traditional reactive IoT systems and true agentic intelligence. While standard hubs wait for explicit commands, this project leverages a Hybrid AI Architecture running on a Raspberry Pi 5 to proactively manage the environment based on context, visual observation, spatial-episodic memory, and physical gestures.
 
 By orchestrating **Distributed ESP32 Sensor Nodes, Edge Computer Vision, Multi-Modal Presence Management, and Generative AI (LangGraph)**, the system creates a "conscious" living space. It doesn't just switch lights on; it understands context, visually identifies users upon entry via multi-angle biometrics, comprehends hand gestures, retains a chronological memory of spatial events, and executes complex natural language goals autonomously—while keeping critical data within the home network.
 
@@ -41,9 +41,9 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 
 | Layer | Component | Description |
 | :--- | :--- | :--- |
-| **L5** | **Presentation** | Next.js Dashboard & Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds). |
+| **L5** | **Presentation** | Next.js Dashboard, **4-Step Autonomous Onboarding Engine**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with real-time UI/UX via Framer Motion. |
 | **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision (YOLOv8-Face Alignment + GhostFaceNet Biometrics + Asynchronous MediaPipe Gestures), and Predictive Models. It filters intents through a 3-stage logic (Edge -> Local RAG -> Cloud LLM) and it utilizes Zero-Latency Omniscient Context Injection and Graceful Degradation. |
-| **L3** | **Backend Services** | FastAPI Microservices that manage logic routing, data persistence (PostgreSQL), presence ledgers, and background polling tasks. |
+| **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, data persistence (PostgreSQL), presence ledgers, and real-time System Integrity Diagnostics. |
 | **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST(Edge Node Image Transmission) ensuring <50ms latency. |
 | **L1** | **Physical** | Distributed hardware layer consisting of the Pi 5 Hub, ESP32 Sensor Nodes, Tapo Actuators, and Edge Camera Nodes running a 4-Layer Quality Gate. |
 
@@ -92,10 +92,12 @@ The Agent interacts with the physical world through a set of "Robust Tools" that
 - `control_smart_device (Self-Healing Actuator)`: Wraps the Tapo P110 driver with a Self-Healing Mechanism. If a device is unreachable, it attempts to re-authenticate and reconnect before reporting a failure.
 - `control_bulb (Advanced Lighting)`: Manages L530 bulbs with full HSL (Hue, Saturation, Lightness) color space support. Can translate vague natural language commands (e.g., "Make it cozy") into specific color temperatures.
 
-### 3. Dual-Biometric Zero-Trust Security & YOLOv8 Bypass
+### 3. Dual-Biometric Zero-Trust Security & Progressive Profiling
 
 
 No command is executed without continuous authentication, utilizing both visual and vocal verification.
+
+- **Token-Based Autonomous Enrollment:** The system abandons legacy manual inputs. Users authenticate via standard JWT, and the system autonomously links 5-point spatial face meshes and acoustic signatures to existing database records (Upsert logic), preventing duplicate entities and manual data entry errors.
 
 - **Visual Authentication (Edge-to-Hub Pipeline):** The system utilizes an Apple FaceID-style 5-angle enrollment stored in PostgreSQL. For real-time inference, it relies on a highly optimized dual-stage architecture: Google’s **MediaPipe BlazeFace** handles high-speed detection on the Edge. Before transmission, frames pass through a new **4-Layer Edge Quality Gate** (Size/Ratio -> Brightness -> Laplacian Blur -> Pose Frontality) to ensure only perfect, 15KB pre-cropped ROIs are sent over the network.
 
@@ -131,7 +133,22 @@ The system transforms passive hand gestures into physical actuations via a sophi
 ---
 
 
-### Tech Stack
+## Onboarding-Driven Development (ODD)
+
+The ecosystem features a bespoke, immersive 4-Step Onboarding Engine that acts as the "Constitution" for the Smart Home, dynamically generating the backend schema before the user ever reaches the dashboard.
+
+-  **1-Initialization:** Establishes the home identity, environmental constraints (Location for automated sunrise/sunset routines), and household dynamics (Solo, Family, Pets) to dictate the AI's default autonomy level.
+
+- **2-Auto-Discovery & Smart Spaces:** Replaces tedious manual forms with a simulated autonomous network scan. Automatically maps detected hardware (Sensors, Plugs, CCTV) to a spatial topology (e.g., 2+1 Layout) with smart defaults tailored to real-world edge scenarios.
+
+- **3-System Integrity Diagnostics:** A real-time validation pipeline. Before proceeding, the frontend explicitly pings and validates the PostgreSQL Database sync, MQTT Sensor Bridge connectivity, and WebSocket pipelines, preventing downstream failures.
+
+- **4-Biometric Security Calibration:** Captures the 5-point face mesh and acoustic footprint via an interactive, gaze-guided UI, securing the system under the master administrator's token.
+
+---
+
+
+## Tech Stack
 
 ### AI & Machine Learning
 

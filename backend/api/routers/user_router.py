@@ -60,22 +60,19 @@ async def add_guest(
     audio_file: Optional[UploadFile] = File(None),
     image_file: Optional[UploadFile] = File(None)
 ):
-    """
-    A new 'Guest' (Housemate) is added to the house by the Admin (Host).
-    A user is created in the database, and biometric vectors are generated
-    """
     guest_name = name.strip()
-    logger.info(f"User '{current_user.username}' is adding a new guest: '{guest_name}'")
+    logger.info(f"Homeowner '{current_user.username}' is adding guest: '{guest_name}'")
 
     if not audio_file and not image_file:
-        raise HTTPException(status_code=400, detail="Must provide at least an audio or image file for the guest.")
+        raise HTTPException(status_code=400, detail="Must provide at least an audio or image file.")
 
     with Session(engine) as session:
         existing_user = session.exec(select(User).where(User.username == guest_name)).first()
         if not existing_user:
             new_guest = User(
                 username=guest_name,
-                role="guest", 
+                role="guest",
+                owner_id=current_user.id, 
                 hashed_password="not-a-real-password-guest-account" 
             )
             session.add(new_guest)
@@ -103,7 +100,7 @@ async def add_guest(
             logger.error(f"Face Registration Error: {e}")
             raise HTTPException(status_code=400, detail=f"Face Error: {str(e)}")
 
-    return {"status": "success", "message": f"Guest '{guest_name}' added successfully with: {', '.join(results)}"}
+    return {"status": "success", "message": f"Guest '{guest_name}' added to {current_user.username}'s home."}
 
 
 @router.delete("/{username}")
@@ -127,7 +124,17 @@ def delete_user(username: str, current_user: User = Depends(get_current_user)):
 @router.get("/list")
 def list_users(current_user: User = Depends(get_current_user)):
     """Lists registered usernames from Database."""
+
     with Session(engine) as session:
-        users = session.exec(select(User)).all()
-        user_list = [u.username for u in users]
+        authorized_entities = session.exec(
+            select(User)
+            .where(
+                (User.id == current_user.id) | (User.owner_id == current_user.id)
+            )
+            .where(
+                (User.face_embedding != None) | (User.voice_embedding != None)
+            )
+        ).all()
+        
+        user_list = [u.username for u in authorized_entities]
         return {"users": user_list}

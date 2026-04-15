@@ -81,6 +81,7 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
     role: str = Field(default="guest") 
+    owner_id: Optional[int] = Field(default=None, foreign_key="users.id") 
     voice_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))
     face_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON)) 
     hashed_password: str = Field(nullable=False)   

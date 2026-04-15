@@ -49,12 +49,16 @@ export function UserManager() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
+
   const fetchUsers = async () => {
     setLoading(true);
+    const token = localStorage.getItem('token'); 
     try {
-      const res = await fetch(`${API_URL}/users/list`);
+      const res = await fetch(`${API_URL}/users/list`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
-      setUsers(data.users || []);
+      setUsers(data.users || []); 
     } catch (e) { console.error(e); } 
     finally { setLoading(false); }
   };
@@ -63,8 +67,12 @@ export function UserManager() {
 
   const handleDelete = async (username: string) => {
     if(!confirm(`Delete user "${username}"?`)) return;
+    const token = localStorage.getItem('token');
     try {
-      await fetch(`${API_URL}/users/${username}`, { method: "DELETE" });
+      await fetch(`${API_URL}/users/${username}`, { 
+          method: "DELETE",
+          headers: { 'Authorization': `Bearer ${token}` } 
+      });
       fetchUsers(); 
     } catch (e) { console.error("Delete failed", e); }
   };
@@ -146,34 +154,40 @@ export function UserManager() {
     }
     
     setStatus("uploading");
+    const token = localStorage.getItem('token'); 
 
     try {
       const form1 = new FormData();
       form1.append("name", name.trim());
       form1.append("image_file", faces.front as Blob, "front.jpg");
       if (audioBlob) form1.append("audio_file", audioBlob, "voice_sample.webm");
-      let res = await fetch(`${API_URL}/users/register`, { method: "POST", body: form1 });
+      
+      let res = await fetch(`${API_URL}/users/add-guest`, { 
+          method: "POST", 
+          body: form1,
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error("Registration failed on front face");
 
-      const form2 = new FormData();
-      form2.append("name", name.trim());
-      form2.append("image_file", faces.left as Blob, "left.jpg");
-      await fetch(`${API_URL}/users/register`, { method: "POST", body: form2 });
+      const angles = [
+        { file: faces.left, name: "left.jpg" },
+        { file: faces.right, name: "right.jpg" },
+        { file: faces.up, name: "up.jpg" },
+        { file: faces.down, name: "down.jpg" }
+      ];
 
-      const form3 = new FormData();
-      form3.append("name", name.trim());
-      form3.append("image_file", faces.right as Blob, "right.jpg");
-      await fetch(`${API_URL}/users/register`, { method: "POST", body: form3 });
-
-      const form4 = new FormData();
-      form4.append("name", name.trim());
-      form4.append("image_file", faces.up as Blob, "up.jpg");
-      await fetch(`${API_URL}/users/register`, { method: "POST", body: form4 });
-
-      const form5 = new FormData();
-      form5.append("name", name.trim());
-      form5.append("image_file", faces.down as Blob, "down.jpg");
-      await fetch(`${API_URL}/users/register`, { method: "POST", body: form5 });
+      for (const angle of angles) {
+        if (angle.file) {
+          const form = new FormData();
+          form.append("name", name.trim());
+          form.append("image_file", angle.file, angle.name);
+          await fetch(`${API_URL}/users/add-guest`, { 
+            method: "POST", 
+            body: form,
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        }
+      }
 
       setStatus("success");
       setTimeout(() => {

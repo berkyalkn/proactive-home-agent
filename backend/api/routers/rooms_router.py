@@ -3,8 +3,15 @@ from sqlmodel import Session, select
 from database.settings import engine
 from database.models import Room, User, Device
 from api.routers.auth_router import get_current_user
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
+
+class AddDeviceRequest(BaseModel):
+    id: str           
+    display_name: str 
+    ip: str           
+    device_type: str  
 
 @router.get("/list")
 def list_my_rooms(current_user: User = Depends(get_current_user)):
@@ -56,3 +63,40 @@ def get_room_inventory(room_key: str, current_user: User = Depends(get_current_u
         }
         
         return inventory
+
+
+@router.post("/{room_key}/devices")
+def add_device_to_room(room_key: str, request: AddDeviceRequest, current_user: User = Depends(get_current_user)):
+    """Adds a newly discovered device to an existing room."""
+    
+    with Session(engine) as session:
+        room = session.exec(
+            select(Room).where(Room.room_key == room_key, Room.owner_id == current_user.id)
+        ).first()
+        
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+            
+        existing_device = session.exec(select(Device).where(Device.name == request.id)).first()
+        if existing_device:
+            raise HTTPException(status_code=400, detail="Device is already registered in the system.")
+
+        protocol = "unknown"
+        if request.device_type == "outlet": protocol = "tapo"
+        elif request.device_type == "bulb": protocol = "tapo_bulb"
+        elif request.device_type == "sensor_node": protocol = "mqtt"
+        elif request.device_type == "camera": protocol = "rtsp"
+
+        new_device = Device(
+            name=request.id,
+            display_name=request.display_name,
+            device_type=request.device_type,
+            protocol=protocol,
+            room_id=room.id,
+            ip_address=request.ip
+        )
+        
+        session.add(new_device)
+        session.commit()
+        
+        return {"status": "success", "message": f"{request.display_name} successfully added to {room.display_name}."}

@@ -28,7 +28,7 @@ def list_my_rooms(current_user: User = Depends(get_current_user)):
 
 @router.get("/{room_key}/inventory")
 def get_room_inventory(room_key: str, current_user: User = Depends(get_current_user)):
-    """It returns a list of the types of devices (sensors, cameras, lights, power outlets) present in the room."""
+    """It returns a list of the types of devices and their specific IDs present in the room."""
 
     with Session(engine) as session:
         room = session.exec(
@@ -40,11 +40,19 @@ def get_room_inventory(room_key: str, current_user: User = Depends(get_current_u
 
         devices = session.exec(select(Device).where(Device.room_id == room.id)).all()
 
+        devices_dict = {}
+        for d in devices:
+            devices_dict[d.name] = {
+                "type": d.device_type,
+                "display_name": d.display_name or d.name
+            }
+
         inventory = {
             "hasSensor": any(d.device_type == "sensor_node" for d in devices),
             "hasCamera": any(d.device_type == "camera" for d in devices),
             "hasLight": any(d.device_type == "bulb" for d in devices),
-            "hasPlug": any(d.device_type == "outlet" for d in devices)
+            "hasPlug": any(d.device_type == "outlet" for d in devices),
+            "devices": devices_dict
         }
         
         return inventory

@@ -19,7 +19,7 @@ def save_sensor_data(mqtt_data: dict):
         device_uuid = get_device_uuid_by_name(session, device_name)
         
         if not device_uuid:
-            logger.warning(f"Data received from unknown sensor: {device_name}. Not saved.")
+            
             return
 
         try:
@@ -58,7 +58,7 @@ def save_device_state(device_data: dict):
         db_device = session.exec(statement).first()
         
         if not db_device:
-            logger.warning(f"No device found in database: {device_name}")
+
             return
 
         try:

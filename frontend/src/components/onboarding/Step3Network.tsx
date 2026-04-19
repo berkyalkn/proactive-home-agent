@@ -43,7 +43,12 @@ export default function Step3Network({ onNext }: Props) {
   }, [onNext]);
 
   return (
-    <div className="bg-white/60 backdrop-blur-xl border border-slate-200/60 p-10 rounded-3xl shadow-xl shadow-slate-200/50 flex flex-col items-center min-h-[450px]">
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="bg-white/60 backdrop-blur-xl border border-slate-200/60 p-10 rounded-3xl shadow-xl shadow-slate-200/50 flex flex-col items-center min-h-[450px]"
+    >
       
       <h2 className="text-2xl font-extrabold text-slate-900 mb-2">System Integrity</h2>
       <p className="text-slate-500 text-sm mb-10">Validating core pipelines and hardware bridges.</p>
@@ -114,6 +119,6 @@ export default function Step3Network({ onNext }: Props) {
           )}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

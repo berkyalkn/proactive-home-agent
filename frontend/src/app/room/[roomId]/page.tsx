@@ -8,6 +8,7 @@ import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
 import { BulbControl } from "@/components/BulbControl";
 import { CameraFeed } from "@/components/CameraFeed";
 import { SensorHistoryModal } from "@/components/SensorHistoryModal";
+import { AddDeviceModal } from "@/components/AddDeviceModal"; 
 import { useChat } from "@/context/ChatContext";
 
 import {
@@ -49,14 +50,14 @@ const formatTitle = (roomId: string) => {
   return roomId.charAt(0).toUpperCase() + roomId.slice(1);
 };
 
-const EmptyModuleState = ({ icon: Icon, title, description }: { icon: any, title: string, description: string }) => (
+const EmptyModuleState = ({ icon: Icon, title, description, onAdd }: { icon: any, title: string, description: string, onAdd: () => void }) => (
   <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border/50 rounded-2xl bg-muted/10 text-center h-full min-h-[200px]">
     <div className="p-3 bg-muted rounded-full mb-3 text-muted-foreground/50">
       <Icon className="h-8 w-8" />
     </div>
     <h3 className="text-sm font-bold text-foreground mb-1">{title}</h3>
     <p className="text-xs text-muted-foreground max-w-[250px] mb-4">{description}</p>
-    <button className="flex items-center gap-1.5 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-xs font-medium transition-colors">
+    <button onClick={onAdd} className="flex items-center gap-1.5 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-xs font-medium transition-colors">
       <Plus className="w-3.5 h-3.5" /> Configure Device
     </button>
   </div>
@@ -72,11 +73,21 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   const [isLoading, setIsLoading] = useState(false);
   const [sensorNodeId, setSensorNodeId] = useState<string | null>(null);
   
+  const [reloadTrigger, setReloadTrigger] = useState(0); 
+  
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [deviceTypeToAdd, setDeviceTypeToAdd] = useState<"outlet" | "bulb" | "camera" | "sensor_node">("outlet");
+
   const [inventory, setInventory] = useState<RoomInventory>({
     hasSensor: false, hasCamera: false, hasLight: false, hasPlug: false, isLoaded: false, devices: {}
   });
 
   const [selectedSensor, setSelectedSensor] = useState<{ title: string; metricKey: string; unit: string; value: string | number; } | null>(null);
+
+  const openAddModal = (type: "outlet" | "bulb" | "camera" | "sensor_node") => {
+    setDeviceTypeToAdd(type);
+    setIsAddModalOpen(true);
+  };
 
   useEffect(() => {
     const fetchInventory = async () => {
@@ -99,7 +110,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
       }
     };
     fetchInventory();
-  }, [roomId]);
+  }, [roomId, reloadTrigger]); 
 
   useEffect(() => {
     if (sensorNodeId && latestSensorData[sensorNodeId]) {
@@ -119,7 +130,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
         } catch (e) { console.error(e); }
     };
     fetchInitial();
-  }, [sensorNodeId, inventory.hasSensor]);
+  }, [sensorNodeId, inventory.hasSensor, reloadTrigger]);
 
   useEffect(() => {
     if (!inventory.hasPlug && !inventory.hasLight) return; 
@@ -140,7 +151,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
       } catch (e) { console.error(e); }
     };
     fetchDevicesInitial();
-  }, [inventory]);
+  }, [inventory, reloadTrigger]);
 
   useEffect(() => {
     if (Object.keys(latestDeviceData).length > 0) {
@@ -201,9 +212,16 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
         <VoiceCommandCenter />
         
         <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Activity className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Environment Status</h2>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Environment Status</h2>
+            </div>
+            {!inventory.hasSensor && (
+               <button onClick={() => openAddModal("sensor_node")} className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors">
+                 <Plus className="w-4 h-4" />
+               </button>
+            )}
           </div>
 
           {inventory.hasSensor ? (
@@ -224,28 +242,38 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
               </div>
             )
           ) : (
-            <EmptyModuleState icon={Cpu} title="No Sensor Node Detected" description="Monitor temperature, humidity, and motion by adding an ESP32 sensor node to this room." />
+            <EmptyModuleState icon={Cpu} title="No Sensor Node Detected" description="Monitor temperature, humidity, and motion by adding an ESP32 sensor node to this room." onAdd={() => openAddModal("sensor_node")} />
           )}
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           
           <section className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Cctv className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Live Feed</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Cctv className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Live Feed</h2>
+              </div>
+              <button onClick={() => openAddModal("camera")} className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors">
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
             {inventory.hasCamera ? (
               <CameraFeed roomId={roomId} />
             ) : (
-              <EmptyModuleState icon={Cctv} title="Camera Feed Offline" description="No RTSP cameras are assigned to this space. Add one via settings to enable live monitoring." />
+              <EmptyModuleState icon={Cctv} title="Camera Feed Offline" description="No RTSP cameras are assigned to this space. Add one via settings to enable live monitoring." onAdd={() => openAddModal("camera")} />
             )}
           </section>
 
           <section className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Lightbulb className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Smart Lighting</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Smart Lighting</h2>
+              </div>
+              <button onClick={() => openAddModal("bulb")} className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors">
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
 
             {inventory.hasLight ? (
@@ -262,23 +290,28 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                 </div>
               )
             ) : (
-              <EmptyModuleState icon={Lightbulb} title="No Smart Bulbs" description="This room is not equipped with smart lighting control. Configure a Tapo bulb to get started." />
+              <EmptyModuleState icon={Lightbulb} title="No Smart Bulbs" description="This room is not equipped with smart lighting control. Configure a Tapo bulb to get started." onAdd={() => openAddModal("bulb")} />
             )}
           </section>
 
         </div>
 
         <section className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Other Devices</h2>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Other Devices</h2>
+            </div>
+            <button onClick={() => openAddModal("outlet")} className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors">
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
 
           {inventory.hasPlug ? (
             roomPlugs.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {roomPlugs.map(([id, dev]) => (
-                  <DeviceCard key={id} deviceId={id} name={dev.name} type={dev.type} isOn={dev.on} power={dev.power} onToggle={handleToggleDevice} isLoading={isLoading} />
+                  <DeviceCard key={id} deviceId={id} name={dev.name} type={dev.type as "outlet"} isOn={dev.on} power={dev.power} onToggle={handleToggleDevice} isLoading={isLoading} />
                 ))}
               </div>
             ) : (
@@ -288,7 +321,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
               </div>
             )
           ) : (
-            <EmptyModuleState icon={PlugZap} title="No Smart Plugs" description="Appliances in this room cannot be controlled remotely. Add a smart plug to enable power management." />
+            <EmptyModuleState icon={PlugZap} title="No Smart Plugs" description="Appliances in this room cannot be controlled remotely. Add a smart plug to enable power management." onAdd={() => openAddModal("outlet")} />
           )}
         </section>
 
@@ -297,6 +330,14 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
       {selectedSensor && (
         <SensorHistoryModal isOpen={!!selectedSensor} onClose={() => setSelectedSensor(null)} title={selectedSensor.title} metricKey={selectedSensor.metricKey} unit={selectedSensor.unit} currentValue={selectedSensor.value} deviceId={sensorNodeId || ""} />
       )}
+
+      <AddDeviceModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        roomId={roomId} 
+        deviceType={deviceTypeToAdd} 
+        onSuccess={() => setReloadTrigger(prev => prev + 1)} 
+      />
     </div>
   );
 }

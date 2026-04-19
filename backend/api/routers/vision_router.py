@@ -8,8 +8,11 @@ from api.services.websocket_manager import manager
 from datetime import datetime, timezone, timedelta
 from api.drivers.mqtt_service import LATEST_SENSOR_DATA
 from api.agent.cache import get_cached, set_cache
-from api.agent.tools import HOME_INVENTORY, control_bulb
+from api.agent.tools import control_bulb 
 from api.routers.devices_router import get_all_devices, set_color, ColorControl
+from sqlmodel import Session, select
+from database.settings import engine
+from database.models import Room, Device
 
 import logging
 import cv2
@@ -25,21 +28,19 @@ router = APIRouter(prefix="/vision", tags=["Vision Analysis"])
 class PresenceEvent(BaseModel):
     user: str
     status: str
-    location: str = "living_room"
+    location: str = "livingroom"
 
 class GestureEvent(BaseModel):
     gesture: str
     user: str
-    location: str = "living_room"
+    location: str = "livingroom"
     timestamp: float
     duration: float
-
 
 class ActionState:
     last_executions = {}
 
 ACTION_COOLDOWN = 10.0
-
 
 async def trigger_agent_proactively(person_name: str, event_type: str):
     logger.info(f"Agent Wakes Up: {person_name} set {event_type} to the room...")
@@ -57,22 +58,15 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
         devices = get_cached("all_devices", ttl=3600) or {}
 
     device_status_list = [f"{v.get('name', k)} is {'ON' if v.get('on') else 'OFF'}" for k, v in devices.items()]
-    for room, config in HOME_INVENTORY.items():
-        for bulb_id in config.get("smart_bulbs", []):
-            bulb_data = get_cached(f"bulb_{bulb_id}", ttl=3600)
-            if bulb_data:
-                state = "ON" if bulb_data.get("on") else "OFF"
-                device_status_list.append(f"{bulb_data.get('name', bulb_id)} is {state}")
-    
     device_status = ", ".join(device_status_list) if device_status_list else "Unknown or Offline"
 
-    lr_sensors = LATEST_SENSOR_DATA.get("esp32_livingroom", {})
-    if not lr_sensors:
-        sensor_context = "ESP32 Livingroom Sensor is OFFLINE or UNREACHABLE."
-    else:
-        temp = lr_sensors.get("temperature", "Unknown")
-        light = lr_sensors.get("light_level", "Unknown")
-        sensor_context = f"Temperature: {temp}°C, Light Level: {light}"
+    sensor_context_parts = []
+    for s_id, s_data in LATEST_SENSOR_DATA.items():
+        temp = s_data.get("temperature", "N/A")
+        light = s_data.get("light_level", "N/A")
+        sensor_context_parts.append(f"{s_id} -> Temp: {temp}°C, Light: {light}lx")
+        
+    sensor_context = " | ".join(sensor_context_parts) if sensor_context_parts else "All Sensors are OFFLINE or UNREACHABLE."
 
     if event_type == "entered":
         if person_name in ["Guest", "Unknown", "A Stranger"]:
@@ -101,7 +95,7 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                     else:
                         time_instruction = "The user was just here recently. DO NOT mention how long they were gone or what time they left. Just say welcome back."
                 except Exception as e:
-                    logger.error(f"Time calculation error: {e}")
+                    pass
 
             system_prompt = (
                 f"[User: {person_name}] [System Event: User {person_name} entered at {current_time}.] \n"
@@ -110,7 +104,7 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"Devices: {device_status}\n"
                 f"---------------------------\n"
                 f"{time_context}\n"
-                f"You are J.A.R.V.I.S, the Proactive AI Home Agent. Greet {person_name} warmly. {time_instruction} \n"
+                f"You are the Proactive AI Home Agent. Greet {person_name} warmly. {time_instruction} \n"
                 f"CRITICAL RULES FOR LIGHTING:\n"
                 f"- Analyze the 'Devices' list. If the main lights or bulbs are ALREADY 'ON', DO NOT ask to turn them on, even if the light level is low.\n"
                 f"- ONLY offer to turn on the lights IF the 'Light Level' is low AND the lights are currently 'OFF'.\n"
@@ -127,7 +121,7 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
     elif event_type == "security_alert":
         system_prompt = (
             f"[System Event: SECURITY ALERT! User {person_name} triggered a 3-second Closed Fist gesture.] "
-            f"You are J.A.R.V.I.S, the Home Security Agent. "
+            f"You are the Home Security Agent. "
             f"Immediately confirm that you have received the silent alarm and are initiating lockdown protocols. "
             f"Be extremely brief, serious, and reassuring. (Max 2 sentences)."
         )
@@ -139,7 +133,7 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
             f"Sensors: {sensor_context}\n"
             f"Devices: {device_status}\n"
             f"---------------------------\n"
-            f"You are J.A.R.V.I.S, the Proactive Home Agent. RULES:\n"
+            f"You are the Proactive Home Agent. RULES:\n"
             f"1. Analyze the 'Devices' list. If ANY device is 'ON', you MUST turn it OFF to save energy.\n"
             f"2. Skip 'Unknown' or 'Offline' devices silently.\n"
             f"3. PERSONALITY: Explain briefly what you turned off to save energy because they left.\n"
@@ -152,16 +146,14 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
             try:
                 await manager.send_json(message_dict, connection)
             except Exception as e:
-                logger.error(f"Broadcast error: {e}")
+                pass
 
     try:
         await broadcast({"status": "processing"})
         sentence_buffer = ""
 
         async for chunk in chat_with_ai(user_input=system_prompt, thread_id="home_system_thread"):
-            if not isinstance(chunk, str):
-                continue
-                
+            if not isinstance(chunk, str): continue
             print(chunk, end="", flush=True)
             sentence_buffer += chunk
             await broadcast({"status": "text_chunk", "chunk": chunk})
@@ -184,30 +176,25 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
         await broadcast({"status": "stream_finished"})
 
     except Exception as e:
-        logger.error(f"An error occurred while triggering the agent: {e}")
+        logger.error(f"Agent trigger error: {e}")
         await broadcast({"status": "error", "message": "An error occurred."})
         await broadcast({"status": "stream_finished"})
 
-
 async def continuous_presence_check():
-    """It checks the room every 15-30 seconds without anyone needing to trigger it."""
     await asyncio.sleep(10) 
     logger.info("Continuous presence check active.")
     while True:
         try:
             exited_people = presence_service.check_timeouts()
             for person in exited_people:
-                logger.info(f"TIMEOUT EVENT: {person} has not been seen. Triggering goodbye...")
                 await trigger_agent_proactively(person, "exited")
         except Exception as e:
-            logger.error(f"Watchdog Error: {e}")
+            pass
         await asyncio.sleep(15) 
 
 @router.on_event("startup")
 async def startup_event():
-    """When FastAPI starts, it starts the watchdog in the background."""
     asyncio.create_task(continuous_presence_check())
-
 
 @router.post("/identify")
 async def identify_face(image_file: UploadFile = File(...)):
@@ -217,66 +204,51 @@ async def identify_face(image_file: UploadFile = File(...)):
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
         result = vision_service.recognize(frame, is_cropped=True)
-        
-        if not result["face_found"]:
-            return {"status": "no_face"}
+        if not result["face_found"]: return {"status": "no_face"}
         
         person_name = result["name"]
-
-        if person_name == "Unknown" or person_name is None:
-            return {"status": "unknown_person"}
+        if person_name == "Unknown" or person_name is None: return {"status": "unknown_person"}
             
         return {"status": "authorized", "user": person_name, "confidence": result["confidence"]}
-
     except Exception as e:
-        logger.error(f"Identify Error: {e}")
         raise HTTPException(status_code=500, detail="Identify Error")
-
-
 
 @router.post("/gesture")
 async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks):
     try:
         presence_service.log_gesture(event.user, event.gesture, event.location)
-        
         current_time = time.time()
         
         if event.gesture == "Victory" and event.duration >= 1.5:
             last_exec = ActionState.last_executions.get(f"{event.user}_victory", 0)
-            
             if current_time - last_exec > ACTION_COOLDOWN:
-                logger.info(f"Low-Risk Action: '{event.gesture}' held for {event.duration:.1f}s. Turning off living room lights.")
-                
                 try:
-                    await control_bulb.ainvoke({"location": "livingroom", "action": "OFF"})
+                    await control_bulb.ainvoke({"location": event.location, "action": "OFF"})
                 except AttributeError:
-                    control_bulb.invoke({"location": "livingroom", "action": "OFF"})
-                
+                    control_bulb.invoke({"location": event.location, "action": "OFF"})
                 ActionState.last_executions[f"{event.user}_victory"] = current_time
 
         elif event.gesture == "Closed_Fist" and event.duration >= 3.0:
             last_exec = ActionState.last_executions.get(f"{event.user}_fist", 0)
-            
             if current_time - last_exec > ACTION_COOLDOWN:
-                logger.warning(f"SECURITY PROTOCOL TRIGGERED! '{event.gesture}' held for {event.duration:.1f}s by {event.user}.")
-                
+                logger.warning(f"SECURITY PROTOCOL TRIGGERED! '{event.gesture}' by {event.user}.")
                 background_tasks.add_task(trigger_agent_proactively, event.user, "security_alert")
                 
                 async def safe_red_light():
                     try:
-                        await set_color(device_id="living_room_bulb", control=ColorControl(hue=0, saturation=100))
+                        with Session(engine) as session:
+                            bulb = session.exec(select(Device).where(Device.device_type == "bulb")).first()
+                            if bulb:
+                                await set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=100))
                     except Exception as e:
-                        logger.warning(f"Lockdown lights could not be turned on (Device Offline): {e}")
+                        logger.warning(f"Lockdown lights failed: {e}")
                 
                 background_tasks.add_task(safe_red_light)
-                
                 ActionState.last_executions[f"{event.user}_fist"] = current_time
                 
         return {"status": "gesture_processed", "gesture": event.gesture, "duration": event.duration}
     except Exception as e:
-        logger.error(f"Gesture Processing Error: {e}")
         raise HTTPException(status_code=500, detail="Gesture Processing Error")
-
 
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
@@ -285,7 +257,6 @@ async def update_presence(event: PresenceEvent, background_tasks: BackgroundTask
     status = event.status 
 
     if status == "camera_offline":
-        logger.warning("HARDWARE EVENT: Camera connection disconnected. Physical output will not be counted.")
         presence_service.active_people.clear() 
         background_tasks.add_task(trigger_agent_proactively, "System", "camera_offline")
         return {"status": "camera_offline_handled"}
@@ -299,12 +270,10 @@ async def update_presence(event: PresenceEvent, background_tasks: BackgroundTask
         ]
         if person_name in ["Unknown", "Identifying...", "A Stranger", "Guest"]:
             if len(authorized_hosts) > 0:
-                logger.info(f"Silent Protocol: The stranger entered the room, but the host ({authorized_hosts[0]}) was already inside. The agent was silenced.")
+                pass
             else:
-                logger.warning("SECURITY ALERT: A stranger has entered an EMPTY room!")
                 background_tasks.add_task(trigger_agent_proactively, "Guest", "entered")
         else:
-            logger.info(f"NEW EVENT: {person_name} entered the room! The agent is being awakened...")
             background_tasks.add_task(trigger_agent_proactively, person_name, "entered")
 
     return {"status": "ok"}

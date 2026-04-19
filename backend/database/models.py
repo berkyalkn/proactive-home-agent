@@ -15,18 +15,19 @@ class Room(SQLModel, table=True):
 
 class Device(SQLModel, table=True):
     __tablename__ = "devices"
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    name: str
+    name: str 
+    display_name: Optional[str] = None 
     device_type: str      
     protocol: str          
     room_id: int = Field(foreign_key="rooms.id")
-    room: Room = Relationship(back_populates="devices")
+    room: "Room" = Relationship(back_populates="devices")
     ip_address: Optional[str] = None
     is_active: bool = True
     
     readings: List["SensorReading"] = Relationship(back_populates="device")
     decisions: List["AgentDecision"] = Relationship(back_populates="target_device")
-
 
 class SensorReading(SQLModel, table=True):
     __tablename__ = "sensor_readings"

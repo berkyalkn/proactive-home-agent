@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from datetime import datetime, timedelta, timezone
 import time
-import uuid
 
 from database.settings import get_session
 from database.models import SensorReading, Device 
@@ -38,17 +37,11 @@ async def get_sensor_history(
     hours: int = 24,
     session: Session = Depends(get_session)
 ):
-    """
-    Historical data query.
-    """
-    
     device_statement = select(Device).where(Device.name == device_name)
     device = session.exec(device_statement).first()
     
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_name}' not found in DB")
-
-    device_uuid = device.id
 
     metric_map = {
         "temperature": "temperature",
@@ -66,7 +59,7 @@ async def get_sensor_history(
 
     statement = (
         select(SensorReading.timestamp, SensorReading.value)
-        .where(SensorReading.device_id == device_uuid)    
+        .where(SensorReading.device_id == device.id)    
         .where(SensorReading.reading_type == db_reading_type) 
         .where(SensorReading.timestamp >= time_threshold)
         .order_by(SensorReading.timestamp.asc())
@@ -78,10 +71,6 @@ async def get_sensor_history(
     for timestamp, value in results:
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
-
-        data.append({
-            "timestamp": timestamp,
-            "value": value
-        })
+        data.append({"timestamp": timestamp, "value": value})
             
     return data

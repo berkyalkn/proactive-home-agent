@@ -7,7 +7,7 @@ import { Plug, Power, Activity, Zap } from "lucide-react";
 interface DeviceCardProps {
   deviceId: string;
   name: string;
-  type: "outlet" | "bulb";
+  type: "outlet" | "bulb" | "camera" | "sensor_node"; 
   isOn: boolean;
   power?: number;
   onToggle: (deviceId: string, newStatus: boolean) => void;

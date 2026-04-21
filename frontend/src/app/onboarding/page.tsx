@@ -43,10 +43,11 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 flex flex-col items-center justify-center overflow-hidden relative">
-      <div className="fixed inset-0 pointer-events-none opacity-60">
-        <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }} transition={{ duration: 8, repeat: Infinity }} className="absolute top-[10%] left-[20%] w-[40vw] h-[40vw] bg-indigo-200/40 blur-[120px] rounded-full" />
-        <motion.div animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }} transition={{ duration: 10, repeat: Infinity }} className="absolute bottom-[10%] right-[20%] w-[30vw] h-[30vw] bg-violet-200/40 blur-[120px] rounded-full" />
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center overflow-hidden relative">
+      
+      <div className="fixed inset-0 pointer-events-none transform-gpu">
+        <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] bg-indigo-300/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-70" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50vw] h-[50vw] bg-violet-300/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-70" />
       </div>
 
       <div className="w-full max-w-2xl px-6 relative z-10">
@@ -55,7 +56,7 @@ export default function OnboardingPage() {
             
             {step === 1 && <Step1Init formData={formData} updateFormData={updateFormData} onNext={nextStep} />}
             {step === 2 && <Step2Hardware formData={formData} updateFormData={updateFormData} onNext={nextStep} />}
-            {step === 3 && <Step3Network onNext={nextStep} />}
+            {step === 3 && <Step3Network formData={formData} updateFormData={updateFormData} onNext={nextStep} />}
             {step === 4 && <Step4Biometrics />}
 
           </motion.div>
@@ -63,7 +64,7 @@ export default function OnboardingPage() {
 
         <div className="flex justify-center gap-3 mt-10 relative z-10">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${step === i ? 'w-10 bg-indigo-600' : step > i ? 'w-6 bg-indigo-300' : 'w-4 bg-slate-200'}`} />
+            <div key={i} className={`h-1.5 rounded-full transition-all duration-500 transform-gpu ${step === i ? 'w-10 bg-indigo-600' : step > i ? 'w-6 bg-indigo-300' : 'w-4 bg-slate-200'}`} />
           ))}
         </div>
       </div>

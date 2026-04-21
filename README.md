@@ -41,7 +41,7 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 
 | Layer | Component | Description |
 | :--- | :--- | :--- |
-| **L5** | **Presentation** | Next.js Dashboard, **4-Step Autonomous Onboarding Engine**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with real-time UI/UX via Framer Motion. |
+| **L5** | **Presentation** | Next.js Dashboard, **4-Step Autonomous Onboarding Engine**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with real-time UI/UX via GPU-accelerated Framer Motion. |
 | **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision (YOLOv8-Face Alignment + GhostFaceNet Biometrics + Asynchronous MediaPipe Gestures), and Predictive Models. It filters intents through a 3-stage logic (Edge -> Local RAG -> Cloud LLM) and it utilizes Zero-Latency Omniscient Context Injection and Graceful Degradation. |
 | **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, **dynamic relational data persistence (PostgreSQL/SQLModel) completely replacing static registries**, presence ledgers, and real-time System Integrity Diagnostics.. |
 | **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST(Edge Node Image Transmission) ensuring <50ms latency. |
@@ -148,15 +148,12 @@ The system transforms passive hand gestures into physical actuations via a sophi
 
 The ecosystem features a bespoke, immersive 4-Step Onboarding Engine that acts as the "Constitution" for the Smart Home, dynamically generating the backend schema before the user ever reaches the dashboard. All hardcoded variables have been eliminated in favor of this fully data-driven pipeline.
 
--  **1-Initialization:** Establishes the home identity, environmental constraints (Location for automated sunrise/sunset routines), and household dynamics (Solo, Family, Pets) to dictate the AI's default autonomy level.
-
-- **2-Auto-Discovery & Smart Naming:** Replaces tedious manual MAC/IP forms with a real-time autonomous network scan utilizing `mDNS Snooping (ESP32)` and `UDP Subnet Sweeping (Tapo)`. Users can assign Custom Display Names (e.g., "Oven", "Desk Lamp") to discovered hardware, which the AI and UI instantly inherit.
-
-- **3-System Integrity Diagnostics:** A real-time validation pipeline. Before proceeding, the frontend explicitly pings and validates the PostgreSQL Database sync, MQTT Sensor Bridge connectivity, and WebSocket pipelines, preventing downstream failures.
-
-- **4-Biometric Security Calibration:** Captures the 5-point face mesh and acoustic footprint via an interactive, gaze-guided UI, securing the system under the master administrator's token.
-
+- **1- AI Context Initialization:** Collects structural data (Household Type, Age Group) to seed the LangGraph System Prompt, allowing the AI to naturally adapt its tone and autonomous actions (e.g., enabling Pet-Safe heating profiles or Quiet Hours for roommates).
+- **2- Hardware Discovery & Physical Identification:** Replaces manual IP forms with an autonomous `mDNS Snooping` and `TCP Subnet Sweeping` radar. Features a **"Blink to Identify"** UI mechanic that physically toggles smart bulbs/plugs via backend drivers so users can seamlessly identify and map hardware to spatial nodes without losing device states.
+- **3- Biometric Security Calibration:** Captures a 5-point face mesh and acoustic footprint via an interactive, gaze-guided UI. Designed with human-centric copywriting to avoid intimidating technical jargon.
+- **4- System Finalization (The Labor Illusion):** Employs psychological UX design (deliberate UI delays and dynamic log tracking) to build anticipation and perceived value as the system compiles PostgreSQL schemas, encrypts signatures, and assembles the dashboard.
 ---
+
 
 
 ## Tech Stack
@@ -255,6 +252,14 @@ Instead of passively waiting for explicit commands, the LangGraph agent actively
 - **Parallel Async Processing:** The backend processes Voice Identification (CPU-bound) and Speech-to-Text (I/O-bound) in parallel using `asyncio.gather`, reducing response time by 50%.
 
 - **Streamed Intelligence:** Utilizes a Smart Audio Queue on the frontend to seamlessly buffer and play synthesized speech responses via WebSockets in real-time.
+
+### Seamless Authentication & FaceID Access
+
+The system completely redefines the traditional login/register flow by treating authentication as a fluid, biometric-first experience.
+
+- **Live FaceID Login:** Users can bypass traditional passwords entirely. The login interface captures a real-time webcam feed, passing the frame through the Edge Quality Gate directly to the GhostFaceNet backend for instantaneous, passwordless dashboard access.
+- **Smart Registration & State-Machine Routing:** Features a real-time visual password strength algorithm and strict email uniqueness validation mapped directly to PostgreSQL. Post-login, a strict State-Machine evaluates the `is_onboarding_complete` flag to seamlessly route users either to the Initialization Engine or the Control Dashboard, preventing unauthorized bypasses.
+- **Apple-Tier Modal UX:** Password recovery and biometric scanning flows are built using GPU-accelerated Framer Motion modals. The UI dynamically responds to backend API states (e.g., green checkmarks for verified emails, radar pulses for FaceID scanning) without ever leaving or refreshing the page.
 
 ### Interactive Dashboard & Biometric Management
 

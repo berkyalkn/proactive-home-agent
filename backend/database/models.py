@@ -83,6 +83,7 @@ class User(SQLModel, table=True):
     __tablename__ = "users"
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
+    email: str = Field(index=True, unique=True)
     role: str = Field(default="guest") 
     owner_id: Optional[int] = Field(default=None, foreign_key="users.id") 
     voice_embedding: Optional[List[float]] = Field(default=None, sa_column=Column(JSON))
@@ -90,3 +91,4 @@ class User(SQLModel, table=True):
     hashed_password: str = Field(nullable=False)   
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_seen: Optional[datetime] = Field(default=None)
+    is_onboarding_complete: bool = Field(default=False)

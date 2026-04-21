@@ -21,3 +21,16 @@ async def scan_network(current_user=Depends(get_current_user)):
     ]
     
     return {"discovered_devices": filtered_devices}
+
+
+@router.post("/identify/{device_id}")
+async def identify_device(device_id: str, current_user=Depends(get_current_user)):
+    """
+    The device sends a momentary trigger (Blink/Click) to reveal its location.
+    """
+
+    success = await discovery_service.ping_device_for_identification(device_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Could not reach the device to identify.")
+    
+    return {"message": "Identity ping sent"}

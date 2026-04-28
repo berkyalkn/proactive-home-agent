@@ -85,16 +85,33 @@ async def setup_home(request: SetupRequest, current_user: User = Depends(get_cur
 @router.get("/diagnostic")
 async def run_diagnostic(current_user: User = Depends(get_current_user)):
     """
-    Simulated diagnostic check. Returns database and mqtt_broker status 
-    as expected by Step3Network.tsx.
+    Gerçek DB ve MQTT bağlantı kontrolleri.
     """
+    import os
+    import paho.mqtt.client as mqtt
 
-    import asyncio
-    await asyncio.sleep(1.5) 
-    
+    # Gerçek DB probe
+    try:
+        with Session(engine) as s:
+            s.exec(select(User).limit(1)).first()
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    # Gerçek MQTT probe
+    try:
+        c = mqtt.Client()
+        mqtt_broker = os.getenv("MQTT_BROKER", "127.0.0.1")
+        mqtt_port = int(os.getenv("MQTT_PORT", 1883))
+        c.connect(mqtt_broker, mqtt_port, 5)
+        c.disconnect()
+        mqtt_ok = True
+    except Exception:
+        mqtt_ok = False
+
     return {
-        "status": "success", 
-        "database": True,
-        "mqtt_broker": True,
-        "message": "All encrypted hardware nodes are responding correctly."
+        "status": "success" if (db_ok and mqtt_ok) else "degraded", 
+        "database": db_ok,
+        "mqtt_broker": mqtt_ok,
+        "message": "Tüm sistemler aktif." if (db_ok and mqtt_ok) else "Bazı sistemlere erişilemiyor."
     }

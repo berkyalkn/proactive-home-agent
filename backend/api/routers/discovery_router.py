@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from api.services.discovery_service import discovery_service
 from api.routers.auth_router import get_current_user
 from database.models import User, Device

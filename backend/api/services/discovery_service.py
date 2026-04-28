@@ -38,8 +38,8 @@ class DiscoveryService:
                             "model": "ESP32 Custom",
                             "type": "sensor_node"
                         })
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"[Discovery] Hata: {e}")
 
         try:
             mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
@@ -78,8 +78,8 @@ class DiscoveryService:
                     "model": model_name,
                     "type": device_type
                 })
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"[Discovery] Hata: {e}")
 
         tasks = [check_tapo_ip(i) for i in range(2, 50)] 
         await asyncio.gather(*tasks)

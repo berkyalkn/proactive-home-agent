@@ -25,6 +25,7 @@ class VisionService:
             cls._instance.model_name = "GhostFaceNet"
             
             config = Config()
+            cls._instance.threshold = config.face_recognition.threshold
             config.detection.confidence = 0.6 
             config.detection.device = "cpu"
             config.face_recognition.alignment_backend = "none" 
@@ -171,7 +172,7 @@ class VisionService:
 
             best_name = "Unknown"
             best_score = -1.0
-            threshold = 0.50 
+            threshold = self.threshold 
             
             for name, embeddings_list in self.known_faces.items():
                 for known_emb in embeddings_list:

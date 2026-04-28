@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SensorCard } from "@/components/SensorCard";
 import { DeviceCard } from "@/components/DeviceCard";
 import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
@@ -12,7 +13,7 @@ import { AddDeviceModal } from "@/components/AddDeviceModal";
 import { useChat } from "@/context/ChatContext";
 
 import {
-  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap, Plus, Cpu
+  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap, Plus, Cpu, LogOut
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -66,6 +67,7 @@ const EmptyModuleState = ({ icon: Icon, title, description, onAdd }: { icon: any
 export default function RoomDetailPage({ params }: { params: Promise<{ roomId: string }> }) {
   const resolvedParams = use(params);
   const roomId = resolvedParams.roomId;
+  const router = useRouter();
   const { latestSensorData, latestDeviceData } = useChat();
 
   const [sensorData, setSensorData] = useState<RoomSensorData | null>(null);
@@ -185,6 +187,12 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
     setSelectedSensor({ title, metricKey, unit, value });
   };
 
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    router.push("/login");
+  };
+
   if (!inventory.isLoaded) {
     return <div className="min-h-screen flex items-center justify-center"><Activity className="animate-spin text-primary" /></div>;
   }
@@ -195,16 +203,28 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   return (
     <div className="min-h-screen bg-background pb-12">
       <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-30 mb-6">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/dashboard" className="p-2 bg-secondary hover:bg-secondary/80 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium">
-            <ArrowLeft className="h-5 w-5" /> Back
-          </Link>
-          <div className="h-6 w-[1px] bg-border mx-2"></div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <Home className="h-5 w-5 text-primary" /> {formatTitle(roomId)} Control
-            </h1>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="p-2 bg-secondary hover:bg-secondary/80 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium">
+              <ArrowLeft className="h-5 w-5" /> <span className="hidden sm:inline">Back</span>
+            </Link>
+            <div className="h-6 w-[1px] bg-border mx-2"></div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Home className="h-5 w-5 text-primary" /> {formatTitle(roomId)} Control
+              </h1>
+            </div>
           </div>
+
+          <button 
+            onClick={handleLogout} 
+            className="flex items-center gap-2 p-2 sm:px-4 sm:py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-bold transition-all border border-red-100"
+          >
+            <LogOut className="w-4 h-4" /> 
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+
         </div>
       </header>
 

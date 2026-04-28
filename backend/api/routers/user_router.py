@@ -69,8 +69,13 @@ async def add_guest(
     with Session(engine) as session:
         existing_user = session.exec(select(User).where(User.username == guest_name)).first()
         if not existing_user:
+            import uuid
+            safe_name = guest_name.lower().replace(" ", "")
+            dummy_email = f"guest_{safe_name}_{str(uuid.uuid4())[:6]}@homify.local"
+
             new_guest = User(
                 username=guest_name,
+                email=dummy_email, 
                 role="guest",
                 owner_id=current_user.id, 
                 hashed_password="not-a-real-password-guest-account" 

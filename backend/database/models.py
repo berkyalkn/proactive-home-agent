@@ -11,7 +11,10 @@ class Room(SQLModel, table=True):
     display_name: str 
     icon_name: str = Field(default="MapPin") 
     owner_id: int = Field(foreign_key="users.id", index=True)
-    devices: List["Device"] = Relationship(back_populates="room")
+    devices: List["Device"] = Relationship(
+        back_populates="room",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 class Device(SQLModel, table=True):
     __tablename__ = "devices"
@@ -26,8 +29,14 @@ class Device(SQLModel, table=True):
     ip_address: Optional[str] = None
     is_active: bool = True
     
-    readings: List["SensorReading"] = Relationship(back_populates="device")
-    decisions: List["AgentDecision"] = Relationship(back_populates="target_device")
+    readings: List["SensorReading"] = Relationship(
+        back_populates="device",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    decisions: List["AgentDecision"] = Relationship(
+        back_populates="target_device",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 class SensorReading(SQLModel, table=True):
     __tablename__ = "sensor_readings"
@@ -55,7 +64,10 @@ class AgentDecision(SQLModel, table=True):
     reasoning: str
     confidence: float
     
-    feedback: Optional["UserFeedback"] = Relationship(back_populates="decision")
+    feedback: Optional["UserFeedback"] = Relationship(
+        back_populates="decision",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 class UserFeedback(SQLModel, table=True):

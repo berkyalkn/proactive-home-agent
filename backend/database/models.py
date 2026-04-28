@@ -104,3 +104,15 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_seen: Optional[datetime] = Field(default=None)
     is_onboarding_complete: bool = Field(default=False)
+
+
+class GestureMapping(SQLModel, table=True):
+    __tablename__ = "gesture_mappings"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    owner_id: int = Field(foreign_key="users.id", index=True)
+    gesture_name: str 
+    target_device_id: uuid.UUID = Field(foreign_key="devices.id")
+    action: str 
+    owner: User = Relationship()
+    target_device: Device = Relationship()

@@ -13,7 +13,7 @@ import { AddDeviceModal } from "@/components/AddDeviceModal";
 import { useChat } from "@/context/ChatContext";
 
 import {
-  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap, Plus, Cpu, LogOut
+  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap, Plus, Cpu, LogOut, Sparkles
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -64,6 +64,55 @@ const EmptyModuleState = ({ icon: Icon, title, description, onAdd }: { icon: any
   </div>
 );
 
+const analyzeTemperature = (val: number | null) => {
+  if (val === null) return { text: "Unknown", color: "neutral" as const, desc: "Awaiting data." };
+  if (val < 18) return { text: "Cool", color: "info" as const, desc: "Monitors ambient heat. Currently below recommended levels, which might feel chilly." };
+  if (val > 26) return { text: "Warm", color: "critical" as const, desc: "Monitors ambient heat. Currently above recommended levels, which might feel uncomfortably hot." };
+  return { text: "Ideal", color: "normal" as const, desc: "Monitors ambient heat. Currently in the optimal range (18°C - 26°C) for a comfortable environment." };
+};
+
+const analyzeHumidity = (val: number | null) => {
+  if (val === null) return { text: "Unknown", color: "neutral" as const, desc: "Awaiting data." };
+  if (val < 30) return { text: "Dry", color: "warning" as const, desc: "Measures moisture in the air. Currently dry, which may cause skin irritation." };
+  if (val > 60) return { text: "Humid", color: "critical" as const, desc: "Measures moisture in the air. Currently high, which can feel muggy or promote mold." };
+  return { text: "Ideal", color: "normal" as const, desc: "Measures moisture in the air. Currently maintaining an optimal health balance." };
+};
+
+const analyzeLight = (val: number | null) => {
+  if (val === null) return { text: "Unknown", color: "neutral" as const, desc: "Awaiting data." };
+  if (val < 50) return { text: "Very Dim", color: "neutral" as const, desc: "Detects light intensity (Lux). Currently too dark for reading or activities." };
+  if (val < 150) return { text: "Dim", color: "info" as const, desc: "Detects light intensity (Lux). Currently provides a relaxing atmosphere, but low visibility." };
+  if (val > 800) return { text: "Bright", color: "warning" as const, desc: "Detects light intensity (Lux). Currently extremely luminous and potentially glaring." };
+  return { text: "Ideal", color: "normal" as const, desc: "Detects light intensity (Lux). Currently well-lit for general activities." };
+};
+
+const analyzePressure = (val: number | null) => {
+  if (val === null) return { text: "Unknown", color: "neutral" as const, desc: "Awaiting data." };
+  if (val < 990 || val > 1025) return { text: "Fluctuating", color: "warning" as const, desc: "Monitors barometric pressure. Rapid changes often indicate incoming weather shifts." };
+  return { text: "Stable", color: "normal" as const, desc: "Monitors barometric pressure. Currently showing normal atmospheric conditions." };
+};
+
+const generateRoomInsight = (sensorData: RoomSensorData | null, roomName: string) => {
+  if (!sensorData) return `Homify is analyzing the ${roomName} environment...`;
+
+  const t = analyzeTemperature(sensorData.temperature);
+  const l = analyzeLight(sensorData.light_level);
+
+  let insight = "Environmental conditions are currently optimal.";
+  let needsAction = false;
+  let actions = [];
+
+  if (t.color === "critical") { needsAction = true; actions.push("turn on the AC"); }
+  else if (t.color === "info") { needsAction = true; actions.push("turn on the heating"); }
+
+  if (l.text === "Dim" || l.text === "Very Dim") { needsAction = true; actions.push("turn on the lights"); }
+
+  if (needsAction) {
+    insight = `The room is currently ${t.text.toLowerCase()} and ${l.text.toLowerCase()}. Would you like me to ${actions.join(" and ")}?`;
+  }
+  return insight;
+};
+
 export default function RoomDetailPage({ params }: { params: Promise<{ roomId: string }> }) {
   const resolvedParams = use(params);
   const roomId = resolvedParams.roomId;
@@ -79,6 +128,12 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deviceTypeToAdd, setDeviceTypeToAdd] = useState<"outlet" | "bulb" | "camera" | "sensor_node">("outlet");
+
+  const tempStatus = analyzeTemperature(sensorData?.temperature ?? null);
+  const humStatus = analyzeHumidity(sensorData?.humidity ?? null);
+  const lightStatus = analyzeLight(sensorData?.light_level ?? null);
+  const presStatus = analyzePressure(sensorData?.pressure ?? null);
+  const aiInsightText = generateRoomInsight(sensorData, formatTitle(roomId));
 
   const [inventory, setInventory] = useState<RoomInventory>({
     hasSensor: false, hasCamera: false, hasLight: false, hasPlug: false, isLoaded: false, devices: {}
@@ -230,6 +285,18 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
 
       <main className="container mx-auto px-4 space-y-8">
         <VoiceCommandCenter />
+
+        {inventory.hasSensor && sensorData && (
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
+            <div className="p-2 bg-primary/10 rounded-full mt-0.5">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Homify Insight</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{aiInsightText}</p>
+            </div>
+          </div>
+        )}
         
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -248,11 +315,32 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
              sensorData ? (
               <div className="bg-card/40 p-4 rounded-2xl border border-border/50 shadow-sm">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <SensorCard title="Temp" value={formatValue(sensorData.temperature)} unit="°C" icon={Thermometer} onClick={() => openSensorHistory("Temperature", "temperature", "°C", formatValue(sensorData.temperature))} />
-                  <SensorCard title="Humidity" value={formatValue(sensorData.humidity)} unit="%" icon={Droplets} onClick={() => openSensorHistory("Humidity", "humidity", "%", formatValue(sensorData.humidity))} />
-                  <SensorCard title="Motion" value={sensorData.motion_detected ? "Active" : "Clear"} unit="" icon={Eye} />
-                  <SensorCard title="Light" value={formatValue(sensorData.light_level)} unit="lx" icon={Sun} onClick={() => openSensorHistory("Light Level", "light_level", "lx", formatValue(sensorData.light_level))} />
-                  <SensorCard title="Pressure" value={formatValue(sensorData.pressure)} unit="hPa" icon={Gauge} onClick={() => openSensorHistory("Pressure", "pressure", "hPa", formatValue(sensorData.pressure))} />
+                  <SensorCard 
+                    title="Temp" value={formatValue(sensorData.temperature)} unit="°C" icon={Thermometer} 
+                    statusText={tempStatus.text} statusColor={tempStatus.color} tooltipContent={tempStatus.desc}
+                    onClick={() => openSensorHistory("Temperature", "temperature", "°C", formatValue(sensorData.temperature))} 
+                  />
+                  <SensorCard 
+                    title="Humidity" value={formatValue(sensorData.humidity)} unit="%" icon={Droplets} 
+                    statusText={humStatus.text} statusColor={humStatus.color} tooltipContent={humStatus.desc}
+                    onClick={() => openSensorHistory("Humidity", "humidity", "%", formatValue(sensorData.humidity))} 
+                  />
+                  <SensorCard 
+                    title="Motion" value={sensorData.motion_detected ? "Active" : "Clear"} unit="" icon={Eye} 
+                    statusText={sensorData.motion_detected ? "Detected" : "Clear"} 
+                    statusColor={sensorData.motion_detected ? "warning" : "neutral"}
+                    tooltipContent={sensorData.motion_detected ? "Detects physical movement. Someone is currently in the room." : "Detects physical movement. The room is currently empty."}
+                  />
+                  <SensorCard 
+                    title="Light" value={formatValue(sensorData.light_level)} unit="lx" icon={Sun} 
+                    statusText={lightStatus.text} statusColor={lightStatus.color} tooltipContent={lightStatus.desc}
+                    onClick={() => openSensorHistory("Light Level", "light_level", "lx", formatValue(sensorData.light_level))} 
+                  />
+                  <SensorCard 
+                    title="Pressure" value={formatValue(sensorData.pressure)} unit="hPa" icon={Gauge} 
+                    statusText={presStatus.text} statusColor={presStatus.color} tooltipContent={presStatus.desc}
+                    onClick={() => openSensorHistory("Pressure", "pressure", "hPa", formatValue(sensorData.pressure))} 
+                  />
                 </div>
               </div>
             ) : (

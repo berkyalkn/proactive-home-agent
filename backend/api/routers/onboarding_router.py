@@ -38,7 +38,6 @@ async def setup_home(request: SetupRequest, current_user: User = Depends(get_cur
             old_rooms = session.exec(select(Room).where(Room.owner_id == current_user.id)).all()
             for r in old_rooms:
                 session.delete(r)
-            session.commit()
 
             icon_map = {
                 "livingroom": "Sofa", "bedroom": "BedDouble", 
@@ -53,7 +52,8 @@ async def setup_home(request: SetupRequest, current_user: User = Depends(get_cur
                     owner_id=current_user.id
                 )
                 session.add(new_room)
-                session.commit()
+                
+                session.flush() 
                 session.refresh(new_room)
                 
                 for dev in r_data.sensorDevices:
@@ -74,23 +74,23 @@ async def setup_home(request: SetupRequest, current_user: User = Depends(get_cur
                     ))
 
             session.commit()
-            logger.info(f"SUCCESS: {request.homeName} bound with unique hardware IDs for {current_user.username}")
             
+            logger.info(f"SUCCESS: {request.homeName} bound with unique hardware IDs for {current_user.username}")
             return {"status": "success", "message": "Ecosystem bound to hardware successfully."}
 
     except Exception as e:
+        session.rollback()
         logger.error(f"Setup Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/diagnostic")
 async def run_diagnostic(current_user: User = Depends(get_current_user)):
     """
-    Gerçek DB ve MQTT bağlantı kontrolleri.
+    Actual DB and MQTT connection checks.
     """
     import os
     import paho.mqtt.client as mqtt
 
-    # Gerçek DB probe
     try:
         with Session(engine) as s:
             s.exec(select(User).limit(1)).first()
@@ -98,7 +98,6 @@ async def run_diagnostic(current_user: User = Depends(get_current_user)):
     except Exception:
         db_ok = False
 
-    # Gerçek MQTT probe
     try:
         c = mqtt.Client()
         mqtt_broker = os.getenv("MQTT_BROKER", "127.0.0.1")
@@ -113,5 +112,5 @@ async def run_diagnostic(current_user: User = Depends(get_current_user)):
         "status": "success" if (db_ok and mqtt_ok) else "degraded", 
         "database": db_ok,
         "mqtt_broker": mqtt_ok,
-        "message": "Tüm sistemler aktif." if (db_ok and mqtt_ok) else "Bazı sistemlere erişilemiyor."
+        "message": "All systems are active." if (db_ok and mqtt_ok) else "Some systems are inaccessible."
     }

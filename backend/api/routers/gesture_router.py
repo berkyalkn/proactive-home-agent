@@ -15,6 +15,11 @@ class GestureSaveRequest(BaseModel):
     target_device_id: uuid.UUID
     action: str
 
+# YENİ EKLENEN KISIM: Toplu Kayıt Modeli
+class BulkGestureSaveRequest(BaseModel):
+    mappings: List[GestureSaveRequest]
+
+
 @router.get("/available-actions")
 def get_available_actions(current_user: User = Depends(get_current_user)):
     """
@@ -46,6 +51,35 @@ def get_mappings(current_user: User = Depends(get_current_user)):
         mappings = session.exec(select(GestureMapping).where(GestureMapping.owner_id == current_user.id)).all()
         return {"mappings": [{"id": m.id, "gesture_name": m.gesture_name, "target_device_id": str(m.target_device_id), "action": m.action} for m in mappings]}
 
+
+# YENİ EKLENEN KISIM: Toplu Kayıt (Bulk) Endpoint'i
+@router.post("/mappings/bulk")
+def bulk_save_mappings(request: BulkGestureSaveRequest, current_user: User = Depends(get_current_user)):
+    with Session(engine) as session:
+        # 1. Kullanıcıya ait tüm eski hareket atamalarını veritabanından tamamen sil
+        existing_mappings = session.exec(
+            select(GestureMapping).where(GestureMapping.owner_id == current_user.id)
+        ).all()
+        
+        for mapping in existing_mappings:
+            session.delete(mapping)
+            
+        # 2. Arayüzden gelen güncel hareket listesini taze bir şekilde ekle
+        for map_req in request.mappings:
+            if map_req.gesture_name: 
+                new_map = GestureMapping(
+                    owner_id=current_user.id,
+                    gesture_name=map_req.gesture_name,
+                    target_device_id=map_req.target_device_id,
+                    action=map_req.action
+                )
+                session.add(new_map)
+            
+        session.commit()
+        return {"status": "success", "message": "Bulk gesture mappings synced perfectly"}
+
+
+# ESKİ KISIM: Geriye dönük uyumluluk için tekli kayıt endpoint'ini tutuyoruz
 @router.post("/mappings")
 def save_mapping(request: GestureSaveRequest, current_user: User = Depends(get_current_user)):
     with Session(engine) as session:

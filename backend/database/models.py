@@ -116,3 +116,16 @@ class GestureMapping(SQLModel, table=True):
     action: str 
     owner: User = Relationship()
     target_device: Device = Relationship()
+
+
+class SecuritySettings(SQLModel, table=True):
+    __tablename__ = "security_settings" 
+    
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: int = Field(foreign_key="users.id", unique=True) 
+    emergency_gesture: str = Field(default="Closed_Fist") 
+    emergency_contact_name: str = Field(default="")       
+    emergency_phone: str = Field(default="")              
+    emergency_action_text: str = Field(default="Flash all lights red for 10 seconds and sound the alarm.")
+    
+    is_active: bool = Field(default=True)

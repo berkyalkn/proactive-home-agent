@@ -5,10 +5,17 @@ from pydantic import BaseModel
 import uuid
 
 from database.settings import engine
-from database.models import User, Device, GestureMapping
+from database.models import User, Device, GestureMapping, SecuritySettings
 from api.routers.auth_router import get_current_user
 
 router = APIRouter(prefix="/gestures", tags=["Gestures"])
+
+class SecuritySaveRequest(BaseModel):
+    emergency_gesture: str
+    emergency_contact_name: str
+    emergency_phone: str
+    emergency_action_text: str
+    is_active: bool
 
 class GestureSaveRequest(BaseModel):
     gesture_name: str
@@ -98,3 +105,52 @@ def save_mapping(request: GestureSaveRequest, current_user: User = Depends(get_c
             
         session.commit()
         return {"status": "success", "message": "Gesture mapped successfully"}
+
+
+@router.get("/security")
+def get_security_settings(current_user: User = Depends(get_current_user)):
+    with Session(engine) as session:
+        settings = session.exec(select(SecuritySettings).where(SecuritySettings.owner_id == current_user.id)).first()
+        
+        if not settings:
+            return {
+                "emergency_gesture": "",
+                "emergency_contact_name": "",
+                "emergency_phone": "",
+                "emergency_action_text": "",
+                "is_active": False
+            }
+            
+        return {
+            "emergency_gesture": settings.emergency_gesture,
+            "emergency_contact_name": settings.emergency_contact_name,
+            "emergency_phone": settings.emergency_phone,
+            "emergency_action_text": settings.emergency_action_text,
+            "is_active": settings.is_active
+        }
+
+@router.post("/security")
+def save_security_settings(request: SecuritySaveRequest, current_user: User = Depends(get_current_user)):
+    with Session(engine) as session:
+        settings = session.exec(select(SecuritySettings).where(SecuritySettings.owner_id == current_user.id)).first()
+        
+        if settings:
+            settings.emergency_gesture = request.emergency_gesture
+            settings.emergency_contact_name = request.emergency_contact_name
+            settings.emergency_phone = request.emergency_phone
+            settings.emergency_action_text = request.emergency_action_text
+            settings.is_active = request.is_active
+            session.add(settings)
+        else:
+            new_settings = SecuritySettings(
+                owner_id=current_user.id,
+                emergency_gesture=request.emergency_gesture,
+                emergency_contact_name=request.emergency_contact_name,
+                emergency_phone=request.emergency_phone,
+                emergency_action_text=request.emergency_action_text,
+                is_active=request.is_active
+            )
+            session.add(new_settings)
+            
+        session.commit()
+        return {"status": "success", "message": "Security protocol updated successfully."}

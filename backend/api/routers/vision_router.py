@@ -15,7 +15,7 @@ from api.routers.devices_router import (
 )
 from sqlmodel import Session, select
 from database.settings import engine
-from database.models import Room, Device, User, GestureMapping
+from database.models import Room, Device, User, GestureMapping, SecuritySettings
 
 import logging
 import cv2
@@ -176,6 +176,81 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
         await broadcast({"status": "error", "message": "An error occurred."})
         await broadcast({"status": "stream_finished"})
 
+
+async def execute_emergency_lockdown(person_name: str, settings: SecuritySettings):
+    logger.warning(f"EMERGENCY LOCKDOWN INITIATED BY {person_name}")
+    
+    async def flash_lights_red():
+        try:
+            with Session(engine) as session:
+                bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
+                if not bulbs: 
+                    logger.warning("No bulbs found for lockdown flashing.")
+                    return
+                
+                logger.info("Flashing lights red...")
+                for _ in range(5):
+                    for bulb in bulbs:
+                        await set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=100))
+                        await set_brightness(device_id=bulb.name, control=BrightnessControl(brightness=100))
+                    await asyncio.sleep(1.0)
+                    for bulb in bulbs:
+                        await control_device(device_id=bulb.name, control=DeviceControl(on=False))
+                    await asyncio.sleep(1.0)
+                    
+                for bulb in bulbs:
+                    await control_device(device_id=bulb.name, control=DeviceControl(on=True))
+                    await set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)) 
+                logger.info("Lockdown flashing complete.")
+        except Exception as e:
+            logger.error(f"Lockdown lights failed: {e}")
+
+    asyncio.create_task(flash_lights_red())
+
+
+    system_prompt = (
+        f"[SYSTEM EVENT: SECURITY OVERRIDE TRIGGERED BY {person_name}] "
+        f"User defined action: {settings.emergency_action_text} "
+        f"You are the Emergency Home Agent. "
+        f"Speak loudly and authoritatively. First, confirm the lockdown. "
+        f"Then, state explicitly that you are simulating a phone call to {settings.emergency_contact_name} at {settings.emergency_phone}. "
+        f"Keep it under 3 sentences."
+    )
+    
+    async def broadcast(message_dict: dict):
+        for connection in manager.active_connections:
+            try:
+                await manager.send_json(message_dict, connection)
+            except:
+                pass
+
+    try:
+        await broadcast({"status": "processing"})
+        sentence_buffer = ""
+        async for chunk in chat_with_ai(user_input=system_prompt, thread_id="emergency_thread"):
+            if not isinstance(chunk, str): continue
+            sentence_buffer += chunk
+            await broadcast({"status": "text_chunk", "chunk": chunk})
+
+            if any(punct in chunk for punct in [".", "?", "!", "\n"]):
+                if sentence_buffer.strip():
+                    audio_bytes = await text_to_speech(sentence_buffer)
+                    if audio_bytes:
+                        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+                        await broadcast({"status": "audio_chunk", "audio": audio_base64})
+                sentence_buffer = ""
+
+        if sentence_buffer.strip():
+            audio_bytes = await text_to_speech(sentence_buffer)
+            if audio_bytes:
+                audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+                await broadcast({"status": "audio_chunk", "audio": audio_base64})
+
+        await broadcast({"status": "stream_finished"})
+    except Exception as e:
+        logger.error(f"Emergency TTS error: {e}")
+
+
 async def continuous_presence_check():
     await asyncio.sleep(10) 
     logger.info("Continuous presence check active.")
@@ -224,6 +299,27 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
                     user_obj = session.exec(select(User).where(User.username == event.user)).first()
                     
                     if user_obj:
+                        
+                        security_config = session.exec(select(SecuritySettings).where(
+                            SecuritySettings.owner_id == user_obj.id
+                        )).first()
+
+                        if security_config: 
+                            if security_config.emergency_gesture == event.gesture:
+                                logger.info(f"SECURITY MATCH: Gesture '{event.gesture}' detected for {event.user}!")
+                                
+                                last_em_exec = ActionState.last_executions.get(f"{event.user}_emergency", 0)
+                                if current_time - last_em_exec > (ACTION_COOLDOWN * 3): 
+                                    logger.warning("Triggering Lockdown Background Task...")
+                                    background_tasks.add_task(execute_emergency_lockdown, event.user, security_config)
+                                    
+                                    ActionState.last_executions[f"{event.user}_emergency"] = current_time
+                                    ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
+                                    return {"status": "security_protocol_triggered"}
+                                else:
+                                    logger.info("⏳ Security gesture ignored due to 30s cooldown.")
+                                    return {"status": "security_cooldown_active"}
+                        
                         mapping = session.exec(select(GestureMapping).where(
                             GestureMapping.owner_id == user_obj.id,
                             GestureMapping.gesture_name == event.gesture
@@ -278,6 +374,7 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
     except Exception as e:
         logger.error(f"Gesture Processing Error: {e}")
         raise HTTPException(status_code=500, detail="Gesture Processing Error")
+
 
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):

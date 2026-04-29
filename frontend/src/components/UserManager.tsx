@@ -207,7 +207,7 @@ export function UserManager() {
   };
 
   return (
-    <div ref={containerRef} className="relative z-50">
+    <div ref={containerRef} className={`relative transition-all duration-300 ${isOpen ? "z-[100]" : "z-40"}`}>
       
       <Button 
           onClick={() => setIsOpen(!isOpen)}

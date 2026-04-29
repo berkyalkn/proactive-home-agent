@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Step1Init from '@/components/onboarding/Step1Init';
 import Step2Hardware from '@/components/onboarding/Step2Hardware';
 import Step3Biometrics from '@/components/onboarding/Step3Biometrics'; 
-import Step4Finalize from '@/components/onboarding/Step4Finalize'; 
+import Step4Gestures from '@/components/onboarding/Step4Gestures';
+import Step5Finalize from '@/components/onboarding/Step5Finalize'; 
 
 export interface OnboardingData {
     homeName: string; 
@@ -14,7 +15,7 @@ export interface OnboardingData {
     userAge: string;          
     topology: string;
     rooms: any[];
-  }
+}
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
@@ -57,13 +58,14 @@ export default function OnboardingPage() {
             {step === 1 && <Step1Init formData={formData} updateFormData={updateFormData} onNext={nextStep} />}
             {step === 2 && <Step2Hardware formData={formData} updateFormData={updateFormData} onNext={nextStep} />}
             {step === 3 && <Step3Biometrics onNext={nextStep} />}
-            {step === 4 && <Step4Finalize formData={formData} />}
+            {step === 4 && <Step4Gestures onNext={nextStep} />} 
+            {step === 5 && <Step5Finalize formData={formData} />}
 
           </motion.div>
         </AnimatePresence>
 
         <div className="flex justify-center gap-3 mt-10 relative z-10">
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className={`h-1.5 rounded-full transition-all duration-500 transform-gpu ${step === i ? 'w-10 bg-indigo-600' : step > i ? 'w-6 bg-indigo-300' : 'w-4 bg-slate-200'}`} />
           ))}
         </div>

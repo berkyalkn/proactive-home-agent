@@ -2,14 +2,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Activity, Database, Server, CheckCircle2, Loader2, BrainCircuit, ShieldCheck, Home } from 'lucide-react';
+import { Activity, Server, CheckCircle2, Loader2, BrainCircuit, ShieldCheck, Home, Hand } from 'lucide-react';
 import { OnboardingData } from '@/app/onboarding/page';
 
 interface Props {
   formData: OnboardingData;
 }
 
-export default function Step4Finalize({ formData }: Props) {
+export default function Step5Finalize({ formData }: Props) {
   const router = useRouter();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
@@ -17,6 +17,7 @@ export default function Step4Finalize({ formData }: Props) {
     { id: 'db', label: `Compiling rules for ${formData.homeName || 'your home'}`, icon: Home },
     { id: 'ws', label: `Wiring ${formData.rooms.length} spatial nodes`, icon: Server },
     { id: 'mqtt', label: 'Encrypting IoT & Biometric signatures', icon: ShieldCheck },
+    { id: 'gestures', label: 'Syncing gesture mappings & SOS protocols', icon: Hand },
     { id: 'ai', label: `Initializing LangGraph Agent (${formData.assistantName || 'AI'})`, icon: BrainCircuit },
   ];
 
@@ -24,7 +25,7 @@ export default function Step4Finalize({ formData }: Props) {
     if (currentStepIndex < BUILD_STEPS.length) {
       const timer = setTimeout(() => {
         setCurrentStepIndex(prev => prev + 1);
-      }, 1800);
+      }, 1600); 
       return () => clearTimeout(timer);
     } else {
       const finalTimer = setTimeout(() => {

@@ -24,7 +24,6 @@
 ![MQTT](https://img.shields.io/badge/MQTT-3C5280?style=for-the-badge&logo=mqtt&logoColor=white)
 ![Espressif](https://img.shields.io/badge/Espressif-E7352C?style=for-the-badge&logo=espressif&logoColor=white)
 
-
 > "Beyond reactive automation: A home that thinks, observes, remembers, and adapts."
 
 ## Introduction
@@ -41,13 +40,11 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 
 | Layer | Component | Description |
 | :--- | :--- | :--- |
-| **L5** | **Presentation** | Next.js Dashboard, **4-Step Autonomous Onboarding Engine**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with real-time UI/UX via GPU-accelerated Framer Motion. |
+| **L5** | **Presentation** | Next.js Dashboard, **5-Step Autonomous Onboarding Engine**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with real-time UI/UX via GPU-accelerated Framer Motion. |
 | **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision (YOLOv8-Face Alignment + GhostFaceNet Biometrics + Asynchronous MediaPipe Gestures), and Predictive Models. It filters intents through a 3-stage logic (Edge -> Local RAG -> Cloud LLM) and it utilizes Zero-Latency Omniscient Context Injection and Graceful Degradation. |
-| **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, **dynamic relational data persistence (PostgreSQL/SQLModel) completely replacing static registries**, presence ledgers, and real-time System Integrity Diagnostics.. |
+| **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, **dynamic relational data persistence (PostgreSQL/SQLModel) completely replacing static registries**, presence ledgers, and real-time System Integrity Diagnostics. |
 | **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST(Edge Node Image Transmission) ensuring <50ms latency. |
 | **L1** | **Physical** | Distributed hardware layer consisting of the Pi 5 Hub, ESP32 Sensor Nodes, Tapo Actuators, and Edge Camera Nodes running a 4-Layer Quality Gate. |
-
-
 
 ---
 
@@ -56,49 +53,34 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 At the core of this project lies a **LangGraph-based State Machine**, transforming the system from a passive listener into an active decision-maker. Unlike linear chatbots, this utilizes a **cyclic graph architecture**, allowing the agent to reason, execute tools, observe outputs, and re-evaluate its next step in a continuous loop until the user's goal is met.
 
 ### 1. Hierarchical Reasoning
-To optimize for Privacy-First Latency, the system processes user intents through a cascading 3-stage logic (Edge NLU -> Local RAG -> Cloud Intelligence via Google Vertex AI). This ensures that sensitive data leaves the local network only when absolutely necessary
+To optimize for Privacy-First Latency, the system processes user intents through a cascading 3-stage logic (Edge NLU -> Local RAG -> Cloud Intelligence via Google Vertex AI). This ensures that sensitive data leaves the local network only when absolutely necessary.
 
 **Filter 1: Edge NLU (Deterministic)**
-
 - **Role:** Handles high-frequency, low-latency commands (e.g., "Lights on", "Stop").
-
 - **Tech:** Rhino NLU
-
 - **Latency:** <100ms.
-
 - **Privacy:** 100% Local.
 
 **Filter 2: Local RAG (Contextual)**
-
 - **Role:** Answers questions about personal data and device history (e.g., "What was the temperature last night?").
-
 - **Tech:** Queries the local PostgreSQL database and Vector Store.
-
 - **Privacy:** Data is retrieved locally; no sensitive logs are sent to the cloud.
 
 **Filter 3: Cloud Intelligence (Generative)**
-
 - **Role:** Escalates complex, multi-step reasoning tasks to Gemini 3.0 Flash.
-
 - **Tech:** Context-aware prompt engineering via Google Vertex AI.
-
 - **Safety:** Only anonymized state snapshots are transmitted.
 
-
-
 ### 2. Cognitive Tools & Sensor Fusion
-
 The Agent interacts with the physical world through a set of "Robust Tools" that handle the unpredictability of IoT networks, including Self-Healing Actuators and Omniscient Status Aggregation.
 
-- `get_home_status (Sensor Fusion & Memory):` Aggregates telemetry from MQTT (BH1750, BME280, PIR), device states (Tapo API), and the Spatial & Temporal Ledger into a single context window by dynamically querying the SQLModel database for real-time room topologies.
+- `get_home_status (Sensor Fusion & Memory):` Aggregates telemetry from MQTT (BH1750, BME280, PIR), device states (Tapo API), and the Spatial & Temporal Ledger into a single context window by dynamically querying the SQLModel database for real-time room topologies. 
 
 - `control_smart_device (Self-Healing Actuator):` Wraps the Tapo P110 driver with a Self-Healing Mechanism. It dynamically resolves custom user-defined names (e.g., 'Coffee Maker', 'Desk Lamp') to physical MAC/IP addresses via the database. If a device is unreachable, it attempts to re-authenticate and reconnect before reporting a failure.
 
 - `control_bulb (Advanced Lighting):` Manages L530 bulbs with full HSL (Hue, Saturation, Lightness) color space support. Can translate vague natural language commands (e.g., "Make it cozy") into specific color temperatures targeting specific rooms.
 
 ### 3. Dual-Biometric Zero-Trust Security & Progressive Profiling
-
-
 No command is executed without continuous authentication, utilizing both visual and vocal verification.
 
 - **Token-Based Autonomous Enrollment:** The system abandons legacy manual inputs. Users authenticate via standard JWT, and the system autonomously links 5-point spatial face meshes and acoustic signatures to existing database records (Upsert logic), preventing duplicate entities and manual data entry errors.
@@ -114,7 +96,6 @@ No command is executed without continuous authentication, utilizing both visual 
 - **Anti-False Positive Grace Period:** In real-world edge vision, lighting drops or motion blur can temporarily cause recognition failures. The system implements a dynamic unknown_grace_period (`e.g., 4.0 seconds`). It buffers unrecognized frames before declaring a "Stranger Intrusion," drastically reducing biometric false-positives and maintaining a seamless user experience.
 
 ### 4. Event-Driven Edge Vision & State Machine
-
 The system visually monitors the environment and acts autonomously without melting the central CPU.
 
 - **Zero-Latency Multi-Tracking & Anti-Drift:** Once MediaPipe detects a face, the edge node switches to an asynchronous **KCF Tracker**, following the user locally at 30 FPS. It stops sending heavy image payloads and instead streams lightweight JSON telemetries (`{"user": "Berkay", "status": "PRESENT"}`) to the backend. To eliminate bounding-box drift, this tracker uses **IoU (Intersection over Union)** matching to periodically re-initialize with fresh BlazeFace data.
@@ -126,40 +107,40 @@ The system visually monitors the environment and acts autonomously without melti
 - **Persistent Spatial Ledger & Silent Guest Protocol:** Maintains a debounced, time-zone-aware history of room events. If an unrecognized face is detected while an authorized user is already present, the system intelligently suppresses security alerts to maintain social grace.
 
 ### 5. Risk-Based Hybrid Action Engine (Gestures)
+The system transforms passive hand gestures into physical actuations via a sophisticated, fully database-driven rule engine designed for zero false-positives and maximum personalization.
 
-The system transforms passive hand gestures into physical actuations via a sophisticated, multi-layered rule engine designed for zero false-positives.
-
-- **Temporal Gating & Debounce Filtering:** Eliminates accidental triggers by tracking sustained actions. A gesture is only processed if it is held continuously for a specific duration (e.g., 1.5s for lights, 3.0s for security). A server-side `ActionState` lock prevents network spamming by enforcing a 10-second cooldown per action.
+- **Temporal Gating & Debounce Filtering:** Eliminates accidental triggers by tracking sustained actions. A gesture is only processed if it is held continuously for a specific duration (e.g., 1.0s). A server-side `ActionState` lock prevents network spamming by enforcing strict action cooldowns.
 
 - **Gaze-Locked UX (Frontality Check):** The system inherently understands user intentionality. By fusing MediaPipe hand tracking with BlazeFace projection matrix checks, it actively ignores gestures if the user is looking away (e.g., talking to a friend in the room), executing commands only when the user makes direct eye contact with the camera.
 
-- **Hierarchical Actuation Protocol:**
+- **Hierarchical DB-Driven Actuation:**
+  - **Level 1 (Dynamic Mapping):** Users can map available gestures (e.g., `Victory`, `Pointing_Up`) to any discovered IoT device via PostgreSQL relationships. Actions execute with zero latency, bypassing the LLM entirely.
 
-  - **Level 1 (Comfort):** A 1.5-second `Victory` sign triggers a zero-latency, deterministic local action (e.g., toggling smart bulbs) bypassing the LLM entirely for instantaneous execution.
-
-  - **Level 2 (Security Lockdown):** A 3.0-second `Closed_Fist` activates a covert emergency protocol. It dynamically searches the database for available bulbs, executing a physical hardware override (turning them 100% Red) wrapped in a `safe_async_executor` to prevent FastAPI crashes on offline devices, while simultaneously awakening the LangGraph agent to broadcast a lockdown alert.
+  - **Level 2 (Exclusive Security Lockdown):** The "Red Zone" protocol. Users assign an exclusive SOS gesture (e.g., `Open_Palm`) that is instantly stripped from standard device availability. Upon detection, it triggers an overriding `execute_emergency_lockdown` macro: dynamically searching the DB for bulbs to initiate a hardware-level red flashing loop, while the AI simulates an emergency phone call to a predefined contact via TTS.
 
 - **Silent Episodic Memory:** Every gesture—whether it triggers an action or is simply an observation—is silently logged into the agent's `history_ledger`, granting the LLM a highly accurate episodic memory to answer queries like "What did I just do?".
 
 ---
 
-
 ## Onboarding-Driven Development (ODD)
 
-The ecosystem features a bespoke, immersive 4-Step Onboarding Engine that acts as the "Constitution" for the Smart Home, dynamically generating the backend schema before the user ever reaches the dashboard. All hardcoded variables have been eliminated in favor of this fully data-driven pipeline.
+The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts as the "Constitution" for the Smart Home, dynamically generating the backend schema before the user ever reaches the dashboard. All hardcoded variables have been eliminated in favor of this fully data-driven pipeline.
 
 - **1- AI Context Initialization:** Collects structural data (Household Type, Age Group) to seed the LangGraph System Prompt, allowing the AI to naturally adapt its tone and autonomous actions (e.g., enabling Pet-Safe heating profiles or Quiet Hours for roommates).
+
 - **2- Hardware Discovery & Physical Identification:** Replaces manual IP forms with an autonomous `mDNS Snooping` and `TCP Subnet Sweeping` radar. Features a **"Blink to Identify"** UI mechanic that physically toggles smart bulbs/plugs via backend drivers so users can seamlessly identify and map hardware to spatial nodes without losing device states.
+
 - **3- Biometric Security Calibration:** Captures a 5-point face mesh and acoustic footprint via an interactive, gaze-guided UI. Designed with human-centric copywriting to avoid intimidating technical jargon.
-- **4- System Finalization (The Labor Illusion):** Employs psychological UX design (deliberate UI delays and dynamic log tracking) to build anticipation and perceived value as the system compiles PostgreSQL schemas, encrypts signatures, and assembles the dashboard.
+
+- **4- Gesture Mapping & SOS Protocol (The Red Zone):** Empowers users to dynamically link hand gestures to physical actuators. Integrates an exclusive Emergency SOS setup where users define a trigger gesture, an emergency contact, and a custom AI action prompt to execute during lockdowns.
+
+- **5- System Finalization (The Labor Illusion):** Employs psychological UX design (deliberate UI delays and dynamic log tracking) to build anticipation and perceived value as the system compiles PostgreSQL schemas, syncs gesture rules, encrypts signatures, and assembles the dashboard.
+
 ---
-
-
 
 ## Tech Stack
 
 ### AI & Machine Learning
-
 | Category | Tool/Library | Purpose |
 | :--- | :--- | :--- |
 | **Orchestration** | **LangGraph** |Manages the cyclic state of the agent, allowing for reasoning loops, error recovery, and multi-turn conversation memory.|
@@ -167,7 +148,7 @@ The ecosystem features a bespoke, immersive 4-Step Onboarding Engine that acts a
 | **LLM** | **Google Gemini 3.0** | The primary reasoning engine (gemini-3-flash-preview) accessed via Vertex AI for high-speed intent processing. |
 | **Computer Vision**| **OpenCV & KCF** | Lightweight motion detection and high-speed bounding box tracking on edge nodes. |
 | **Edge Vision**| **MediaPipe BlazeFace** | Ultra-lightweight mobile-optimized face detection for extracting ROIs at high FPS on edge devices. |
-| **Gesture AI** | **MediaPipe Tasks API** | Asynchronous real-time hand gesture recognition (Victory, Open Palm, Closed Fist) running on non-blocking C++ worker threads.
+| **Gesture AI** | **MediaPipe Tasks API** | Asynchronous real-time hand gesture recognition (Victory, Open Palm, Closed Fist) running on non-blocking C++ worker threads. |
 | **Alignment**| **YOLOv8-Face** | Executes 5-point facial landmark detection on the Hub for surgical face alignment before recognition. |
 | **Face Recognition**| **DeepFace (GhostFaceNet)**| Extracts high-dimensional facial embeddings for real-time biometric verification. |
 | **Biometrics** | **Resemblyzer** | Generates 256-dimensional voice embeddings for real-time speaker identification. |
@@ -176,7 +157,6 @@ The ecosystem features a bespoke, immersive 4-Step Onboarding Engine that acts a
 | | **OpenAI TTS** | Generates natural-sounding speech responses (streaming audio). |
 
 ### Backend & Infrastructure
-
 | Category | Tool/Library | Purpose |
 | :--- | :--- | :--- |
 | **Language** | **Python** | Primary backend language chosen for its rich AI ecosystem and async capabilities.|
@@ -188,21 +168,17 @@ The ecosystem features a bespoke, immersive 4-Step Onboarding Engine that acts a
 | **Server** | **Uvicorn** | Lightning-fast ASGI server implementation to run the FastAPI application. |
 | **IoT Broker** | **Eclipse Mosquitto** | Lightweight MQTT broker handling pub/sub messaging between ESP32 nodes and the Pi.|
 
-
 ### Frontend
-
 | Category | Tool/Library | Purpose |
 | :--- | :--- | :--- |
 | **Framework** | **Next.js** | App Router based React framework for the dashboard.|
 | **Language** | **TypeScript** | Ensures type safety for the Frontend, preventing runtime errors in complex UI states. |
 | **Styling** | **Tailwind CSS** | Utility-first styling with a glassmorphism design language. |
-| **Realtime** | **Websockets** | Bi-directional communication for audio streaming and sensor updates.. |
+| **Realtime** | **Websockets** | Bi-directional communication for audio streaming and sensor updates. |
 | **Visualization**| **Recharts** |Rendering historical sensor data charts.|
 | **Icons** | **Lucide React** | Consistent and modern UI iconography.|
 
-
 ### Hardware & IoT Drivers
-
 | Category | Tool/Library | Purpose |
 | :--- | :--- | :--- |
 | **Hub** | **Raspberry Pi 5** | The edge computing unit hosting for Backend, DB, and Broker.|
@@ -210,13 +186,11 @@ The ecosystem features a bespoke, immersive 4-Step Onboarding Engine that acts a
 | **Driver** | **tapo** | Reverse-engineered Python client for controlling TP-Link P110 Plugs and L530 Bulbs over LAN. |
 | **Library** | **Paho-MQTT** | Asynchronous Python client for handling MQTT message loops without blocking the main thread.|
 
-
 ---
 
 ## Key Features
 
 ### Proactive Context-Aware AI (LangGraph)
-
 Instead of passively waiting for explicit commands, the LangGraph agent actively observes the environment and engages the user with intelligent, situation-specific actions.
 
 - **Zero-Latency Context Injection:** Upon a user entering a room, current telemetry (temperature, light levels, smart device states) and the exact local time are injected directly from RAM caching into the LLM's system prompt. This bypasses the 3-5 second delay of traditional API tool-calling, enabling instantaneous reasoning.
@@ -228,11 +202,9 @@ Instead of passively waiting for explicit commands, the LangGraph agent actively
 - **Temporal & Environmental Awareness:** The AI synthesizes the injected data to make logical deductions without hardcoded rules. For example, if a user enters the room at 6:30 PM, the AI can independently deduce that it is around sunset and proactively offer to turn on the study lamp or adjust the room's ambiance.
 
 ### Extreme CPU Optimization via Edge Computing
-
 - By shifting the burden of frame processing, **Quality Gating, and MJPEG encoding** to the edge nodes (cameras) and utilizing **KCF Object Tracking**, the central Raspberry Pi 5 Hub is relieved from analyzing continuous video feeds. The Pi only runs the heavy GhostFaceNet model once during initial entry. Subsequent presence updates are handled via lightweight JSON payloads, keeping the Hub's CPU usage minimal and preventing Thermal Throttling.
 
 ### Spatial & Temporal Context Awareness
-
 - The system doesn't just know who is home; it knows where they are and when they moved. Edge nodes inject room-specific spatial data, and the Presence Service maintains a timezone-aware history ledger. Combined with an event-driven last_seen database update mechanism, the AI agent possesses a persistent, true sense of time and location across reboots.
 
 - **Social Intelligence (Silent Guest Protocol):** The system distinguishes between an empty home intrusion and a social gathering. If an unrecognized face is detected while an authorized user is already present in the room, the AI intelligently suppresses security alerts and redundant greetings to avoid interrupting conversations.
@@ -254,11 +226,12 @@ Instead of passively waiting for explicit commands, the LangGraph agent actively
 - **Streamed Intelligence:** Utilizes a Smart Audio Queue on the frontend to seamlessly buffer and play synthesized speech responses via WebSockets in real-time.
 
 ### Seamless Authentication & FaceID Access
-
 The system completely redefines the traditional login/register flow by treating authentication as a fluid, biometric-first experience.
 
 - **Live FaceID Login:** Users can bypass traditional passwords entirely. The login interface captures a real-time webcam feed, passing the frame through the Edge Quality Gate directly to the GhostFaceNet backend for instantaneous, passwordless dashboard access.
+
 - **Smart Registration & State-Machine Routing:** Features a real-time visual password strength algorithm and strict email uniqueness validation mapped directly to PostgreSQL. Post-login, a strict State-Machine evaluates the `is_onboarding_complete` flag to seamlessly route users either to the Initialization Engine or the Control Dashboard, preventing unauthorized bypasses.
+
 - **Apple-Tier Modal UX:** Password recovery and biometric scanning flows are built using GPU-accelerated Framer Motion modals. The UI dynamically responds to backend API states (e.g., green checkmarks for verified emails, radar pulses for FaceID scanning) without ever leaving or refreshing the page.
 
 ### Interactive Dashboard & Biometric Management
@@ -272,7 +245,6 @@ The system completely redefines the traditional login/register flow by treating 
 ---
 
 ## Future Roadmap
-
 
 - [ ] **True Local Autonomy:** Replacing cloud dependencies with quantized **Local LLMs (Llama-3)**, **Whisper.cpp** (STT), and **Piper TTS** for 100% offline privacy and zero-latency response.
 

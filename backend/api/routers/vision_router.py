@@ -9,10 +9,13 @@ from datetime import datetime, timezone, timedelta
 from api.drivers.mqtt_service import LATEST_SENSOR_DATA
 from api.agent.cache import get_cached, set_cache
 from api.agent.tools import control_bulb 
-from api.routers.devices_router import get_all_devices, set_color, ColorControl
+from api.routers.devices_router import (
+    get_all_devices, set_color, ColorControl, 
+    control_device, DeviceControl, set_brightness, BrightnessControl
+)
 from sqlmodel import Session, select
 from database.settings import engine
-from database.models import Room, Device
+from database.models import Room, Device, User, GestureMapping
 
 import logging
 import cv2
@@ -36,6 +39,7 @@ class GestureEvent(BaseModel):
     location: str = "livingroom"
     timestamp: float
     duration: float
+
 
 class ActionState:
     last_executions = {}
@@ -116,14 +120,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
         system_prompt = (
             f"[System Event: Camera disconnected at {current_time}.] "
             f"IGNORE PREVIOUS MEMORY. Strictly state that the camera feed is lost and presence tracking is paused. One sentence only."
-        )
-
-    elif event_type == "security_alert":
-        system_prompt = (
-            f"[System Event: SECURITY ALERT! User {person_name} triggered a 3-second Closed Fist gesture.] "
-            f"You are the Home Security Agent. "
-            f"Immediately confirm that you have received the silent alarm and are initiating lockdown protocols. "
-            f"Be extremely brief, serious, and reassuring. (Max 2 sentences)."
         )
 
     else: 
@@ -213,41 +209,74 @@ async def identify_face(image_file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Identify Error")
 
+
 @router.post("/gesture")
 async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks):
     try:
         presence_service.log_gesture(event.user, event.gesture, event.location)
         current_time = time.time()
         
-        if event.gesture == "Victory" and event.duration >= 1.5:
-            last_exec = ActionState.last_executions.get(f"{event.user}_victory", 0)
+        if event.duration >= 1.0:
+            last_exec = ActionState.last_executions.get(f"{event.user}_{event.gesture}", 0)
+            
             if current_time - last_exec > ACTION_COOLDOWN:
-                try:
-                    await control_bulb.ainvoke({"location": event.location, "action": "OFF"})
-                except AttributeError:
-                    control_bulb.invoke({"location": event.location, "action": "OFF"})
-                ActionState.last_executions[f"{event.user}_victory"] = current_time
+                with Session(engine) as session:
+                    user_obj = session.exec(select(User).where(User.username == event.user)).first()
+                    
+                    if user_obj:
+                        mapping = session.exec(select(GestureMapping).where(
+                            GestureMapping.owner_id == user_obj.id,
+                            GestureMapping.gesture_name == event.gesture
+                        )).first()
 
-        elif event.gesture == "Closed_Fist" and event.duration >= 3.0:
-            last_exec = ActionState.last_executions.get(f"{event.user}_fist", 0)
-            if current_time - last_exec > ACTION_COOLDOWN:
-                logger.warning(f"SECURITY PROTOCOL TRIGGERED! '{event.gesture}' by {event.user}.")
-                background_tasks.add_task(trigger_agent_proactively, event.user, "security_alert")
-                
-                async def safe_red_light():
-                    try:
-                        with Session(engine) as session:
-                            bulb = session.exec(select(Device).where(Device.device_type == "bulb")).first()
-                            if bulb:
-                                await set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=100))
-                    except Exception as e:
-                        logger.warning(f"Lockdown lights failed: {e}")
-                
-                background_tasks.add_task(safe_red_light)
-                ActionState.last_executions[f"{event.user}_fist"] = current_time
-                
+                        if mapping:
+                            target_device = session.exec(select(Device).where(Device.id == mapping.target_device_id)).first()
+                            
+                            if target_device:
+                                logger.info(f"DYNAMIC GESTURE: '{event.user}' mapped '{event.gesture}' to '{mapping.action}' on '{target_device.display_name}'")
+                                
+                                device_id = target_device.name 
+                                cached_devices = get_cached("all_devices", ttl=3600) or {}
+                                curr_device_state = cached_devices.get(device_id, {})
+
+                                if target_device.device_type == "bulb":
+                                    if mapping.action == "turn_on":
+                                        await control_device(device_id=device_id, control=DeviceControl(on=True))
+                                    elif mapping.action == "turn_off":
+                                        await control_device(device_id=device_id, control=DeviceControl(on=False))
+                                    elif mapping.action == "brightness_up":
+                                        curr_b = curr_device_state.get("brightness", 50)
+                                        new_b = min(100, curr_b + 25)
+                                        await set_brightness(device_id=device_id, control=BrightnessControl(brightness=new_b))
+                                        cached_devices[device_id]["brightness"] = new_b
+                                        set_cache("all_devices", cached_devices)
+                                    elif mapping.action == "brightness_down":
+                                        curr_b = curr_device_state.get("brightness", 50)
+                                        new_b = max(1, curr_b - 25)
+                                        await set_brightness(device_id=device_id, control=BrightnessControl(brightness=new_b))
+                                        cached_devices[device_id]["brightness"] = new_b
+                                        set_cache("all_devices", cached_devices)
+                                        
+                                elif target_device.device_type == "outlet":
+                                    if mapping.action == "turn_on":
+                                        await control_device(device_id=device_id, control=DeviceControl(on=True))
+                                    elif mapping.action == "turn_off":
+                                        await control_device(device_id=device_id, control=DeviceControl(on=False))
+                                    elif mapping.action == "toggle":
+                                        curr_state = curr_device_state.get("on", False)
+                                        await control_device(device_id=device_id, control=DeviceControl(on=not curr_state))
+
+                                ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
+                                return {
+                                    "status": "dynamic_gesture_executed", 
+                                    "device": target_device.display_name, 
+                                    "action": mapping.action
+                                }
+                                
         return {"status": "gesture_processed", "gesture": event.gesture, "duration": event.duration}
+        
     except Exception as e:
+        logger.error(f"Gesture Processing Error: {e}")
         raise HTTPException(status_code=500, detail="Gesture Processing Error")
 
 @router.post("/update_presence")

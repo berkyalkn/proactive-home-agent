@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Hand, X, Settings2, CheckCircle, Loader2, Zap, Lightbulb, Save } from "lucide-react";
+import { Hand, X, Settings2, CheckCircle, Loader2, Zap, Lightbulb, Save, ShieldAlert, Phone, ZapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -12,6 +12,14 @@ interface DeviceAction {
   device_name: string;
   action: string;
   label: string;
+}
+
+interface SecuritySettings {
+  emergency_gesture: string;
+  emergency_contact_name: string;
+  emergency_phone: string;
+  emergency_action_text: string;
+  is_active: boolean;
 }
 
 const AVAILABLE_GESTURES = [
@@ -29,8 +37,18 @@ export function GestureManager() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  
   const [actions, setActions] = useState<DeviceAction[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
+  
+  const [security, setSecurity] = useState<SecuritySettings>({
+    emergency_gesture: "",
+    emergency_contact_name: "",
+    emergency_phone: "",
+    emergency_action_text: "Flash all lights red for 10 seconds and sound the alarm.",
+    is_active: true
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,13 +65,15 @@ export function GestureManager() {
     setLoading(true);
     const token = localStorage.getItem("token");
     try {
-      const [actionsRes, mapRes] = await Promise.all([
+      const [actionsRes, mapRes, secRes] = await Promise.all([
         fetch(`${API_URL}/gestures/available-actions`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/gestures/mappings`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_URL}/gestures/mappings`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/gestures/security`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       
       const actionsData = await actionsRes.json();
       const mapData = await mapRes.json();
+      const secData = await secRes.json();
       
       setActions(actionsData.available_actions || []);
       
@@ -62,7 +82,18 @@ export function GestureManager() {
         currentMap[`${m.target_device_id}|${m.action}`] = m.gesture_name;
       });
       setMappings(currentMap);
-      setHasChanges(false); 
+      
+      if (secData) {
+        setSecurity({
+          emergency_gesture: secData.emergency_gesture || "",
+          emergency_contact_name: secData.emergency_contact_name || "",
+          emergency_phone: secData.emergency_phone || "",
+          emergency_action_text: secData.emergency_action_text || "Flash all lights red for 10 seconds and sound the alarm.",
+          is_active: secData.is_active ?? true
+        });
+      }
+
+      setHasChanges(false);
     } catch (e) {
       console.error(e);
     } finally {
@@ -77,14 +108,16 @@ export function GestureManager() {
   const handleAssign = (actionKey: string, newGesture: string) => {
     setMappings(prev => {
       const updated = { ...prev };
-      if (newGesture) {
-        updated[actionKey] = newGesture;
-      } else {
-        delete updated[actionKey];
-      }
+      if (newGesture) updated[actionKey] = newGesture;
+      else delete updated[actionKey];
       return updated;
     });
-    setHasChanges(true); 
+    setHasChanges(true);
+  };
+
+  const handleSecurityChange = (field: keyof SecuritySettings, value: any) => {
+    setSecurity(prev => ({ ...prev, [field]: value }));
+    setHasChanges(true);
   };
 
   const handleSaveAll = async () => {
@@ -99,11 +132,18 @@ export function GestureManager() {
           return { gesture_name: gestureName, target_device_id: deviceId, action: action };
         });
 
-      await fetch(`${API_URL}/gestures/mappings/bulk`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ mappings: mappingsArray })
-      });
+      await Promise.all([
+        fetch(`${API_URL}/gestures/mappings/bulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ mappings: mappingsArray })
+        }),
+        fetch(`${API_URL}/gestures/security`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(security)
+        })
+      ]);
 
       setHasChanges(false);
     } catch (e) {
@@ -119,7 +159,7 @@ export function GestureManager() {
     return acc;
   }, {} as Record<string, DeviceAction[]>);
 
-  const assignedGestures = Object.values(mappings);
+  const assignedGestures = [...Object.values(mappings), security.emergency_gesture].filter(Boolean);
 
   return (
     <div ref={containerRef} className={`relative transition-all duration-300 ${isOpen ? "z-[100]" : "z-40"}`}>
@@ -138,7 +178,7 @@ export function GestureManager() {
       </Button>
 
       {isOpen && (
-        <Card className="absolute top-14 left-0 w-[450px] bg-black/95 backdrop-blur-xl border-zinc-800 shadow-2xl p-0 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left rounded-xl flex flex-col max-h-[600px]">
+        <Card className="absolute top-14 left-0 w-[450px] md:w-[500px] bg-black/95 backdrop-blur-xl border-zinc-800 shadow-2xl p-0 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left rounded-xl flex flex-col max-h-[700px]">
             
             <div className="flex items-center justify-between p-5 border-b border-zinc-800 bg-zinc-900/50 shrink-0">
                 <div className="flex items-center gap-3">
@@ -152,59 +192,121 @@ export function GestureManager() {
                 </div>
             </div>
 
-            <div className="p-5 overflow-y-auto scrollbar-hide space-y-6 flex-1">
+            <div className="overflow-y-auto scrollbar-hide flex-1 pb-4">
               {loading ? (
-                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600"/></div>
-              ) : Object.keys(groupedActions).length === 0 ? (
-                <div className="text-center py-8 text-zinc-500 text-sm">No compatible devices found.</div>
+                <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-zinc-600"/></div>
               ) : (
-                Object.entries(groupedActions).map(([deviceName, deviceActions]) => {
-                  const isBulb = deviceActions.some(a => a.action.includes('brightness'));
+                <div className="p-5 space-y-6">
                   
-                  return (
-                    <div key={deviceName} className="space-y-3">
-                      <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
-                        {isBulb ? <Lightbulb className="w-4 h-4 text-zinc-400"/> : <Zap className="w-4 h-4 text-zinc-400"/>}
-                        <h4 className="text-sm font-bold text-zinc-300">{deviceName}</h4>
+                  <div className="relative overflow-hidden border border-rose-900/50 bg-rose-950/20 rounded-xl p-4">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-rose-500/80"></div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" />
+                      <h4 className="text-sm font-bold text-rose-400">Emergency Protocol</h4>
+                    </div>
+                    
+                    <div className="space-y-3 pl-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-400 w-1/3">Trigger Gesture</span>
+                        <div className="w-2/3 relative">
+                          <select 
+                            className={`w-full bg-zinc-950 border rounded-md p-1.5 text-xs focus:outline-none transition-colors appearance-none ${security.emergency_gesture ? "border-rose-500/50 text-rose-400" : "border-zinc-800 text-zinc-500"}`}
+                            value={security.emergency_gesture}
+                            onChange={(e) => handleSecurityChange("emergency_gesture", e.target.value)}
+                          >
+                            <option value="">-- Select SOS Gesture --</option>
+                            {AVAILABLE_GESTURES.map(g => {
+                              const isUsedByOther = assignedGestures.includes(g.id) && security.emergency_gesture !== g.id;
+                              if (isUsedByOther) return null;
+                              return <option key={g.id} value={g.id}>{g.label}</option>;
+                            })}
+                          </select>
+                        </div>
                       </div>
 
-                      <div className="space-y-2 pl-2">
-                        {deviceActions.map((act) => {
-                          const actionKey = `${act.device_id}|${act.action}`;
-                          const currentAssignedGesture = mappings[actionKey] || "";
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-400 w-1/3 flex items-center gap-1"><Phone className="w-3 h-3"/> Contact Name</span>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Berkay" 
+                          value={security.emergency_contact_name}
+                          onChange={(e) => handleSecurityChange("emergency_contact_name", e.target.value)}
+                          className="w-2/3 bg-zinc-950 border border-zinc-800 rounded-md p-1.5 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/50"
+                        />
+                      </div>
 
-                          return (
-                            <div key={actionKey} className="flex items-center justify-between bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
-                              <span className="text-xs font-medium text-zinc-400 w-1/2 truncate pr-2">
-                                {act.label.split(" - ")[1] || act.action}
-                              </span>
-                              
-                              <div className="w-1/2 relative">
-                                <select 
-                                  className={`w-full bg-zinc-950 border rounded-md p-1.5 text-xs focus:outline-none transition-colors appearance-none ${currentAssignedGesture ? "border-emerald-500/50 text-emerald-400" : "border-zinc-800 text-zinc-500"}`}
-                                  value={currentAssignedGesture}
-                                  onChange={(e) => handleAssign(actionKey, e.target.value)}
-                                >
-                                  <option value="">-- Select --</option>
-                                  {AVAILABLE_GESTURES.map(g => {
-                                    const isUsedByOther = assignedGestures.includes(g.id) && currentAssignedGesture !== g.id;
-                                    
-                                    if (isUsedByOther) return null; 
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-400 w-1/3 flex items-center gap-1"><Phone className="w-3 h-3"/> Phone Number</span>
+                        <input 
+                          type="text" 
+                          placeholder="+90 555 123 4567" 
+                          value={security.emergency_phone}
+                          onChange={(e) => handleSecurityChange("emergency_phone", e.target.value)}
+                          className="w-2/3 bg-zinc-950 border border-zinc-800 rounded-md p-1.5 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/50"
+                        />
+                      </div>
 
-                                    return (
-                                      <option key={g.id} value={g.id}>{g.label}</option>
-                                    );
-                                  })}
-                                </select>
-                                {currentAssignedGesture && <CheckCircle className="w-3 h-3 text-emerald-500 absolute right-6 top-2 pointer-events-none" />}
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="flex flex-col gap-1.5 pt-1">
+                        <span className="text-xs font-medium text-zinc-400 flex items-center gap-1"><ZapIcon className="w-3 h-3"/> AI Action Prompt</span>
+                        <textarea 
+                          rows={2}
+                          value={security.emergency_action_text}
+                          onChange={(e) => handleSecurityChange("emergency_action_text", e.target.value)}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-md p-2 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/50 resize-none"
+                        />
                       </div>
                     </div>
-                  );
-                })
+                  </div>
+
+                  {Object.keys(groupedActions).length === 0 ? (
+                    <div className="text-center py-8 text-zinc-500 text-sm">No compatible devices found.</div>
+                  ) : (
+                    Object.entries(groupedActions).map(([deviceName, deviceActions]) => {
+                      const isBulb = deviceActions.some(a => a.action.includes('brightness'));
+                      
+                      return (
+                        <div key={deviceName} className="space-y-3">
+                          <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
+                            {isBulb ? <Lightbulb className="w-4 h-4 text-zinc-400"/> : <Zap className="w-4 h-4 text-zinc-400"/>}
+                            <h4 className="text-sm font-bold text-zinc-300">{deviceName}</h4>
+                          </div>
+
+                          <div className="space-y-2 pl-2">
+                            {deviceActions.map((act) => {
+                              const actionKey = `${act.device_id}|${act.action}`;
+                              const currentAssignedGesture = mappings[actionKey] || "";
+
+                              return (
+                                <div key={actionKey} className="flex items-center justify-between bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                                  <span className="text-xs font-medium text-zinc-400 w-1/2 truncate pr-2">
+                                    {act.label.split(" - ")[1] || act.action}
+                                  </span>
+                                  
+                                  <div className="w-1/2 relative">
+                                    <select 
+                                      className={`w-full bg-zinc-950 border rounded-md p-1.5 text-xs focus:outline-none transition-colors appearance-none ${currentAssignedGesture ? "border-emerald-500/50 text-emerald-400" : "border-zinc-800 text-zinc-500"}`}
+                                      value={currentAssignedGesture}
+                                      onChange={(e) => handleAssign(actionKey, e.target.value)}
+                                    >
+                                      <option value="">-- Select --</option>
+                                      {AVAILABLE_GESTURES.map(g => {
+                                        const isUsedByOther = assignedGestures.includes(g.id) && currentAssignedGesture !== g.id;
+                                        if (isUsedByOther) return null; 
+                                        return <option key={g.id} value={g.id}>{g.label}</option>;
+                                      })}
+                                    </select>
+                                    {currentAssignedGesture && <CheckCircle className="w-3 h-3 text-emerald-500 absolute right-6 top-2 pointer-events-none" />}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+
+                </div>
               )}
             </div>
 
@@ -215,7 +317,7 @@ export function GestureManager() {
                  className={`w-full h-11 font-semibold transition-all ${hasChanges ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/20" : "bg-zinc-800 text-zinc-500"}`}
                >
                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                 {saving ? "Saving Configuration..." : "Save Gesture Settings"}
+                 {saving ? "Saving Configuration..." : "Save All Settings"}
                </Button>
             </div>
         </Card>

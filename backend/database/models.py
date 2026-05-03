@@ -119,13 +119,15 @@ class GestureMapping(SQLModel, table=True):
 
 
 class SecuritySettings(SQLModel, table=True):
-    __tablename__ = "security_settings" 
+    __tablename__ = "security_settings"
     
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    owner_id: int = Field(foreign_key="users.id", unique=True) 
-    emergency_gesture: str = Field(default="Closed_Fist") 
-    emergency_contact_name: str = Field(default="")       
-    emergency_phone: str = Field(default="")              
+    id: Optional[int] = Field(default=None, primary_key=True)
+    owner_id: int = Field(foreign_key="users.id")
+    emergency_gesture: str = Field(default="")
     emergency_action_text: str = Field(default="Flash all lights red for 10 seconds and sound the alarm.")
-    
+    emergency_contact_name: str = Field(default="")
+    emergency_phone: str = Field(default="")
+    use_sms: bool = Field(default=True)
+    use_voice_call: bool = Field(default=True)
+    use_telegram: bool = Field(default=True)
     is_active: bool = Field(default=True)

@@ -6,7 +6,8 @@ import { Home, LogOut } from "lucide-react";
 import { FloorPlan } from "@/components/FloorPlan";
 import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
 import { UserManager } from "@/components/UserManager";
-import { GestureManager } from "@/components/GestureManager"; 
+import { GestureManager } from "@/components/GestureManager";
+import { EmergencyManager } from "@/components/EmergencyManager"; 
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -18,7 +19,6 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     router.push("/login");
@@ -27,10 +27,10 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col relative">
       
-
       <div className="absolute top-24 left-6 z-50 flex flex-col gap-4">
           <UserManager />
           <GestureManager /> 
+          <EmergencyManager /> 
       </div>
 
       <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-10">

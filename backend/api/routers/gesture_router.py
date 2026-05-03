@@ -15,6 +15,9 @@ class SecuritySaveRequest(BaseModel):
     emergency_contact_name: str
     emergency_phone: str
     emergency_action_text: str
+    use_sms: bool = True           
+    use_voice_call: bool = True    
+    use_telegram: bool = True
     is_active: bool
 
 class GestureSaveRequest(BaseModel):
@@ -118,6 +121,9 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
                 "emergency_contact_name": "",
                 "emergency_phone": "",
                 "emergency_action_text": "",
+                "use_sms": True,         
+                "use_voice_call": True,    
+                "use_telegram": True,
                 "is_active": False
             }
             
@@ -126,6 +132,9 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
             "emergency_contact_name": settings.emergency_contact_name,
             "emergency_phone": settings.emergency_phone,
             "emergency_action_text": settings.emergency_action_text,
+            "use_sms": settings.use_sms,                 
+            "use_voice_call": settings.use_voice_call,   
+            "use_telegram": settings.use_telegram,
             "is_active": settings.is_active
         }
 
@@ -139,6 +148,9 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
             settings.emergency_contact_name = request.emergency_contact_name
             settings.emergency_phone = request.emergency_phone
             settings.emergency_action_text = request.emergency_action_text
+            settings.use_sms = request.use_sms                 
+            settings.use_voice_call = request.use_voice_call   
+            settings.use_telegram = request.use_telegram
             settings.is_active = request.is_active
             session.add(settings)
         else:
@@ -148,6 +160,9 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
                 emergency_contact_name=request.emergency_contact_name,
                 emergency_phone=request.emergency_phone,
                 emergency_action_text=request.emergency_action_text,
+                use_sms=request.use_sms,                       
+                use_voice_call=request.use_voice_call,         
+                use_telegram=request.use_telegram,
                 is_active=request.is_active
             )
             session.add(new_settings)

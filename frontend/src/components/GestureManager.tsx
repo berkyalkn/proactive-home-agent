@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Hand, X, Settings2, CheckCircle, Loader2, Zap, Lightbulb, Save, ShieldAlert, Phone, ZapIcon } from "lucide-react";
+import { Hand, X, Settings2, CheckCircle, Loader2, Zap, Lightbulb, Save, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -19,6 +19,9 @@ interface SecuritySettings {
   emergency_contact_name: string;
   emergency_phone: string;
   emergency_action_text: string;
+  use_sms: boolean;
+  use_voice_call: boolean;
+  use_telegram: boolean;
   is_active: boolean;
 }
 
@@ -40,14 +43,7 @@ export function GestureManager() {
   
   const [actions, setActions] = useState<DeviceAction[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
-  
-  const [security, setSecurity] = useState<SecuritySettings>({
-    emergency_gesture: "",
-    emergency_contact_name: "",
-    emergency_phone: "",
-    emergency_action_text: "Flash all lights red for 10 seconds and sound the alarm.",
-    is_active: true
-  });
+  const [security, setSecurity] = useState<SecuritySettings | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -84,15 +80,9 @@ export function GestureManager() {
       setMappings(currentMap);
       
       if (secData) {
-        setSecurity({
-          emergency_gesture: secData.emergency_gesture || "",
-          emergency_contact_name: secData.emergency_contact_name || "",
-          emergency_phone: secData.emergency_phone || "",
-          emergency_action_text: secData.emergency_action_text || "Flash all lights red for 10 seconds and sound the alarm.",
-          is_active: secData.is_active ?? true
-        });
+        setSecurity(secData);
       }
-
+      
       setHasChanges(false);
     } catch (e) {
       console.error(e);
@@ -115,9 +105,11 @@ export function GestureManager() {
     setHasChanges(true);
   };
 
-  const handleSecurityChange = (field: keyof SecuritySettings, value: any) => {
-    setSecurity(prev => ({ ...prev, [field]: value }));
-    setHasChanges(true);
+  const handleSecurityGestureChange = (newGesture: string) => {
+    if (security) {
+      setSecurity({ ...security, emergency_gesture: newGesture });
+      setHasChanges(true);
+    }
   };
 
   const handleSaveAll = async () => {
@@ -132,19 +124,25 @@ export function GestureManager() {
           return { gesture_name: gestureName, target_device_id: deviceId, action: action };
         });
 
-      await Promise.all([
+      const savePromises = [
         fetch(`${API_URL}/gestures/mappings/bulk`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ mappings: mappingsArray })
-        }),
-        fetch(`${API_URL}/gestures/security`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(security)
         })
-      ]);
+      ];
 
+      if (security) {
+        savePromises.push(
+          fetch(`${API_URL}/gestures/security`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify(security)
+          })
+        );
+      }
+
+      await Promise.all(savePromises);
       setHasChanges(false);
     } catch (e) {
       console.error("Bulk save failed", e);
@@ -159,7 +157,10 @@ export function GestureManager() {
     return acc;
   }, {} as Record<string, DeviceAction[]>);
 
-  const assignedGestures = [...Object.values(mappings), security.emergency_gesture].filter(Boolean);
+  const assignedGestures = [
+    ...Object.values(mappings),
+    security?.emergency_gesture
+  ].filter(Boolean) as string[];
 
   return (
     <div ref={containerRef} className={`relative transition-all duration-300 ${isOpen ? "z-[100]" : "z-40"}`}>
@@ -200,60 +201,27 @@ export function GestureManager() {
                   
                   <div className="relative overflow-hidden border border-rose-900/50 bg-rose-950/20 rounded-xl p-4">
                     <div className="absolute top-0 left-0 w-1 h-full bg-rose-500/80"></div>
-                    <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-3">
                       <ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" />
-                      <h4 className="text-sm font-bold text-rose-400">Emergency Protocol</h4>
+                      <h4 className="text-sm font-bold text-rose-400">Emergency Protocol Trigger</h4>
                     </div>
                     
-                    <div className="space-y-3 pl-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-zinc-400 w-1/3">Trigger Gesture</span>
-                        <div className="w-2/3 relative">
-                          <select 
-                            className={`w-full bg-zinc-950 border rounded-md p-1.5 text-xs focus:outline-none transition-colors appearance-none ${security.emergency_gesture ? "border-rose-500/50 text-rose-400" : "border-zinc-800 text-zinc-500"}`}
-                            value={security.emergency_gesture}
-                            onChange={(e) => handleSecurityChange("emergency_gesture", e.target.value)}
-                          >
-                            <option value="">-- Select SOS Gesture --</option>
-                            {AVAILABLE_GESTURES.map(g => {
-                              const isUsedByOther = assignedGestures.includes(g.id) && security.emergency_gesture !== g.id;
-                              if (isUsedByOther) return null;
-                              return <option key={g.id} value={g.id}>{g.label}</option>;
-                            })}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-zinc-400 w-1/3 flex items-center gap-1"><Phone className="w-3 h-3"/> Contact Name</span>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. Berkay" 
-                          value={security.emergency_contact_name}
-                          onChange={(e) => handleSecurityChange("emergency_contact_name", e.target.value)}
-                          className="w-2/3 bg-zinc-950 border border-zinc-800 rounded-md p-1.5 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/50"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-zinc-400 w-1/3 flex items-center gap-1"><Phone className="w-3 h-3"/> Phone Number</span>
-                        <input 
-                          type="text" 
-                          placeholder="+90 555 123 4567" 
-                          value={security.emergency_phone}
-                          onChange={(e) => handleSecurityChange("emergency_phone", e.target.value)}
-                          className="w-2/3 bg-zinc-950 border border-zinc-800 rounded-md p-1.5 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/50"
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1.5 pt-1">
-                        <span className="text-xs font-medium text-zinc-400 flex items-center gap-1"><ZapIcon className="w-3 h-3"/> AI Action Prompt</span>
-                        <textarea 
-                          rows={2}
-                          value={security.emergency_action_text}
-                          onChange={(e) => handleSecurityChange("emergency_action_text", e.target.value)}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-md p-2 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/50 resize-none"
-                        />
+                    <div className="flex items-center justify-between pl-2">
+                      <span className="text-xs font-medium text-zinc-400 w-1/2">SOS Gesture</span>
+                      <div className="w-1/2 relative">
+                        <select 
+                          className={`w-full bg-zinc-950 border rounded-md p-1.5 text-xs focus:outline-none transition-colors appearance-none ${security?.emergency_gesture ? "border-rose-500/50 text-rose-400" : "border-zinc-800 text-zinc-500"}`}
+                          value={security?.emergency_gesture || ""}
+                          onChange={(e) => handleSecurityGestureChange(e.target.value)}
+                        >
+                          <option value="">-- Select SOS Gesture --</option>
+                          {AVAILABLE_GESTURES.map(g => {
+                            const isUsedByOther = assignedGestures.includes(g.id) && security?.emergency_gesture !== g.id;
+                            if (isUsedByOther) return null;
+                            return <option key={g.id} value={g.id}>{g.label}</option>;
+                          })}
+                        </select>
+                        {security?.emergency_gesture && <CheckCircle className="w-3 h-3 text-rose-500 absolute right-6 top-2 pointer-events-none" />}
                       </div>
                     </div>
                   </div>
@@ -317,7 +285,7 @@ export function GestureManager() {
                  className={`w-full h-11 font-semibold transition-all ${hasChanges ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/20" : "bg-zinc-800 text-zinc-500"}`}
                >
                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                 {saving ? "Saving Configuration..." : "Save All Settings"}
+                 {saving ? "Saving Configuration..." : "Save Configuration"}
                </Button>
             </div>
         </Card>

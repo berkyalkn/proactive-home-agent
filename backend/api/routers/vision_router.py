@@ -5,6 +5,7 @@ from api.services.presence_service import presence_service
 from api.agent.graph import chat_with_ai 
 from api.services.tts_service import text_to_speech
 from api.services.websocket_manager import manager
+from api.services.notification_service import notifier
 from datetime import datetime, timezone, timedelta
 from api.drivers.mqtt_service import LATEST_SENSOR_DATA
 from api.agent.cache import get_cached, set_cache
@@ -23,6 +24,7 @@ import numpy as np
 import asyncio
 import base64
 import time
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -184,11 +186,7 @@ async def execute_emergency_lockdown(person_name: str, settings: SecuritySetting
         try:
             with Session(engine) as session:
                 bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
-                if not bulbs: 
-                    logger.warning("No bulbs found for lockdown flashing.")
-                    return
-                
-                logger.info("Flashing lights red...")
+                if not bulbs: return
                 for _ in range(5):
                     for bulb in bulbs:
                         await set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=100))
@@ -197,24 +195,64 @@ async def execute_emergency_lockdown(person_name: str, settings: SecuritySetting
                     for bulb in bulbs:
                         await control_device(device_id=bulb.name, control=DeviceControl(on=False))
                     await asyncio.sleep(1.0)
-                    
                 for bulb in bulbs:
                     await control_device(device_id=bulb.name, control=DeviceControl(on=True))
                     await set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)) 
-                logger.info("Lockdown flashing complete.")
         except Exception as e:
             logger.error(f"Lockdown lights failed: {e}")
 
     asyncio.create_task(flash_lights_red())
 
+    target_phone = settings.emergency_phone
+    target_name = settings.emergency_contact_name
+
+    alert_sms = f"EMERGENCY: {person_name} has triggered an SOS alarm in their smart home system. Please check the situation or contact us immediately!"
+    
+    alert_telegram = (
+        f"*EMERGENCY ALERT* \n\n"
+        f"*Reporter:* {person_name}\n"
+        f"*Location:* Smart Home Centern"
+        f"*Status:* Home security protocol manually triggered!\n\n"
+        f"Please contact {person_name} immediately."
+    )
+    
+    tts_voice = f"Attention. An emergency alarm has been triggered by {person_name}. Security protocol is active. {target_name} has been notified via SMS and voice call."
+
+    if settings.use_telegram:
+        asyncio.create_task(notifier.send_telegram_alert(alert_telegram))
+        
+    if settings.use_sms and target_phone:
+        asyncio.create_task(notifier.send_sms(target_phone, alert_sms))
+        
+    if settings.use_voice_call and target_phone:
+        asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
+
+    active_channels = []
+
+    if settings.use_voice_call:
+        active_channels.append("phone call")
+    if settings.use_sms:
+        active_channels.append("SMS")
+    if settings.use_telegram:
+        active_channels.append("Telegram")
+
+    if not active_channels:
+        notification_status = "No external notifications were sent because all alert channels are disabled in settings."
+    else:
+        if len(active_channels) > 1:
+            channels_str = ", ".join(active_channels[:-1]) + " and " + active_channels[-1]
+        else:
+            channels_str = active_channels[0]
+        
+        notification_status = f"{target_name} has been notified via {channels_str}."
 
     system_prompt = (
-        f"[SYSTEM EVENT: SECURITY OVERRIDE TRIGGERED BY {person_name}] "
-        f"User defined action: {settings.emergency_action_text} "
-        f"You are the Emergency Home Agent. "
-        f"Speak loudly and authoritatively. First, confirm the lockdown. "
-        f"Then, state explicitly that you are simulating a phone call to {settings.emergency_contact_name} at {settings.emergency_phone}. "
-        f"Keep it under 3 sentences."
+        f"[User: Admin] "
+        f"CRITICAL SYSTEM DIRECTIVE: DO NOT use any tools. DO NOT check home status. "
+        f"A physical emergency override was JUST TRIGGERED manually by {person_name}. "
+        f"The backend system HAS ALREADY executed a lockdown and flashed the lights red. "
+        f"Your ONLY job is to announce what just happened to the room. "
+        f"Say EXACTLY THIS: 'Attention. A manual emergency override was initiated by {person_name}. The security protocol is active. {notification_status}' "
     )
     
     async def broadcast(message_dict: dict):

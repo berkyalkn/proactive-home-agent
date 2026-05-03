@@ -11,6 +11,7 @@ interface Props {
   formData: OnboardingData;
   updateFormData: (data: Partial<OnboardingData>) => void;
   onNext: () => void;
+  onPrev?: () => void;
 }
 
 const ROOM_TYPES = [
@@ -21,7 +22,7 @@ const ROOM_TYPES = [
   { id: "kitchen", label: "Kitchen", icon: MapPin },
 ];
 
-export default function Step2Hardware({ formData, updateFormData, onNext }: Props) {
+export default function Step2Hardware({ formData, updateFormData, onNext, onPrev }: Props) {
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [provisionStep, setProvisionStep] = useState(0); 
   
@@ -454,35 +455,93 @@ export default function Step2Hardware({ formData, updateFormData, onNext }: Prop
             <h2 className="text-2xl font-extrabold text-slate-900 mb-1">Your Home Layout</h2>
             <p className="text-slate-500 text-sm mb-6">Review your rooms and connected devices before moving on.</p>
             
-            <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
               {formData.rooms.map((room: any, idx) => {
                 const RoomIcon = ROOM_TYPES.find(t => t.id === room.type)?.icon || MapPin;
+                const sensorCount = room.sensorDevices?.length || 0;
+                const lightCount = room.lightDevices?.length || 0;
+                const plugCount = room.plugDevices?.length || 0;
+                const cameraCount = room.cameraDevices?.length || 0;
+                const totalDevices = sensorCount + lightCount + plugCount + cameraCount;
+
                 return (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl shadow-sm group hover:border-indigo-300 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><RoomIcon className="w-6 h-6" /></div>
-                      <div>
-                        <div className="font-bold text-slate-800">{room.name}</div>
-                        <div className="flex gap-2 mt-1">
-                          {room.hasSensor && <Cpu className="w-4 h-4 text-slate-400" />}
-                          {room.hasLight && <Lightbulb className="w-4 h-4 text-amber-400" />}
-                          {room.hasPlug && <PlugZap className="w-4 h-4 text-emerald-400" />}
-                          {room.hasCamera && <Cctv className="w-4 h-4 text-blue-400" />}
+                  <div key={idx} className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-indigo-300 transition-all overflow-hidden group">
+                    <div className="flex items-center justify-between p-4 bg-slate-50/50 border-b border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl shadow-inner">
+                          <RoomIcon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="font-extrabold text-slate-800 text-base">{room.name}</div>
+                          <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
+                            {totalDevices} {totalDevices === 1 ? 'Device' : 'Devices'} Connected
+                          </div>
                         </div>
                       </div>
+                      <button 
+                        onClick={() => removeRoom(idx)} 
+                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        title="Remove Room"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button onClick={() => removeRoom(idx)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-5 h-5" /></button>
+                    
+                    <div className="p-4 flex flex-wrap gap-2 bg-white">
+                      {sensorCount > 0 && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-lg">
+                          <Cpu className="w-3.5 h-3.5 text-indigo-500" />
+                          <span className="text-xs font-bold text-indigo-700">{sensorCount} Sensor{sensorCount > 1 ? 's' : ''}</span>
+                        </div>
+                      )}
+                      {lightCount > 0 && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
+                          <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+                          <span className="text-xs font-bold text-amber-700">{lightCount} Light{lightCount > 1 ? 's' : ''}</span>
+                        </div>
+                      )}
+                      {plugCount > 0 && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
+                          <PlugZap className="w-3.5 h-3.5 text-emerald-500" />
+                          <span className="text-xs font-bold text-emerald-700">{plugCount} Plug{plugCount > 1 ? 's' : ''}</span>
+                        </div>
+                      )}
+                      {cameraCount > 0 && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
+                          <Cctv className="w-3.5 h-3.5 text-blue-500" />
+                          <span className="text-xs font-bold text-blue-700">{cameraCount} Camera{cameraCount > 1 ? 's' : ''}</span>
+                        </div>
+                      )}
+                      {totalDevices === 0 && (
+                        <div className="text-xs font-medium text-slate-400 italic px-1 py-1">No devices assigned to this room yet.</div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
-              <button onClick={() => setIsBuildingRoom(true)} className="w-full py-4 border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 rounded-2xl flex items-center justify-center gap-2 text-slate-500 hover:text-indigo-600 font-bold transition-all">
-                <Plus className="w-5 h-5" /> Add Another Room
+              
+              <button onClick={() => setIsBuildingRoom(true)} className="w-full py-4 border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-2xl flex items-center justify-center gap-2 text-slate-500 font-bold transition-all group">
+                <div className="p-1 bg-slate-100 group-hover:bg-indigo-100 rounded-md transition-colors"><Plus className="w-4 h-4" /></div> Add Another Room
               </button>
             </div>
 
-            <button onClick={startProvisioning} className="w-full py-4 mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 group">
-              Continue to Next Step <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
+            <div className="mt-6 pt-6 border-t border-slate-100 flex gap-3 shrink-0">
+                {onPrev && (
+                    <button 
+                        onClick={onPrev} 
+                        className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-all"
+                    >
+                        Back
+                    </button>
+                )}
+                
+                <button 
+                    onClick={startProvisioning} 
+                    className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group"
+                >
+                    Continue to Next Step <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+            </div>
           </motion.div>
         )}
       </div>

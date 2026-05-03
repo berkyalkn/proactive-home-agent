@@ -115,7 +115,7 @@ class DiscoveryService:
                 writer.close()
                 await writer.wait_closed()
                 
-                device_type = "bulb" if ip_end in [14, 24] else "outlet"
+                device_type = "bulb" if ip_end in [14, 17] else "outlet"
                 model_name = "L530E" if device_type == "bulb" else "P110"
                 
                 discovered_devices.append({

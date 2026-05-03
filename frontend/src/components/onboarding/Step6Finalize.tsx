@@ -2,23 +2,24 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Activity, Server, CheckCircle2, Loader2, BrainCircuit, ShieldCheck, Home, Hand } from 'lucide-react';
+import { Activity, CheckCircle2, Loader2, BrainCircuit, ShieldCheck, Home, Hand, ShieldAlert, Layers } from 'lucide-react';
 import { OnboardingData } from '@/app/onboarding/page';
 
 interface Props {
   formData: OnboardingData;
 }
 
-export default function Step5Finalize({ formData }: Props) {
+export default function Step6Finalize({ formData }: Props) {
   const router = useRouter();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const BUILD_STEPS = [
-    { id: 'db', label: `Compiling rules for ${formData.homeName || 'your home'}`, icon: Home },
-    { id: 'ws', label: `Wiring ${formData.rooms.length} spatial nodes`, icon: Server },
-    { id: 'mqtt', label: 'Encrypting IoT & Biometric signatures', icon: ShieldCheck },
-    { id: 'gestures', label: 'Syncing gesture mappings & SOS protocols', icon: Hand },
-    { id: 'ai', label: `Initializing LangGraph Agent (${formData.assistantName || 'AI'})`, icon: BrainCircuit },
+    { id: 'db', label: `Personalizing ${formData.homeName || 'your home'}...`, icon: Home },
+    { id: 'ws', label: `Connecting devices across ${formData.rooms.length} rooms...`, icon: Layers }, 
+    { id: 'mqtt', label: 'Securing your privacy and Face ID...', icon: ShieldCheck },
+    { id: 'sec', label: 'Activating your emergency SOS alerts...', icon: ShieldAlert }, 
+    { id: 'gestures', label: 'Saving your custom hand gestures...', icon: Hand },
+    { id: 'ai', label: `Waking up ${formData.assistantName || 'your smart assistant'}...`, icon: BrainCircuit },
   ];
 
   useEffect(() => {
@@ -56,8 +57,9 @@ export default function Step5Finalize({ formData }: Props) {
             </div>
           </div>
         </div>
-        <h2 className="text-3xl font-extrabold text-slate-900 text-center tracking-tight mb-2">Building Your Dashboard</h2>
-        <p className="text-slate-500 text-center font-medium">Please wait while we assemble your Smart Home core.</p>
+
+        <h2 className="text-3xl font-extrabold text-slate-900 text-center tracking-tight mb-2">Almost Ready!</h2>
+        <p className="text-slate-500 text-center font-medium">Please wait while we put the finishing touches on your smart home.</p>
       </div>
       
       <div className="space-y-6 relative z-10">
@@ -117,7 +119,7 @@ export default function Step5Finalize({ formData }: Props) {
               className="text-center pt-2"
             >
               <p className="text-emerald-600 font-bold text-sm flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4" /> System Online. Redirecting...
+                <CheckCircle2 className="w-4 h-4" /> All set! Taking you to your dashboard...
               </p>
             </motion.div>
           )}

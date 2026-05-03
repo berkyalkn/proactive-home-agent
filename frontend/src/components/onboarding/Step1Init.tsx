@@ -6,9 +6,10 @@ interface Props {
   formData: OnboardingData;
   updateFormData: (data: Partial<OnboardingData>) => void;
   onNext: () => void;
+  onPrev?: () => void;
 }
 
-export default function Step1Init({ formData, updateFormData, onNext }: Props) {
+export default function Step1Init({ formData, updateFormData, onNext, onPrev }: Props) {
   const isComplete = formData.homeName && formData.assistantName && formData.location && formData.householdType && formData.userAge;
 
   return (
@@ -118,15 +119,24 @@ export default function Step1Init({ formData, updateFormData, onNext }: Props) {
           </div>
         </div>
 
-        <div className="pt-2">
-          <button 
-            disabled={!isComplete} 
-            onClick={onNext} 
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group disabled:cursor-not-allowed transform-gpu hover:-translate-y-0.5 will-change-transform disabled:hover:translate-y-0 disabled:shadow-none"
-          >
-            {isComplete ? "Initialize Core System" : "Complete Fields to Continue"} 
-            <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
+        <div className="mt-8 pt-6 border-t border-slate-100 flex gap-3 shrink-0 w-full">
+            {onPrev && (
+                <button 
+                    onClick={onPrev} 
+                    className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-all"
+                >
+                    Back to Login
+                </button>
+            )}
+            
+            <button 
+                disabled={!isComplete} 
+                onClick={onNext} 
+                className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group disabled:cursor-not-allowed transform-gpu hover:-translate-y-0.5 will-change-transform disabled:hover:translate-y-0 disabled:shadow-none"
+            >
+                {isComplete ? "Initialize Core System" : "Complete Fields to Continue"} 
+                <ChevronRight className={`w-5 h-5 ${isComplete ? "group-hover:translate-x-1 transition-transform" : ""}`} />
+            </button>
         </div>
 
       </div>

@@ -233,4 +233,28 @@ async def control_bulb(location: str, action: str, brightness: int = None, hue: 
         return "Action completed."
     except Exception as e: return f"Failed: {e}"
 
-tools_list = [get_home_status, control_smart_device, control_bulb]
+
+@tool
+async def trigger_emergency_alert(reason: str):
+    """
+    CRITICAL TOOL: Use this ONLY if the user explicitly asks for help, says they fell, 
+    is in danger, or tells you to call someone for an emergency.
+    This tool will instantly send an SMS, a Telegram message, and make a Voice Call to their emergency contact.
+    
+    Args:
+        reason: A short description of why help is needed (e.g., "User fell down", "User feels sick").
+    """
+    logger.critical(f"AGENT INITIATED EMERGENCY ALERT! Reason: {reason}")
+    
+    alert_msg = f"AI AGENT ALERT: Smart home assistant reported an emergency. Reason: {reason}"
+    tts_voice = f"Emergency alert. The smart home assistant has detected a problem. The stated reason is: {reason}. Please intervene."
+    
+    target_phone = os.getenv("EMERGENCY_PHONE_NUMBER")
+    
+    asyncio.create_task(notifier.send_telegram_alert(alert_msg))
+    asyncio.create_task(notifier.send_sms(target_phone, alert_msg))
+    asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
+    
+    return f"EMERGENCY PROTOCOL ACTIVATED. The emergency contact has been called and messaged regarding: {reason}."
+
+tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert]

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import logging
 from sqlmodel import Session, select
 from database.settings import engine
+import asyncio
 
 from database.models import Device
 from api.drivers import tapo_driver
@@ -83,6 +84,15 @@ async def get_all_devices() -> Dict[str, dict]:
     with Session(engine) as session:
         db_devices = session.exec(select(Device).where(Device.device_type.in_(["outlet", "bulb"]))).all()
 
+    connection_tasks = []
+    for db_device in db_devices:
+        if db_device.name not in CONNECTED_DEVICES:
+            task = asyncio.wait_for(ensure_connection(db_device.name), timeout=1.0)
+            connection_tasks.append(task)
+            
+    if connection_tasks:
+        await asyncio.gather(*connection_tasks, return_exceptions=True)
+
     for db_device in db_devices:
         device_id = db_device.name
         device_type = db_device.device_type
@@ -92,24 +102,24 @@ async def get_all_devices() -> Dict[str, dict]:
         bulb_brightness, bulb_hue, bulb_saturation = 100, 0, 0
         active_conn = None
 
-        if device_id not in CONNECTED_DEVICES:
-            await ensure_connection(device_id)
-
         if device_id in CONNECTED_DEVICES:
             conn = CONNECTED_DEVICES[device_id]
-            if conn["protocol"] == "tapo":
-                status = await tapo_driver.get_tapo_status(conn["object"])
-                if not status["error"]:
-                    is_online, is_on, active_conn = True, status["on"], conn
-            elif conn["protocol"] == "tapo_bulb":
-                status = await tapo_driver.get_bulb_status(conn["object"])
-                if not status["error"]:
-                    is_online, is_on, active_conn = True, status["on"], conn
-                    bulb_brightness, bulb_hue, bulb_saturation = status.get("brightness", 100), status.get("hue", 0), status.get("saturation", 0)
+            try:
+                if conn["protocol"] == "tapo":
+                    status = await asyncio.wait_for(tapo_driver.get_tapo_status(conn["object"]), timeout=1.0)
+                    if not status["error"]:
+                        is_online, is_on, active_conn = True, status["on"], conn
+                elif conn["protocol"] == "tapo_bulb":
+                    status = await asyncio.wait_for(tapo_driver.get_bulb_status(conn["object"]), timeout=1.0)
+                    if not status["error"]:
+                        is_online, is_on, active_conn = True, status["on"], conn
+                        bulb_brightness, bulb_hue, bulb_saturation = status.get("brightness", 100), status.get("hue", 0), status.get("saturation", 0)
+            except Exception:
+                logger.warning(f"Timeout fetching status for {device_id}. Marking offline.")
 
         if is_online and active_conn and device_type == "outlet":
             try:
-                power_data = await active_conn["object"].get_current_power()
+                power_data = await asyncio.wait_for(active_conn["object"].get_current_power(), timeout=1.0)
                 current_power = power_data.to_dict().get("current_power", 0) / 1000
             except Exception:
                 current_power = 0.0

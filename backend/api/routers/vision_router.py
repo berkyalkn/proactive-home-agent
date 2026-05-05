@@ -182,26 +182,48 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
 async def execute_emergency_lockdown(person_name: str, settings: SecuritySettings):
     logger.warning(f"EMERGENCY LOCKDOWN INITIATED BY {person_name}")
     
-    async def flash_lights_red():
+    async def flash_lights_dynamic():
         try:
             with Session(engine) as session:
                 bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
                 if not bulbs: return
-                for _ in range(5):
+                
+                loop_count = getattr(settings, 'emergency_duration', 10) // 2 
+                color_setting = getattr(settings, 'emergency_light_color', 'red')
+                
+                for i in range(loop_count):
                     for bulb in bulbs:
-                        await set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=100))
-                        await set_brightness(device_id=bulb.name, control=BrightnessControl(brightness=100))
+                        if color_setting == "blue":
+                            target_hue = 240
+                        elif color_setting == "police":
+                            target_hue = 0 if i % 2 == 0 else 240
+                        else: 
+                            target_hue = 0
+                            
+                        try:
+                            await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=target_hue, saturation=100)), timeout=1.0)
+                            await asyncio.wait_for(set_brightness(device_id=bulb.name, control=BrightnessControl(brightness=100)), timeout=1.0)
+                        except Exception as e:
+                            logger.warning(f"Skipping bulb {bulb.name} (Offline or Timeout)")
+                        
                     await asyncio.sleep(1.0)
+                    
                     for bulb in bulbs:
-                        await control_device(device_id=bulb.name, control=DeviceControl(on=False))
+                        try:
+                            await asyncio.wait_for(control_device(device_id=bulb.name, control=DeviceControl(on=False)), timeout=1.0)
+                        except: pass
+                    
                     await asyncio.sleep(1.0)
+                
                 for bulb in bulbs:
-                    await control_device(device_id=bulb.name, control=DeviceControl(on=True))
-                    await set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)) 
+                    try:
+                        await asyncio.wait_for(control_device(device_id=bulb.name, control=DeviceControl(on=True)), timeout=1.0)
+                        await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)), timeout=1.0)
+                    except: pass
         except Exception as e:
             logger.error(f"Lockdown lights failed: {e}")
 
-    asyncio.create_task(flash_lights_red())
+    asyncio.create_task(flash_lights_dynamic())
 
     target_phone = settings.emergency_phone
     target_name = settings.emergency_contact_name
@@ -211,7 +233,7 @@ async def execute_emergency_lockdown(person_name: str, settings: SecuritySetting
     alert_telegram = (
         f"*EMERGENCY ALERT* \n\n"
         f"*Reporter:* {person_name}\n"
-        f"*Location:* Smart Home Centern"
+        f"*Location:* Smart Home Center\n"
         f"*Status:* Home security protocol manually triggered!\n\n"
         f"Please contact {person_name} immediately."
     )
@@ -228,31 +250,31 @@ async def execute_emergency_lockdown(person_name: str, settings: SecuritySetting
         asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
 
     active_channels = []
+    if settings.use_voice_call: active_channels.append("phone call")
+    if settings.use_sms: active_channels.append("SMS")
+    if settings.use_telegram: active_channels.append("Telegram")
 
-    if settings.use_voice_call:
-        active_channels.append("phone call")
-    if settings.use_sms:
-        active_channels.append("SMS")
-    if settings.use_telegram:
-        active_channels.append("Telegram")
-
-    if not active_channels:
-        notification_status = "No external notifications were sent because all alert channels are disabled in settings."
-    else:
+    notification_status = "No external notifications were sent."
+    if active_channels:
         if len(active_channels) > 1:
             channels_str = ", ".join(active_channels[:-1]) + " and " + active_channels[-1]
         else:
             channels_str = active_channels[0]
-        
         notification_status = f"{target_name} has been notified via {channels_str}."
 
+    user_announcement = getattr(settings, 'emergency_action_text', 'Security protocol activated.')
+    
     system_prompt = (
         f"[User: Admin] "
-        f"CRITICAL SYSTEM DIRECTIVE: DO NOT use any tools. DO NOT check home status. "
-        f"A physical emergency override was JUST TRIGGERED manually by {person_name}. "
-        f"The backend system HAS ALREADY executed a lockdown and flashed the lights red. "
-        f"Your ONLY job is to announce what just happened to the room. "
-        f"Say EXACTLY THIS: 'Attention. A manual emergency override was initiated by {person_name}. The security protocol is active. {notification_status}' "
+        f"CRITICAL SYSTEM DIRECTIVE: "
+        f"An emergency override was JUST TRIGGERED manually by {person_name}. "
+        f"The backend system HAS ALREADY executed hardware lockdowns (flashing lights). "
+        f"The backend system HAS ALREADY contacted the authorities and sent SMS/Telegram messages. "
+        f"DO NOT USE ANY TOOLS. I REPEAT, DO NOT TRIGGER THE EMERGENCY ALERT TOOL BECAUSE ALERTS ARE ALREADY SENT! "
+        f"Your ONLY job is to announce the emergency to the room out loud. "
+        f"The user wrote this specific custom directive to tell the intruder/room: '{user_announcement}'\n"
+        f"Also, seamlessly include this status update: '{notification_status}' "
+        f"Create a terrifying, highly authoritative 2-sentence security warning incorporating the user's directive."
     )
     
     async def broadcast(message_dict: dict):

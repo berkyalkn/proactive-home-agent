@@ -14,6 +14,8 @@ class SecuritySaveRequest(BaseModel):
     emergency_gesture: str
     emergency_contact_name: str
     emergency_phone: str
+    emergency_light_color: str = "red"  
+    emergency_duration: int = 10        
     emergency_action_text: str
     use_sms: bool = True           
     use_voice_call: bool = True    
@@ -120,6 +122,8 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
                 "emergency_gesture": "",
                 "emergency_contact_name": "",
                 "emergency_phone": "",
+                "emergency_light_color": "red", 
+                "emergency_duration": 10,        
                 "emergency_action_text": "",
                 "use_sms": True,         
                 "use_voice_call": True,    
@@ -131,6 +135,8 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
             "emergency_gesture": settings.emergency_gesture,
             "emergency_contact_name": settings.emergency_contact_name,
             "emergency_phone": settings.emergency_phone,
+            "emergency_light_color": getattr(settings, 'emergency_light_color', 'red'), 
+            "emergency_duration": getattr(settings, 'emergency_duration', 10),           
             "emergency_action_text": settings.emergency_action_text,
             "use_sms": settings.use_sms,                 
             "use_voice_call": settings.use_voice_call,   
@@ -147,6 +153,8 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
             settings.emergency_gesture = request.emergency_gesture
             settings.emergency_contact_name = request.emergency_contact_name
             settings.emergency_phone = request.emergency_phone
+            settings.emergency_light_color = request.emergency_light_color  
+            settings.emergency_duration = request.emergency_duration        
             settings.emergency_action_text = request.emergency_action_text
             settings.use_sms = request.use_sms                 
             settings.use_voice_call = request.use_voice_call   
@@ -159,6 +167,8 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
                 emergency_gesture=request.emergency_gesture,
                 emergency_contact_name=request.emergency_contact_name,
                 emergency_phone=request.emergency_phone,
+                emergency_light_color=request.emergency_light_color,  
+                emergency_duration=request.emergency_duration,        
                 emergency_action_text=request.emergency_action_text,
                 use_sms=request.use_sms,                       
                 use_voice_call=request.use_voice_call,         

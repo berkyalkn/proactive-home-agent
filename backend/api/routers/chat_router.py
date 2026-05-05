@@ -28,6 +28,8 @@ router = APIRouter(prefix="/chat", tags=["AI Agent"])
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     audio_buffer = bytearray()
+
+    session_thread_id = str(uuid.uuid4())
     
     try:
         while True:
@@ -49,7 +51,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         user_text = raw_text
                         logger.info(f"Chat (Text): {user_text}")
 
-                        stream_generator = chat_with_ai(user_text, thread_id="1")
+                        stream_generator = chat_with_ai(user_text, thread_id=session_thread_id)
                         
                         async for chunk in stream_generator:
                             await manager.send_json({
@@ -64,7 +66,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         logger.error(f"Text Chat Error: {traceback.format_exc()}")
                         await manager.send_json({"status": "error", "message": "An Error occured."}, websocket)
                     
-                    continue 
+                    continue
 
                 try:
                     data = json.loads(raw_text)

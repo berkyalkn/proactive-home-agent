@@ -55,6 +55,32 @@ class NotificationManager:
             logger.error(f"Telegram sending error: {str(e)}")
             return False
 
+    async def send_telegram_photo(
+        self, photo_bytes: bytes, caption: str, chat_id: Optional[str] = None
+    ) -> bool:
+        """Send a photo with caption to Telegram asynchronously."""
+        target_id = chat_id or self.default_telegram_chat_id
+
+        if not self.telegram_token or not target_id:
+            logger.warning(f"[TELEGRAM PHOTO SIMULATION] Target: {target_id} | Caption: {caption}")
+            return False
+
+        url = f"https://api.telegram.org/bot{self.telegram_token}/sendPhoto"
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    data={"chat_id": target_id, "caption": caption, "parse_mode": "Markdown"},
+                    files={"photo": ("fall_screenshot.jpg", photo_bytes, "image/jpeg")},
+                    timeout=15.0,
+                )
+                response.raise_for_status()
+                logger.info(f"Telegram photo sent (Chat ID: {target_id})")
+                return True
+        except Exception as e:
+            logger.error(f"Telegram photo sending error: {str(e)}")
+            return False
+
     def _sync_send_sms(self, phone_number: str, message: str) -> bool:
         """Twilio SDK is synchronous, so it's an isolated helper function."""
 

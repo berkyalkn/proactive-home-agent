@@ -50,6 +50,20 @@ class PresenceService:
             
         logger.info(f"Gesture Logged (Silent): [{now_str}] {person_name} {action} the {location}")
 
+    def log_fall_event(self, location: str, confidence: float):
+        """Log a fall detection event to the history ledger."""
+        tr_timezone = timezone(timedelta(hours=3))
+        now_str = datetime.now(tr_timezone).strftime("%H:%M")
+
+        action = f"FALL DETECTED (confidence: {confidence:.0%}) in"
+        event = {"time": now_str, "user": "Vision System", "action": action, "location": location}
+
+        self.history_ledger.append(event)
+        if len(self.history_ledger) > 20:
+            self.history_ledger.pop(0)
+
+        logger.critical(f"FALL EVENT: [{now_str}] {action} the {location}")
+
     def _update_db_last_seen(self, username: str):
         if username in ["Unknown", "Guest", "A Stranger"]: 
             return 

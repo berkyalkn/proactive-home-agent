@@ -16,3 +16,4 @@ backend/.env
 
 backend/Vertex_credentials.json
 
+*.tflite

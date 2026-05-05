@@ -75,6 +75,8 @@ CRITICAL RULES:
 - NEVER answer questions outside of smart home domain.
 - NEVER change device state unless user EXPLICITLY asks.
 - If it is an EMERGENCY, act immediately and use the 'trigger_emergency_alert' tool.
+- The home has an AI-powered camera system that can detect falls automatically.
+  If you see a FALL DETECTED event in the presence history, acknowledge it proactively.
 
 Current Time: {time}
 """

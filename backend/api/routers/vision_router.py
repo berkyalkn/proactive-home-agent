@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 from api.services.vision_service import vision_service
 from api.services.presence_service import presence_service
@@ -22,6 +22,7 @@ import logging
 import cv2
 import numpy as np
 import asyncio
+from typing import Optional
 import base64
 import time
 import os
@@ -122,6 +123,20 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
         system_prompt = (
             f"[System Event: Camera disconnected at {current_time}.] "
             f"IGNORE PREVIOUS MEMORY. Strictly state that the camera feed is lost and presence tracking is paused. One sentence only."
+        )
+
+    elif event_type == "fall_detected":
+        system_prompt = (
+            f"[User: Admin] "
+            f"CRITICAL SYSTEM DIRECTIVE: DO NOT use any tools. DO NOT check home status. "
+            f"The home vision system has JUST DETECTED a confirmed fall at {current_time}. "
+            f"This is an AUTOMATED DETECTION — the person passed velocity filtering and "
+            f"remained motionless for 3 seconds after falling. "
+            f"The notification system has ALREADY alerted the emergency contact. "
+            f"Your ONLY job is to announce this to the room. "
+            f"Say EXACTLY THIS: 'Attention. The camera system has detected a fall. "
+            f"Emergency contacts have been notified. If you are okay,"
+            f"say something.' "
         )
 
     else: 
@@ -434,6 +449,88 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
     except Exception as e:
         logger.error(f"Gesture Processing Error: {e}")
         raise HTTPException(status_code=500, detail="Gesture Processing Error")
+
+
+async def execute_fall_emergency(confidence: float, screenshot_bytes: Optional[bytes]):
+    """Automatic fall emergency. No light flashing.
+    Uses SecuritySettings for notification channels — same config as gesture SOS."""
+
+    logger.critical(f"FALL EMERGENCY PROTOCOL — Confidence: {confidence:.0%}")
+
+    # 1. Pull notification preferences from SecuritySettings (onboarding SOS config)
+    with Session(engine) as session:
+        settings = session.exec(select(SecuritySettings)).first()
+
+    if not settings or not settings.is_active:
+        logger.warning("SecuritySettings not found or inactive. Only agent announcement will run.")
+        await trigger_agent_proactively("System", "fall_detected")
+        return
+
+    target_phone = settings.emergency_phone
+    target_name = settings.emergency_contact_name
+
+    alert_text = (
+        f"⚠️ *FALL DETECTED*\n\n"
+        f"The home camera system detected a fall.\n"
+        f"Confidence: {confidence:.0%}\n"
+        f"Please check immediately."
+    )
+
+    tts_voice = (
+        "Attention. The smart home camera system has detected a fall. "
+        f"{target_name}, please check the situation immediately."
+    )
+
+    # 2. Telegram — screenshot goes directly as photo (no disk storage)
+    if settings.use_telegram:
+        if screenshot_bytes:
+            asyncio.create_task(notifier.send_telegram_photo(screenshot_bytes, alert_text))
+        else:
+            asyncio.create_task(notifier.send_telegram_alert(alert_text))
+
+    # 3. SMS
+    if settings.use_sms and target_phone:
+        sms_text = f"FALL DETECTED by home camera (confidence: {confidence:.0%}). Please check immediately."
+        asyncio.create_task(notifier.send_sms(target_phone, sms_text))
+
+    # 4. Voice Call
+    if settings.use_voice_call and target_phone:
+        asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
+
+    # 5. Agent announcement (TTS to room speakers via existing WS broadcast)
+    await trigger_agent_proactively("System", "fall_detected")
+
+
+@router.post("/fall_alert")
+async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks):
+    """Receive fall alerts from edge camera.
+    Accepts JSON (no screenshot) or multipart/form-data (with screenshot)."""
+    content_type = request.headers.get("content-type", "")
+    screenshot_bytes = None
+
+    if "multipart" in content_type:
+        form = await request.form()
+        confidence = float(form["confidence"])
+        timestamp = float(form["timestamp"])
+        source = form.get("source", "mac_camera")
+        screenshot_file = form.get("screenshot")
+        if screenshot_file:
+            screenshot_bytes = await screenshot_file.read()
+    else:
+        body = await request.json()
+        confidence = body["confidence"]
+        timestamp = body["timestamp"]
+        source = body.get("source", "mac_camera")
+
+    logger.critical(f"FALL ALERT RECEIVED — confidence: {confidence:.0%}, source: {source}")
+
+    # 1. Log to presence ledger
+    presence_service.log_fall_event("living_room", confidence)
+
+    # 2. Fire notification + agent in background
+    background_tasks.add_task(execute_fall_emergency, confidence, screenshot_bytes)
+
+    return {"status": "fall_alert_received"}
 
 
 @router.post("/update_presence")

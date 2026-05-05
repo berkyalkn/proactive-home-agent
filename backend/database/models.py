@@ -127,6 +127,8 @@ class SecuritySettings(SQLModel, table=True):
     emergency_action_text: str = Field(default="Flash all lights red for 10 seconds and sound the alarm.")
     emergency_contact_name: str = Field(default="")
     emergency_phone: str = Field(default="")
+    emergency_light_color: str = "red" 
+    emergency_duration: int = 10
     use_sms: bool = Field(default=True)
     use_voice_call: bool = Field(default=True)
     use_telegram: bool = Field(default=True)

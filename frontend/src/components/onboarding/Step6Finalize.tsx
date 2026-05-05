@@ -29,8 +29,22 @@ export default function Step6Finalize({ formData }: Props) {
       }, 1600); 
       return () => clearTimeout(timer);
     } else {
+      const finalizeOnboarding = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/onboarding/complete`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        } catch (error) {
+          console.error("Failed to update onboarding status:", error);
+        } finally {
+          router.push('/dashboard');
+        }
+      };
+
       const finalTimer = setTimeout(() => {
-        router.push('/dashboard');
+        finalizeOnboarding();
       }, 1000);
       return () => clearTimeout(finalTimer);
     }

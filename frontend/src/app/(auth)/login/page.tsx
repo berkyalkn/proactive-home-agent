@@ -78,8 +78,25 @@ export default function LoginPage() {
 
       stopCamera();
       setIsCameraActive(false);
-      setIsExiting(true);
-      setTimeout(() => router.push('/dashboard'), 600);
+      
+      try {
+        const meRes = await api.get('/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        setIsExiting(true);
+        setTimeout(() => {
+          if (meRes.data.is_onboarding_complete) {
+            router.push('/dashboard');
+          } else {
+            router.push('/onboarding');
+          }
+        }, 600);
+        
+      } catch (meError) {
+        setIsExiting(true);
+        setTimeout(() => router.push('/onboarding'), 600);
+      }
 
     } catch (err: any) {
       setError(err.response?.data?.detail || "Face not recognized. Try again.");

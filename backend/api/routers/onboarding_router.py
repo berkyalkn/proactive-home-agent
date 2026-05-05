@@ -114,3 +114,25 @@ async def run_diagnostic(current_user: User = Depends(get_current_user)):
         "mqtt_broker": mqtt_ok,
         "message": "All systems are active." if (db_ok and mqtt_ok) else "Some systems are inaccessible."
     }
+
+
+@router.post("/complete")
+async def complete_onboarding(current_user: User = Depends(get_current_user)):
+    """
+    Marks the user's onboarding process as completely finished.
+    """
+    
+    try:
+        with Session(engine) as session:
+            db_user = session.exec(select(User).where(User.id == current_user.id)).first()
+            if db_user:
+                db_user.is_onboarding_complete = True
+                session.add(db_user)
+                session.commit()
+                logger.info(f"User {current_user.username} successfully completed onboarding.")
+                return {"status": "success", "message": "Onboarding finalized."}
+            else:
+                raise HTTPException(status_code=404, detail="User not found.")
+    except Exception as e:
+        logger.error(f"Error completing onboarding: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

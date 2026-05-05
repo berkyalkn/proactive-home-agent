@@ -120,15 +120,10 @@ The system transforms passive hand gestures into physical actuations via a sophi
 - **Hierarchical DB-Driven Actuation:**
   - **Level 1 (Dynamic Mapping):** Users can map available gestures (e.g., `Victory`, `Pointing_Up`) to any discovered IoT device via PostgreSQL relationships. Actions execute with zero latency, bypassing the LLM entirely.
 
-  - **Level 2 (The Red Zone - Emergency Lockdown):** Users assign an exclusive SOS gesture (e.g., `Open_Palm`) that is instantly stripped from standard device availability. Upon detection, it triggers a catastrophic `execute_emergency_lockdown` macro. This dynamic macro initiates a hardware-level red flashing loop on all available bulbs and instantly fires the Omnichannel Notification Service.
-
-- **Omnichannel Notification Service (Graceful Degradation):** A decoupled singleton service that handles external alerts asynchronously. Depending on user-defined preferences stored in PostgreSQL, it can simultaneously dispatch:
-    - **Telegram Alerts:** Real-time Markdown-formatted push notifications via `httpx`.
-    - **SMS Messages:** Concise, actionable text alerts via Twilio API.
-    - **Automated Voice Calls:** TwiML-powered robotic TTS calls ensuring immediate attention.
-    - *Note:* The service degrades gracefully; if API keys are missing or a service is down, it logs the error without crashing the internal system.
-
-- **Dynamic Agent Announcements:** Following a lockdown, the LangGraph agent is force-fed a Jailbreak prompt instructing it to announce the *exact* notification channels that were just successfully fired, ensuring 100% factual accuracy with zero hallucinations.
+  - **Level 2 (The Red Zone - Emergency Lockdown):** Users assign an exclusive SOS gesture (e.g., `Closed_Fist`) that triggers a catastrophic `execute_emergency_lockdown` macro. This macro runs on a **Fail-Fast architecture**, ignoring unresponsive devices (1s timeouts) to prevent system freezing. It executes parallel tasks:
+    1.  **Hardware Override:** Instantly forces all discovered smart bulbs into a deterministic alert state based on user preferences (e.g., Police Strobe Red/Blue for 20 seconds).
+    2.  **Omnichannel Alerts:** Simultaneously dispatches SMS, Automated Voice Calls (Twilio), and Telegram alerts.
+    3.  **Dynamic AI Voice Announcement:** Bypasses standard LLM processing delays. The system injects dynamic context (e.g., "SMS sent to Tuna") into the user's custom pre-defined SOS prompt and streams it instantly to the Text-to-Speech engine, generating an authoritative, context-aware room broadcast within milliseconds.
 
 - **Silent Episodic Memory:** Every gesture—whether it triggers an action or is simply an observation—is silently logged into the agent's `history_ledger`, granting the LLM a highly accurate episodic memory to answer queries like "What did I just do?".
 
@@ -138,13 +133,13 @@ The system transforms passive hand gestures into physical actuations via a sophi
 
 The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts as the "Constitution" for the Smart Home, dynamically generating the backend schema before the user ever reaches the dashboard. All hardcoded variables have been eliminated in favor of this fully data-driven pipeline.
 
-- **1- AI Context Initialization:** Collects structural data (Household Type, Age Group) to seed the LangGraph System Prompt, allowing the AI to naturally adapt its tone and autonomous actions (e.g., enabling Pet-Safe heating profiles or Quiet Hours for roommates).
+- **1- AI Context Initialization:** Collects structural data (Household Type, Age Group) to seed the LangGraph System Prompt, allowing the AI to naturally adapt its tone and autonomous actions.
 
-- **2- Hardware Discovery & Physical Identification:** Replaces manual IP forms with an autonomous `mDNS Snooping` and `TCP Subnet Sweeping` radar. Features a **"Blink to Identify"** UI mechanic that physically toggles smart bulbs/plugs via backend drivers so users can seamlessly identify and map hardware to spatial nodes without losing device states.
+- **2- Hardware Discovery & Active Probing:** Replaces manual IP forms with an autonomous `mDNS Snooping` and `TCP Subnet Sweeping` radar. It implements a resilient **Deep Object Inspection** layer with **Exponential Backoff** to combat IoT hardware fatigue and strict-typing serialization errors. Features a **"Blink to Identify"** UI mechanic that physically toggles smart bulbs/plugs so users can seamlessly identify and map hardware.
 
 - **3- Biometric Security Calibration:** Captures a 5-point face mesh and acoustic footprint via an interactive, gaze-guided UI. Designed with human-centric copywriting to avoid intimidating technical jargon.
 
-- **4- Gesture Mapping & SOS Protocol:** Empowers users to dynamically link hand gestures to physical actuators. Integrates an exclusive Emergency SOS setup where users define a trigger gesture, an emergency contact, and a custom AI action prompt to execute during lockdowns.
+- **4- Gesture Mapping & Advanced SOS Protocol:** Empowers users to dynamically link hand gestures to physical actuators. Integrates a highly granular Emergency SOS configuration where users define their trigger gesture, specific hardware overrides (**Alert Color** such as Police Strobe, and **Duration**), an emergency contact, and a **Custom AI Voice Announcement** that the generative agent will broadcast during a lockdown.
 
 - **5- System Finalization (The Labor Illusion):** Employs psychological UX design (deliberate UI delays and dynamic log tracking) to build anticipation and perceived value as the system compiles PostgreSQL schemas, syncs gesture rules, encrypts signatures, and assembles the dashboard.
 

@@ -126,7 +126,7 @@ class DiscoveryService:
                     try:
                         fetched_model = await asyncio.wait_for(
                             get_device_model(ip, self.tapo_user, self.tapo_pass),
-                            timeout=6.0
+                            timeout=8.0
                         )
                     except Exception:
                         pass

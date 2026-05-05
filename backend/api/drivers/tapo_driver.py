@@ -144,7 +144,7 @@ async def set_bulb_color_temperature(device, color_temp: int):
         raise e
 
 
-async def get_device_model(ip: str, username: str, password: str, retries: int = 2) -> str:
+async def get_device_model(ip: str, username: str, password: str, retries: int = 3) -> str:
     """
     Rust tolerates hardware fatigue and IoT connection issues, and finds the true model of the device with 100% accuracy.
     """

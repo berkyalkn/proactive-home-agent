@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from api.drivers.tapo_driver import (
     connect_tapo_device, get_tapo_status, set_tapo_status,
-    connect_tapo_bulb, get_bulb_status, set_bulb_status
+    connect_tapo_bulb, get_bulb_status, set_bulb_status, get_device_model
 )
 
 load_dotenv()
@@ -110,13 +110,39 @@ class DiscoveryService:
 
             try:
                 reader, writer = await asyncio.wait_for(
-                    asyncio.open_connection(ip, 80), timeout=0.2
+                    asyncio.open_connection(ip, 80), timeout=0.5
                 )
                 writer.close()
                 await writer.wait_closed()
                 
-                device_type = "bulb" if ip_end in [14, 17] else "outlet"
-                model_name = "L530E" if device_type == "bulb" else "P110"
+                device_type = "unknown"
+                model_name = "Unknown Tapo"
+
+                if not self.tapo_user or not self.tapo_pass:
+                    device_type = "outlet"
+                    model_name = "Generic Tapo (No Auth)"
+                else:
+                    fetched_model = ""
+                    try:
+                        fetched_model = await asyncio.wait_for(
+                            get_device_model(ip, self.tapo_user, self.tapo_pass),
+                            timeout=6.0
+                        )
+                    except Exception:
+                        pass
+                    
+                    if fetched_model:
+                        model_name = fetched_model
+                        
+                        if any(x in fetched_model for x in ["L5", "BULB", "L6"]):
+                            device_type = "bulb"
+                        elif any(x in fetched_model for x in ["P1", "PLUG", "T100"]):
+                            device_type = "outlet"
+                        else:
+                            device_type = "outlet" 
+                    else:
+                        device_type = "outlet"
+                        model_name = "Tapo (Unverified)"
                 
                 discovered_devices.append({
                     "id": f"tapo-{ip}",
@@ -125,6 +151,8 @@ class DiscoveryService:
                     "model": model_name,
                     "type": device_type
                 })
+                logger.info(f"[Discovery] Identified {ip} as {model_name} ({device_type})")
+                
             except Exception:
                 pass
 

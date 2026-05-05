@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot } from "lucide-react";
+import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -11,6 +11,8 @@ interface SecuritySettings {
   emergency_gesture: string;
   emergency_contact_name: string;
   emergency_phone: string;
+  emergency_light_color: string; 
+  emergency_duration: number;    
   emergency_action_text: string;
   use_sms: boolean;
   use_voice_call: boolean;
@@ -28,7 +30,9 @@ export function EmergencyManager() {
     emergency_gesture: "",
     emergency_contact_name: "",
     emergency_phone: "",
-    emergency_action_text: "Flash all lights red for 10 seconds and sound the alarm.",
+    emergency_light_color: "red",
+    emergency_duration: 10,
+    emergency_action_text: "Intruder detected! The authorities have been notified.",
     use_sms: true,
     use_voice_call: true,
     use_telegram: true,
@@ -61,7 +65,9 @@ export function EmergencyManager() {
           emergency_gesture: data.emergency_gesture || "",
           emergency_contact_name: data.emergency_contact_name || "",
           emergency_phone: data.emergency_phone || "",
-          emergency_action_text: data.emergency_action_text || "Flash all lights red for 10 seconds and sound the alarm.",
+          emergency_light_color: data.emergency_light_color || "red",
+          emergency_duration: data.emergency_duration || 10,
+          emergency_action_text: data.emergency_action_text || "Intruder detected! The authorities have been notified.",
           use_sms: data.use_sms ?? true,
           use_voice_call: data.use_voice_call ?? true,
           use_telegram: data.use_telegram ?? true,
@@ -164,6 +170,33 @@ export function EmergencyManager() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 tracking-widest uppercase"><Palette className="w-3 h-3"/> Alert Color</label>
+                        <select 
+                            className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-2.5 text-sm text-zinc-200 focus:outline-none focus:border-rose-500/50 cursor-pointer transition-colors"
+                            value={security.emergency_light_color}
+                            onChange={(e) => handleChange("emergency_light_color", e.target.value)}
+                        >
+                            <option value="red">Flashing Red</option>
+                            <option value="blue">Flashing Blue</option>
+                            <option value="police">Police Strobe</option>
+                        </select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 tracking-widest uppercase"><Timer className="w-3 h-3"/> Duration</label>
+                        <select 
+                            className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-2.5 text-sm text-zinc-200 focus:outline-none focus:border-rose-500/50 cursor-pointer transition-colors"
+                            value={security.emergency_duration}
+                            onChange={(e) => handleChange("emergency_duration", parseInt(e.target.value))}
+                        >
+                            <option value={10}>10 Seconds</option>
+                            <option value={20}>20 Seconds</option>
+                            <option value={30}>30 Seconds</option>
+                        </select>
+                    </div>
+                  </div>
+
                   <div className="space-y-3 pt-2 border-t border-zinc-800/50">
                     <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Alert Channels</h4>
                     
@@ -208,11 +241,11 @@ export function EmergencyManager() {
 
                   <div className="space-y-3 pt-2 border-t border-zinc-800/50">
                      <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                       <Bot className="w-4 h-4" /> System Response Override
+                       <Bot className="w-4 h-4" /> AI Voice Announcement
                      </h4>
                      <textarea 
                         rows={3}
-                        placeholder="What should the house do when an emergency is triggered?"
+                        placeholder="What should the AI say to the intruder?"
                         value={security.emergency_action_text}
                         onChange={(e) => handleChange("emergency_action_text", e.target.value)}
                         className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-rose-500/50 resize-none transition-colors"

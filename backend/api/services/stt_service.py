@@ -37,13 +37,10 @@ async def speech_to_text(audio_input: Union[str, BytesIO]) -> str:
                 temperature=0.0,
                 language="en", 
                 prompt=(
-                    "Smart Home Command Log. "
-                    "Turn off the oven. Turn on the desk lamp. "
-                    "Turn on the living room light. "
-                    "Set brightness to 20 and set color to red. "
-                    "What is the temperature? "
-                    "Homify System."
-                )
+                    "A regular smart home conversation. "
+                    "Commands like 'turn on', 'turn off', or simple answers like 'I am fine', 'okay', 'cancel'. "
+                    "If it's silent, just output nothing."
+)
         )
         
         if isinstance(audio_input, str):

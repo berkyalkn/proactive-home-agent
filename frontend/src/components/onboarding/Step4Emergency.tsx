@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Phone, User, MessageSquare, PhoneCall, Send, Bot, Settings2, ArrowRight, Loader2, Palette, Timer, Activity } from 'lucide-react';
+import { ShieldAlert, Phone, User, MessageSquare, PhoneCall, Send, Bot, Settings2, ArrowRight, Loader2, Palette, Timer, Activity, Info } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -12,6 +12,7 @@ interface Props {
 
 interface SecuritySettings {
   emergency_gesture: string;
+  emergency_cancel_gesture: string;
   emergency_contact_name: string;
   emergency_phone: string;
   emergency_light_color: string; 
@@ -20,17 +21,30 @@ interface SecuritySettings {
   use_sms: boolean;
   use_voice_call: boolean;
   use_telegram: boolean;
-  use_fall_detection: boolean; 
+  use_fall_detection: boolean;
   is_active: boolean;
 }
+
+const AVAILABLE_GESTURES = [
+  { id: "Thumb_Up", label: "Thumb Up (👍)" },
+  { id: "Thumb_Down", label: "Thumb Down (👎)" },
+  { id: "Open_Palm", label: "Open Palm (✋)" },
+  { id: "Closed_Fist", label: "Closed Fist (✊)" },
+  { id: "Pointing_Up", label: "Pointing Up (☝️)" },
+  { id: "Victory", label: "Victory / Peace (✌️)" },
+  { id: "ILoveYou", label: "I Love You (🤟)" },
+];
 
 export default function Step4Emergency({ onNext, onPrev }: Props) {
   const [mode, setMode] = useState<'intro' | 'setup'>('intro');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   
+  const [assignedDeviceGestures, setAssignedDeviceGestures] = useState<string[]>([]);
+  
   const [security, setSecurity] = useState<SecuritySettings>({
-    emergency_gesture: "",
+    emergency_gesture: "Closed_Fist",
+    emergency_cancel_gesture: "Open_Palm",
     emergency_contact_name: "",
     emergency_phone: "",
     emergency_light_color: "red",
@@ -39,7 +53,7 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
     use_sms: true,
     use_voice_call: true,
     use_telegram: true,
-    use_fall_detection: true, 
+    use_fall_detection: true,
     is_active: true
   });
 
@@ -48,12 +62,18 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
     setMode('setup');
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${API_URL}/gestures/security`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
+      const [secRes, mapRes] = await Promise.all([
+        fetch(`${API_URL}/gestures/security`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/gestures/mappings`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      
+      const data = await secRes.json();
+      const mapData = await mapRes.json();
       
       if (data && data.is_active !== undefined) {
         setSecurity({
-          emergency_gesture: data.emergency_gesture || "",
+          emergency_gesture: data.emergency_gesture || "Closed_Fist",
+          emergency_cancel_gesture: data.emergency_cancel_gesture || "Open_Palm",
           emergency_contact_name: data.emergency_contact_name || "",
           emergency_phone: data.emergency_phone || "",
           emergency_light_color: data.emergency_light_color || "red",
@@ -62,10 +82,16 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
           use_sms: data.use_sms ?? true,
           use_voice_call: data.use_voice_call ?? true,
           use_telegram: data.use_telegram ?? true,
-          use_fall_detection: data.use_fall_detection ?? true, 
+          use_fall_detection: data.use_fall_detection ?? true,
           is_active: true
         });
       }
+
+      if (mapData && mapData.mappings) {
+        const usedGestures = mapData.mappings.map((m: any) => m.gesture_name);
+        setAssignedDeviceGestures(usedGestures);
+      }
+
     } catch (e) {
       console.error(e);
     } finally {
@@ -164,6 +190,54 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
                                     className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-rose-400 outline-none transition-colors text-sm font-medium text-slate-700"
                                 />
                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-extrabold text-slate-400 ml-1 mb-1.5 flex items-center gap-1 tracking-widest uppercase">SOS Trigger (4s)</label>
+                                <select 
+                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-rose-400 outline-none transition-colors text-sm font-medium text-slate-700 cursor-pointer"
+                                    value={security.emergency_gesture}
+                                    onChange={(e) => handleChange("emergency_gesture", e.target.value)}
+                                >
+                                    {AVAILABLE_GESTURES.map(g => {
+                                        const isUsedByCancel = security.emergency_cancel_gesture === g.id;
+                                        const isUsedByDevice = assignedDeviceGestures.includes(g.id);
+                                        const isDisabled = isUsedByCancel || isUsedByDevice;
+                                        return (
+                                            <option key={g.id} value={g.id} disabled={isDisabled}>
+                                                {g.label} {isUsedByDevice ? "(Used by Device)" : ""}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-extrabold text-slate-400 ml-1 mb-1.5 flex items-center gap-1 tracking-widest uppercase">SOS Cancel (2s)</label>
+                                <select 
+                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-400 outline-none transition-colors text-sm font-medium text-slate-700 cursor-pointer"
+                                    value={security.emergency_cancel_gesture}
+                                    onChange={(e) => handleChange("emergency_cancel_gesture", e.target.value)}
+                                >
+                                    {AVAILABLE_GESTURES.map(g => {
+                                        const isUsedByTrigger = security.emergency_gesture === g.id;
+                                        const isUsedByDevice = assignedDeviceGestures.includes(g.id);
+                                        const isDisabled = isUsedByTrigger || isUsedByDevice;
+                                        return (
+                                            <option key={g.id} value={g.id} disabled={isDisabled}>
+                                                {g.label} {isUsedByDevice ? "(Used by Device)" : ""}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="mt-1 p-3 bg-sky-50 border border-sky-100 rounded-xl flex gap-3 text-left">
+                            <Info className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                            <p className="text-xs text-sky-700 leading-relaxed font-medium">
+                                <strong>How it works:</strong> Hold the Trigger Gesture for <strong>4 seconds</strong> to initiate. The smart bulbs will flash <strong>RED for 1 second</strong> to silently confirm. You then have a <strong>4-second window</strong> to abort the lockdown by holding the Cancel Gesture for <strong>2 seconds</strong>.
+                            </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50/50 border border-slate-100 rounded-2xl">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer, Activity } from "lucide-react";
+import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer, Activity, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -9,6 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface SecuritySettings {
   emergency_gesture: string;
+  emergency_cancel_gesture: string;
   emergency_contact_name: string;
   emergency_phone: string;
   emergency_light_color: string; 
@@ -17,9 +18,19 @@ interface SecuritySettings {
   use_sms: boolean;
   use_voice_call: boolean;
   use_telegram: boolean;
-  use_fall_detection: boolean; 
+  use_fall_detection: boolean;
   is_active: boolean;
 }
+
+const AVAILABLE_GESTURES = [
+  { id: "Thumb_Up", label: "Thumb Up (👍)" },
+  { id: "Thumb_Down", label: "Thumb Down (👎)" },
+  { id: "Open_Palm", label: "Open Palm (✋)" },
+  { id: "Closed_Fist", label: "Closed Fist (✊)" },
+  { id: "Pointing_Up", label: "Pointing Up (☝️)" },
+  { id: "Victory", label: "Victory / Peace (✌️)" },
+  { id: "ILoveYou", label: "I Love You (🤟)" },
+];
 
 export function EmergencyManager() {
   const [isOpen, setIsOpen] = useState(false);
@@ -27,8 +38,11 @@ export function EmergencyManager() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   
+  const [assignedDeviceGestures, setAssignedDeviceGestures] = useState<string[]>([]);
+  
   const [security, setSecurity] = useState<SecuritySettings>({
-    emergency_gesture: "",
+    emergency_gesture: "Closed_Fist",
+    emergency_cancel_gesture: "Open_Palm",
     emergency_contact_name: "",
     emergency_phone: "",
     emergency_light_color: "red",
@@ -37,7 +51,7 @@ export function EmergencyManager() {
     use_sms: true,
     use_voice_call: true,
     use_telegram: true,
-    use_fall_detection: true, 
+    use_fall_detection: true,
     is_active: true
   });
 
@@ -57,14 +71,18 @@ export function EmergencyManager() {
     setLoading(true);
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${API_URL}/gestures/security`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const [secRes, mapRes] = await Promise.all([
+        fetch(`${API_URL}/gestures/security`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/gestures/mappings`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      
+      const data = await secRes.json();
+      const mapData = await mapRes.json();
       
       if (data) {
         setSecurity({
-          emergency_gesture: data.emergency_gesture || "",
+          emergency_gesture: data.emergency_gesture || "Closed_Fist",
+          emergency_cancel_gesture: data.emergency_cancel_gesture || "Open_Palm",
           emergency_contact_name: data.emergency_contact_name || "",
           emergency_phone: data.emergency_phone || "",
           emergency_light_color: data.emergency_light_color || "red",
@@ -73,10 +91,16 @@ export function EmergencyManager() {
           use_sms: data.use_sms ?? true,
           use_voice_call: data.use_voice_call ?? true,
           use_telegram: data.use_telegram ?? true,
-          use_fall_detection: data.use_fall_detection ?? true, 
+          use_fall_detection: data.use_fall_detection ?? true,
           is_active: data.is_active ?? true
         });
       }
+
+      if (mapData && mapData.mappings) {
+        const usedGestures = mapData.mappings.map((m: any) => m.gesture_name);
+        setAssignedDeviceGestures(usedGestures);
+      }
+      
       setHasChanges(false);
     } catch (e) {
       console.error("Failed to fetch security settings", e);
@@ -128,7 +152,7 @@ export function EmergencyManager() {
       </Button>
 
       {isOpen && (
-        <Card className="absolute top-14 left-0 w-[400px] md:w-[450px] bg-black/95 backdrop-blur-xl border-zinc-800 shadow-2xl p-0 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left rounded-xl flex flex-col">
+        <Card className="absolute top-14 left-0 w-[400px] md:w-[450px] bg-black/95 backdrop-blur-xl border-zinc-800 shadow-2xl p-0 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left rounded-xl flex flex-col max-h-[85vh]">
             
             <div className="flex items-center justify-between p-5 border-b border-zinc-800 bg-rose-950/20 shrink-0">
                 <div className="flex items-center gap-3">
@@ -142,7 +166,7 @@ export function EmergencyManager() {
                 </div>
             </div>
 
-            <div className="p-5 space-y-6 overflow-y-auto max-h-[60vh] scrollbar-hide">
+            <div className="p-5 space-y-6 overflow-y-auto scrollbar-hide">
               {loading ? (
                 <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600"/></div>
               ) : (
@@ -171,6 +195,54 @@ export function EmergencyManager() {
                         className="w-full bg-transparent p-2 text-sm text-zinc-200 focus:outline-none"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50">
+                      <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 tracking-widest uppercase">SOS Trigger (4s)</label>
+                          <select 
+                              className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-2.5 text-sm text-zinc-200 focus:outline-none focus:border-rose-500/50 cursor-pointer transition-colors"
+                              value={security.emergency_gesture}
+                              onChange={(e) => handleChange("emergency_gesture", e.target.value)}
+                          >
+                              {AVAILABLE_GESTURES.map(g => {
+                                  const isUsedByCancel = security.emergency_cancel_gesture === g.id;
+                                  const isUsedByDevice = assignedDeviceGestures.includes(g.id);
+                                  const isDisabled = isUsedByCancel || isUsedByDevice;
+                                  return (
+                                      <option key={g.id} value={g.id} disabled={isDisabled}>
+                                          {g.label} {isUsedByDevice ? "(Used)" : ""}
+                                      </option>
+                                  );
+                              })}
+                          </select>
+                      </div>
+                      <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 tracking-widest uppercase">SOS Cancel (2s)</label>
+                          <select 
+                              className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500/50 cursor-pointer transition-colors"
+                              value={security.emergency_cancel_gesture}
+                              onChange={(e) => handleChange("emergency_cancel_gesture", e.target.value)}
+                          >
+                              {AVAILABLE_GESTURES.map(g => {
+                                  const isUsedByTrigger = security.emergency_gesture === g.id;
+                                  const isUsedByDevice = assignedDeviceGestures.includes(g.id);
+                                  const isDisabled = isUsedByTrigger || isUsedByDevice;
+                                  return (
+                                      <option key={g.id} value={g.id} disabled={isDisabled}>
+                                          {g.label} {isUsedByDevice ? "(Used)" : ""}
+                                      </option>
+                                  );
+                              })}
+                          </select>
+                      </div>
+                  </div>
+
+                  <div className="mt-1 p-3 bg-sky-950/20 border border-sky-500/30 rounded-lg flex gap-3 text-left">
+                      <Info className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-sky-100/80 leading-relaxed">
+                          <strong>Protocol Flow:</strong> Hold trigger for <strong>4s</strong> to initiate. The smart bulbs will flash <strong>RED for 1s</strong> to silently confirm. You then have a <strong>4s window</strong> to abort the lockdown by holding the Cancel Gesture for <strong>2s</strong>.
+                      </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50">

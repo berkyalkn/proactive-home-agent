@@ -11,7 +11,9 @@ export function VoiceCommandCenter() {
     isConnected, 
     agentStatus, 
     setAgentStatus, 
-    setIsOpen 
+    setIsOpen,
+    forceMicTrigger,
+    forceMicDuration
   } = useChat();
   
   const [displayMessage, setDisplayMessage] = useState("How can I help you?");
@@ -62,7 +64,7 @@ export function VoiceCommandCenter() {
   }, [agentStatus, playNextAudio, audioQueueRef]);
 
 
-  const startRecording = async () => {
+  const startRecording = useCallback(async () => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
 
     if (currentAudioRef.current) {
@@ -99,10 +101,10 @@ export function VoiceCommandCenter() {
       console.error("Mic Error:", error);
       setDisplayMessage("Mic Access Denied");
     }
-  };
+  }, [socketRef, setAgentStatus, audioQueueRef]);
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && agentStatus === "listening") {
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecordingRef.current) {
       isRecordingRef.current = false; 
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
@@ -112,8 +114,24 @@ export function VoiceCommandCenter() {
             socketRef.current?.send(JSON.stringify({ type: "stop_recording" }));
         }, 100);
       }
+      setAgentStatus("processing");
+      setDisplayMessage("Thinking...");
     }
-  };
+  }, [socketRef, setAgentStatus]);
+
+  useEffect(() => {
+    if (forceMicTrigger > 0) {
+      console.log(`Auto-starting microphone for ${forceMicDuration} seconds...`);
+      startRecording();
+      
+      const timer = setTimeout(() => {
+        console.log("Auto-stopping microphone.");
+        stopRecording();
+      }, forceMicDuration * 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [forceMicTrigger, forceMicDuration, startRecording, stopRecording]);
 
   const handleToggle = () => {
     if (!isConnected) return; 

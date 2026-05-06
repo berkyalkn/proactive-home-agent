@@ -21,10 +21,13 @@ interface ChatContextType {
   setIsOpen: (open: boolean) => void;
   latestSensorData: Record<string, any>;
   latestDeviceData: Record<string, any>;
+  forceMicTrigger: number;    
+  forceMicDuration: number;   
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/chat/ws";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([
@@ -35,6 +38,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [latestSensorData, setLatestSensorData] = useState<Record<string, any>>({});
   const [latestDeviceData, setLatestDeviceData] = useState<Record<string, any>>({});
+  
+  const [forceMicTrigger, setForceMicTrigger] = useState<number>(0);
+  const [forceMicDuration, setForceMicDuration] = useState<number>(10);
 
   const socketRef = useRef<WebSocket | null>(null);
   const audioQueueRef = useRef<string[]>([]);
@@ -115,24 +121,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                   [data.device_id]: data.data
               }));
             }
-             else if (data.status === "device_update") {
+            else if (data.status === "device_update") {
               setLatestDeviceData((prev) => ({
                   ...prev, 
                   [data.device_id]: data.data 
               }));
-          }
+            }
 
-          if (data.status === "text_chunk") {
-            setMessages((prev) => {
-                const lastMsg = prev[prev.length - 1];
-                if (isReceivingStreamRef.current && lastMsg && lastMsg.role === "assistant") {
-                    return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + data.chunk }];
-                } else {
-                    isReceivingStreamRef.current = true;
-                    return [...prev, { role: "assistant", content: data.chunk }];
-                }
-            });
-        }
+            else if (data.status === "force_mic_open") {
+              console.log(`Force Mic Triggered for ${data.duration} seconds`);
+              setForceMicDuration(data.duration || 10);
+              setForceMicTrigger(Date.now()); 
+            }
+
+            else if (data.status === "text_chunk") {
+              setMessages((prev) => {
+                  const lastMsg = prev[prev.length - 1];
+                  if (isReceivingStreamRef.current && lastMsg && lastMsg.role === "assistant") {
+                      return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + data.chunk }];
+                  } else {
+                      isReceivingStreamRef.current = true;
+                      return [...prev, { role: "assistant", content: data.chunk }];
+                  }
+              });
+            }
             
             else if (data.status === "audio_chunk" && data.audio) {
                 audioQueueRef.current.push(data.audio);
@@ -143,6 +155,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             
             else if (data.status === "transcription") {
                 addMessage("user", `🎤 ${data.text}`);
+                
+                fetch(`${API_URL}/vision/cancel_fall_alarm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transcript: data.text })
+                }).catch(e => console.error("Cancel Fall Alarm Intercept Error:", e));
             }
             
             else if (data.status === "processing") {
@@ -196,7 +214,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         isOpen, 
         setIsOpen,
         latestSensorData,
-        latestDeviceData
+        latestDeviceData,
+        forceMicTrigger,
+        forceMicDuration
     }}>
       {children}
     </ChatContext.Provider>

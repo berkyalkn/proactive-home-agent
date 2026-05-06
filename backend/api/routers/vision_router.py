@@ -47,10 +47,30 @@ class GestureEvent(BaseModel):
 class ActionState:
     last_executions = {}
     active_sos_tasks = {} 
+    last_emergency_time = 0.0  
+    last_greeting_times = {}
 
 ACTION_COOLDOWN = 10.0
 
 async def trigger_agent_proactively(person_name: str, event_type: str):
+    
+    if event_type not in ["fall_detected"]:
+        if time.time() - getattr(ActionState, 'last_emergency_time', 0) < 120:
+            logger.info(f"Agent Muted: Skipping '{event_type}' chat because of recent emergency.")
+            return
+
+    if event_type == "camera_offline":
+        logger.info("Camera offline event received. Muting the audible announcement.")
+        return 
+
+    if event_type == "entered" and person_name not in ["Guest", "Unknown", "A Stranger"]:
+        last_greeted = getattr(ActionState, 'last_greeting_times', {}).get(person_name, 0)
+        if time.time() - last_greeted < 900:  
+            logger.info(f"ANTI-SPAM: {person_name} was already greeted recently. Suppressing spam.")
+            return
+        else:
+            ActionState.last_greeting_times[person_name] = time.time()
+
     logger.info(f"Agent Wakes Up: {person_name} set {event_type} to the room...")
     
     tr_timezone = timezone(timedelta(hours=3))
@@ -97,11 +117,18 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                         year=now.year, month=now.month, day=now.day, tzinfo=tr_timezone
                     )
                     diff_minutes = (now - last_exit_dt).total_seconds() / 60
+
+                    if diff_minutes < 15:
+                        logger.info(f"ANTI-SPAM: {person_name} returned in just {int(diff_minutes)} mins. Suppressing greeting.")
+                        return 
+
+                    time_context = f"[Secret Context: The user left at {last_exit_time_str} and has been away for {int(diff_minutes)} minutes.]"
+                    
                     if diff_minutes >= 60:
-                        time_context = f" The user has been away for {int(diff_minutes)} minutes (last exit at {last_exit_time_str})."
-                        time_instruction = f"Mention that they've been away for a while or over an hour in a natural way."
+                        hours_away = int(diff_minutes / 60)
+                        time_instruction = f"Mention that they've been away for a while (e.g., over {hours_away} hours) in a natural, warm way."
                     else:
-                        time_instruction = "The user was just here recently. DO NOT mention how long they were gone or what time they left. Just say welcome back."
+                        time_instruction = "Give a standard warm welcome back. You know how long they were gone, but you don't need to specify the exact minutes."
                 except Exception as e:
                     pass
 
@@ -119,12 +146,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"- If a device or sensor is 'Offline' or 'Unreachable', do not panic, just don't offer services related to it.\n"
                 f"Keep your response natural, conversational, and strict to 2 sentences."
             )
-            
-    elif event_type == "camera_offline":
-        system_prompt = (
-            f"[System Event: Camera disconnected at {current_time}.] "
-            f"IGNORE PREVIOUS MEMORY. Strictly state that the camera feed is lost and presence tracking is paused. One sentence only."
-        )
 
     elif event_type == "fall_detected":
         system_prompt = (
@@ -197,6 +218,7 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
 
 async def execute_emergency_lockdown(person_name: str, settings: SecuritySettings):
     logger.warning(f"EMERGENCY LOCKDOWN INITIATED BY {person_name}")
+    ActionState.last_emergency_time = time.time()  
     
     async def flash_lights_dynamic():
         try:
@@ -328,8 +350,9 @@ async def execute_emergency_lockdown(person_name: str, settings: SecuritySetting
 
 
 async def delayed_emergency_lockdown(person_name: str, settings: SecuritySettings):
-    """5 Saniyelik Sessiz Bekleme (Grace Period) ve İptal Motoru"""
-    logger.info(f"🚨 SOS GRACE PERIOD STARTED: {person_name} has 5 seconds to cancel...")
+    """5-Second Silent Waiting Period (Grace Period) and Cancel Motor."""
+
+    logger.info(f"SOS GRACE PERIOD STARTED: {person_name} has 5 seconds to cancel...")
     
     try:
         with Session(engine) as session:
@@ -497,6 +520,7 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
 
 async def execute_fall_emergency(confidence: float, screenshot_bytes: Optional[bytes]):
     logger.critical(f"FALL EMERGENCY PROTOCOL — Confidence: {confidence:.0%}")
+    ActionState.last_emergency_time = time.time()  
 
     with Session(engine) as session:
         settings = session.exec(select(SecuritySettings)).first()
@@ -574,6 +598,9 @@ async def update_presence(event: PresenceEvent, background_tasks: BackgroundTask
     status = event.status 
 
     if status == "camera_offline":
+        for person in list(presence_service.active_people.keys()):
+            presence_service._log_event(person, "EXITED", location)
+            
         presence_service.active_people.clear() 
         background_tasks.add_task(trigger_agent_proactively, "System", "camera_offline")
         return {"status": "camera_offline_handled"}

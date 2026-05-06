@@ -46,6 +46,7 @@ class GestureEvent(BaseModel):
 
 class ActionState:
     last_executions = {}
+    active_sos_tasks = {} 
 
 ACTION_COOLDOWN = 10.0
 
@@ -219,7 +220,7 @@ async def execute_emergency_lockdown(person_name: str, settings: SecuritySetting
                             await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=target_hue, saturation=100)), timeout=1.0)
                             await asyncio.wait_for(set_brightness(device_id=bulb.name, control=BrightnessControl(brightness=100)), timeout=1.0)
                         except Exception as e:
-                            logger.warning(f"Skipping bulb {bulb.name} (Offline or Timeout)")
+                            pass
                         
                     await asyncio.sleep(1.0)
                     
@@ -326,6 +327,46 @@ async def execute_emergency_lockdown(person_name: str, settings: SecuritySetting
         logger.error(f"Emergency TTS error: {e}")
 
 
+async def delayed_emergency_lockdown(person_name: str, settings: SecuritySettings):
+    """5 Saniyelik Sessiz Bekleme (Grace Period) ve İptal Motoru"""
+    logger.info(f"🚨 SOS GRACE PERIOD STARTED: {person_name} has 5 seconds to cancel...")
+    
+    try:
+        with Session(engine) as session:
+            bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
+            
+            for bulb in bulbs:
+                try:
+                    await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=100)), timeout=1.0)
+                except Exception:
+                    pass
+
+        await asyncio.sleep(1.0)
+        
+        with Session(engine) as session:
+            bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
+            
+            for bulb in bulbs:
+                try:
+                    await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)), timeout=1.0)
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.error(f"Silent Acknowledge error: {e}")
+
+    await asyncio.sleep(4.0)
+    
+    if ActionState.active_sos_tasks.get(person_name) == "CANCELLED":
+        logger.info(f"SOS ABORTED: {person_name} successfully cancelled the alarm during grace period.")
+        ActionState.active_sos_tasks.pop(person_name, None)
+        return 
+        
+    logger.critical(f"GRACE PERIOD EXPIRED! EXECUTING LOCKDOWN FOR {person_name}!")
+    ActionState.active_sos_tasks.pop(person_name, None)
+    
+    await execute_emergency_lockdown(person_name, settings)
+
+
 async def continuous_presence_check():
     await asyncio.sleep(10) 
     logger.info("Continuous presence check active.")
@@ -379,25 +420,25 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
                             SecuritySettings.owner_id == user_obj.id
                         )).first()
 
-                        if security_config and security_config.emergency_gesture == event.gesture:
-                            if event.duration >= 4.0:
-                                logger.critical(f"SECURITY MATCH: Gesture '{event.gesture}' held for 4 seconds by {event.user}!")
-                                
-                                last_em_exec = ActionState.last_executions.get(f"{event.user}_emergency", 0)
-                                if current_time - last_em_exec > (ACTION_COOLDOWN * 3): 
-                                    logger.warning("Triggering Lockdown Background Task...")
-                                    background_tasks.add_task(execute_emergency_lockdown, event.user, security_config)
+                        if security_config:
+                            if getattr(security_config, 'emergency_cancel_gesture', "Open_Palm") == event.gesture:
+                                if event.duration >= 2.0:
+                                    if ActionState.active_sos_tasks.get(event.user) == "PENDING":
+                                        ActionState.active_sos_tasks[event.user] = "CANCELLED"
+                                        return {"status": "sos_cancelled_successfully"}
+
+                            if security_config.emergency_gesture == event.gesture:
+                                if event.duration >= 4.0:
+                                    if ActionState.active_sos_tasks.get(event.user) == "PENDING":
+                                        return {"status": "sos_grace_period_already_active"}
                                     
-                                    ActionState.last_executions[f"{event.user}_emergency"] = current_time
+                                    ActionState.active_sos_tasks[event.user] = "PENDING"
+                                    background_tasks.add_task(delayed_emergency_lockdown, event.user, security_config)
                                     ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
-                                    return {"status": "security_protocol_triggered"}
+                                    return {"status": "sos_grace_period_started"}
                                 else:
-                                    logger.info("⏳ Security gesture ignored due to cooldown.")
-                                    return {"status": "security_cooldown_active"}
-                            else:
-                                remaining = round(4.0 - event.duration, 1)
-                                logger.info(f"SOS Buffering: {event.user} holding {event.gesture}... {remaining}s left")
-                                return {"status": "buffering_sos", "remaining": remaining}
+                                    remaining = round(4.0 - event.duration, 1)
+                                    return {"status": "buffering_sos", "remaining": remaining}
                         
                         mapping = session.exec(select(GestureMapping).where(
                             GestureMapping.owner_id == user_obj.id,
@@ -408,8 +449,7 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
                             target_device = session.exec(select(Device).where(Device.id == mapping.target_device_id)).first()
                             
                             if target_device:
-                                logger.info(f"DYNAMIC GESTURE: '{event.user}' mapped '{event.gesture}' to '{mapping.action}' on '{target_device.display_name}'")
-                                
+                                logger.info(f"DYNAMIC GESTURE: '{event.user}' mapped '{event.gesture}' to '{mapping.action}'")
                                 device_id = target_device.name 
                                 cached_devices = get_cached("all_devices", ttl=3600) or {}
                                 curr_device_state = cached_devices.get(device_id, {})
@@ -456,9 +496,6 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
 
 
 async def execute_fall_emergency(confidence: float, screenshot_bytes: Optional[bytes]):
-    """Automatic fall emergency. No light flashing.
-    Uses SecuritySettings for notification channels — same config as gesture SOS."""
-
     logger.critical(f"FALL EMERGENCY PROTOCOL — Confidence: {confidence:.0%}")
 
     with Session(engine) as session:
@@ -506,8 +543,6 @@ async def execute_fall_emergency(confidence: float, screenshot_bytes: Optional[b
 
 @router.post("/fall_alert")
 async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks):
-    """Receive fall alerts from edge camera.
-    Accepts JSON (no screenshot) or multipart/form-data (with screenshot)."""
     content_type = request.headers.get("content-type", "")
     screenshot_bytes = None
 
@@ -526,9 +561,7 @@ async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks)
         source = body.get("source", "mac_camera")
 
     logger.critical(f"FALL ALERT RECEIVED — confidence: {confidence:.0%}, source: {source}")
-
     presence_service.log_fall_event("living_room", confidence)
-
     background_tasks.add_task(execute_fall_emergency, confidence, screenshot_bytes)
 
     return {"status": "fall_alert_received"}

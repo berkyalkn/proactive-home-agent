@@ -124,6 +124,7 @@ class SecuritySettings(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     owner_id: int = Field(foreign_key="users.id")
     emergency_gesture: str = Field(default="")
+    emergency_cancel_gesture: str = Field(default="")
     emergency_action_text: str = Field(default="Flash all lights red for 10 seconds and sound the alarm.")
     emergency_contact_name: str = Field(default="")
     emergency_phone: str = Field(default="")

@@ -12,6 +12,7 @@ router = APIRouter(prefix="/gestures", tags=["Gestures"])
 
 class SecuritySaveRequest(BaseModel):
     emergency_gesture: str
+    emergency_cancel_gesture: str 
     emergency_contact_name: str
     emergency_phone: str
     emergency_light_color: str = "red"  
@@ -20,6 +21,7 @@ class SecuritySaveRequest(BaseModel):
     use_sms: bool = True           
     use_voice_call: bool = True    
     use_telegram: bool = True
+    use_fall_detection: bool = True 
     is_active: bool
 
 class GestureSaveRequest(BaseModel):
@@ -33,9 +35,6 @@ class BulkGestureSaveRequest(BaseModel):
 
 @router.get("/available-actions")
 def get_available_actions(current_user: User = Depends(get_current_user)):
-    """
-    It returns a list of actions the user can take based on their device.
-    """
     with Session(engine) as session:
         devices = session.exec(
             select(Device).where(Device.room.has(owner_id=current_user.id))
@@ -119,7 +118,8 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
         
         if not settings:
             return {
-                "emergency_gesture": "",
+                "emergency_gesture": "Closed_Fist",
+                "emergency_cancel_gesture": "Open_Palm",
                 "emergency_contact_name": "",
                 "emergency_phone": "",
                 "emergency_light_color": "red", 
@@ -128,11 +128,13 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
                 "use_sms": True,         
                 "use_voice_call": True,    
                 "use_telegram": True,
+                "use_fall_detection": True,
                 "is_active": False
             }
             
         return {
             "emergency_gesture": settings.emergency_gesture,
+            "emergency_cancel_gesture": getattr(settings, 'emergency_cancel_gesture', 'Open_Palm'),
             "emergency_contact_name": settings.emergency_contact_name,
             "emergency_phone": settings.emergency_phone,
             "emergency_light_color": getattr(settings, 'emergency_light_color', 'red'), 
@@ -141,6 +143,7 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
             "use_sms": settings.use_sms,                 
             "use_voice_call": settings.use_voice_call,   
             "use_telegram": settings.use_telegram,
+            "use_fall_detection": getattr(settings, 'use_fall_detection', True),
             "is_active": settings.is_active
         }
 
@@ -151,6 +154,7 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
         
         if settings:
             settings.emergency_gesture = request.emergency_gesture
+            settings.emergency_cancel_gesture = request.emergency_cancel_gesture
             settings.emergency_contact_name = request.emergency_contact_name
             settings.emergency_phone = request.emergency_phone
             settings.emergency_light_color = request.emergency_light_color  
@@ -159,12 +163,14 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
             settings.use_sms = request.use_sms                 
             settings.use_voice_call = request.use_voice_call   
             settings.use_telegram = request.use_telegram
+            settings.use_fall_detection = request.use_fall_detection
             settings.is_active = request.is_active
             session.add(settings)
         else:
             new_settings = SecuritySettings(
                 owner_id=current_user.id,
                 emergency_gesture=request.emergency_gesture,
+                emergency_cancel_gesture=request.emergency_cancel_gesture,
                 emergency_contact_name=request.emergency_contact_name,
                 emergency_phone=request.emergency_phone,
                 emergency_light_color=request.emergency_light_color,  
@@ -173,6 +179,7 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
                 use_sms=request.use_sms,                       
                 use_voice_call=request.use_voice_call,         
                 use_telegram=request.use_telegram,
+                use_fall_detection=request.use_fall_detection,
                 is_active=request.is_active
             )
             session.add(new_settings)

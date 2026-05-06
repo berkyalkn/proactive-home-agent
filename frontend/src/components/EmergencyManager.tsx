@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer } from "lucide-react";
+import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -17,6 +17,7 @@ interface SecuritySettings {
   use_sms: boolean;
   use_voice_call: boolean;
   use_telegram: boolean;
+  use_fall_detection: boolean; 
   is_active: boolean;
 }
 
@@ -36,6 +37,7 @@ export function EmergencyManager() {
     use_sms: true,
     use_voice_call: true,
     use_telegram: true,
+    use_fall_detection: true, 
     is_active: true
   });
 
@@ -71,6 +73,7 @@ export function EmergencyManager() {
           use_sms: data.use_sms ?? true,
           use_voice_call: data.use_voice_call ?? true,
           use_telegram: data.use_telegram ?? true,
+          use_fall_detection: data.use_fall_detection ?? true, 
           is_active: data.is_active ?? true
         });
       }
@@ -195,6 +198,21 @@ export function EmergencyManager() {
                             <option value={30}>30 Seconds</option>
                         </select>
                     </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2 border-t border-zinc-800/50">
+                    <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Smart Sensors</h4>
+                    <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all ${security.use_fall_detection ? "bg-purple-950/20 border-purple-500/30" : "bg-zinc-900/30 border-zinc-800/50"}`}>
+                        <input 
+                          type="checkbox" 
+                          className="hidden" 
+                          checked={security.use_fall_detection} 
+                          onChange={(e) => handleChange("use_fall_detection", e.target.checked)} 
+                        />
+                        <Activity className={`w-4 h-4 mr-3 ${security.use_fall_detection ? "text-purple-400" : "text-zinc-600"}`} />
+                        <span className={`text-sm font-medium ${security.use_fall_detection ? "text-purple-100" : "text-zinc-500"}`}>Enable AI Fall Detection</span>
+                        {security.use_fall_detection && <CheckCircle className="w-4 h-4 text-purple-500 ml-auto" />}
+                    </label>
                   </div>
 
                   <div className="space-y-3 pt-2 border-t border-zinc-800/50">

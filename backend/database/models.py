@@ -129,6 +129,7 @@ class SecuritySettings(SQLModel, table=True):
     emergency_phone: str = Field(default="")
     emergency_light_color: str = "red" 
     emergency_duration: int = 10
+    use_fall_detection: bool = Field(default=True)
     use_sms: bool = Field(default=True)
     use_voice_call: bool = Field(default=True)
     use_telegram: bool = Field(default=True)

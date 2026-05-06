@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Phone, User, MessageSquare, PhoneCall, Send, Bot, Settings2, ArrowRight, Loader2, Palette, Timer } from 'lucide-react';
+import { ShieldAlert, Phone, User, MessageSquare, PhoneCall, Send, Bot, Settings2, ArrowRight, Loader2, Palette, Timer, Activity } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -20,6 +20,7 @@ interface SecuritySettings {
   use_sms: boolean;
   use_voice_call: boolean;
   use_telegram: boolean;
+  use_fall_detection: boolean; 
   is_active: boolean;
 }
 
@@ -38,6 +39,7 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
     use_sms: true,
     use_voice_call: true,
     use_telegram: true,
+    use_fall_detection: true, 
     is_active: true
   });
 
@@ -60,6 +62,7 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
           use_sms: data.use_sms ?? true,
           use_voice_call: data.use_voice_call ?? true,
           use_telegram: data.use_telegram ?? true,
+          use_fall_detection: data.use_fall_detection ?? true, 
           is_active: true
         });
       }
@@ -188,6 +191,15 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
                                     <option value={30}>30 Seconds</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-extrabold text-slate-400 ml-1 mb-1.5 block tracking-widest uppercase">Smart Sensors</label>
+                            <label className={`flex items-center p-3 rounded-xl border cursor-pointer transition-all ${security.use_fall_detection ? "bg-purple-50 border-purple-200 shadow-sm" : "bg-white border-slate-200"}`}>
+                                <input type="checkbox" className="hidden" checked={security.use_fall_detection} onChange={(e) => handleChange("use_fall_detection", e.target.checked)} />
+                                <Activity className={`w-4 h-4 mr-3 ${security.use_fall_detection ? "text-purple-500" : "text-slate-400"}`} />
+                                <span className={`text-sm font-bold ${security.use_fall_detection ? "text-purple-700" : "text-slate-500"}`}>Enable AI Fall Detection</span>
+                            </label>
                         </div>
 
                         <div className="space-y-2">

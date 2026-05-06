@@ -379,9 +379,9 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
                             SecuritySettings.owner_id == user_obj.id
                         )).first()
 
-                        if security_config: 
-                            if security_config.emergency_gesture == event.gesture:
-                                logger.info(f"SECURITY MATCH: Gesture '{event.gesture}' detected for {event.user}!")
+                        if security_config and security_config.emergency_gesture == event.gesture:
+                            if event.duration >= 4.0:
+                                logger.critical(f"SECURITY MATCH: Gesture '{event.gesture}' held for 4 seconds by {event.user}!")
                                 
                                 last_em_exec = ActionState.last_executions.get(f"{event.user}_emergency", 0)
                                 if current_time - last_em_exec > (ACTION_COOLDOWN * 3): 
@@ -392,8 +392,12 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
                                     ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
                                     return {"status": "security_protocol_triggered"}
                                 else:
-                                    logger.info("⏳ Security gesture ignored due to 30s cooldown.")
+                                    logger.info("⏳ Security gesture ignored due to cooldown.")
                                     return {"status": "security_cooldown_active"}
+                            else:
+                                remaining = round(4.0 - event.duration, 1)
+                                logger.info(f"SOS Buffering: {event.user} holding {event.gesture}... {remaining}s left")
+                                return {"status": "buffering_sos", "remaining": remaining}
                         
                         mapping = session.exec(select(GestureMapping).where(
                             GestureMapping.owner_id == user_obj.id,
@@ -457,13 +461,16 @@ async def execute_fall_emergency(confidence: float, screenshot_bytes: Optional[b
 
     logger.critical(f"FALL EMERGENCY PROTOCOL — Confidence: {confidence:.0%}")
 
-    # 1. Pull notification preferences from SecuritySettings (onboarding SOS config)
     with Session(engine) as session:
         settings = session.exec(select(SecuritySettings)).first()
 
     if not settings or not settings.is_active:
         logger.warning("SecuritySettings not found or inactive. Only agent announcement will run.")
         await trigger_agent_proactively("System", "fall_detected")
+        return
+
+    if not getattr(settings, 'use_fall_detection', True):
+        logger.info("Fall detection is DISABLED by the user in settings. Ignoring alert.")
         return
 
     target_phone = settings.emergency_phone
@@ -481,23 +488,19 @@ async def execute_fall_emergency(confidence: float, screenshot_bytes: Optional[b
         f"{target_name}, please check the situation immediately."
     )
 
-    # 2. Telegram — screenshot goes directly as photo (no disk storage)
     if settings.use_telegram:
         if screenshot_bytes:
             asyncio.create_task(notifier.send_telegram_photo(screenshot_bytes, alert_text))
         else:
             asyncio.create_task(notifier.send_telegram_alert(alert_text))
 
-    # 3. SMS
     if settings.use_sms and target_phone:
         sms_text = f"FALL DETECTED by home camera (confidence: {confidence:.0%}). Please check immediately."
         asyncio.create_task(notifier.send_sms(target_phone, sms_text))
 
-    # 4. Voice Call
     if settings.use_voice_call and target_phone:
         asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
 
-    # 5. Agent announcement (TTS to room speakers via existing WS broadcast)
     await trigger_agent_proactively("System", "fall_detected")
 
 
@@ -524,10 +527,8 @@ async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks)
 
     logger.critical(f"FALL ALERT RECEIVED — confidence: {confidence:.0%}, source: {source}")
 
-    # 1. Log to presence ledger
     presence_service.log_fall_event("living_room", confidence)
 
-    # 2. Fire notification + agent in background
     background_tasks.add_task(execute_fall_emergency, confidence, screenshot_bytes)
 
     return {"status": "fall_alert_received"}

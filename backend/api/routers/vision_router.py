@@ -43,20 +43,22 @@ class GestureEvent(BaseModel):
     timestamp: float
     duration: float
 
+class VoiceCancelEvent(BaseModel):
+    transcript: str
 
 class ActionState:
     last_executions = {}
     active_sos_tasks = {} 
     last_emergency_time = 0.0  
-    last_greeting_times = {}
+    last_greeting_times = {} 
 
 ACTION_COOLDOWN = 10.0
 
 async def trigger_agent_proactively(person_name: str, event_type: str):
-    
+
     if event_type not in ["fall_detected"]:
         if time.time() - getattr(ActionState, 'last_emergency_time', 0) < 120:
-            logger.info(f"Agent Muted: Skipping '{event_type}' chat because of recent emergency.")
+            logger.info(f"Agent Muted: Skipping '{event_type}' chat because an emergency protocol was active recently.")
             return
 
     if event_type == "camera_offline":
@@ -65,7 +67,7 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
 
     if event_type == "entered" and person_name not in ["Guest", "Unknown", "A Stranger"]:
         last_greeted = getattr(ActionState, 'last_greeting_times', {}).get(person_name, 0)
-        if time.time() - last_greeted < 900:  
+        if time.time() - last_greeted < 900: 
             logger.info(f"ANTI-SPAM: {person_name} was already greeted recently. Suppressing spam.")
             return
         else:
@@ -117,11 +119,7 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                         year=now.year, month=now.month, day=now.day, tzinfo=tr_timezone
                     )
                     diff_minutes = (now - last_exit_dt).total_seconds() / 60
-
-                    if diff_minutes < 15:
-                        logger.info(f"ANTI-SPAM: {person_name} returned in just {int(diff_minutes)} mins. Suppressing greeting.")
-                        return 
-
+                    
                     time_context = f"[Secret Context: The user left at {last_exit_time_str} and has been away for {int(diff_minutes)} minutes.]"
                     
                     if diff_minutes >= 60:
@@ -146,20 +144,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"- If a device or sensor is 'Offline' or 'Unreachable', do not panic, just don't offer services related to it.\n"
                 f"Keep your response natural, conversational, and strict to 2 sentences."
             )
-
-    elif event_type == "fall_detected":
-        system_prompt = (
-            f"[User: Admin] "
-            f"CRITICAL SYSTEM DIRECTIVE: DO NOT use any tools. DO NOT check home status. "
-            f"The home vision system has JUST DETECTED a confirmed fall at {current_time}. "
-            f"This is an AUTOMATED DETECTION — the person passed velocity filtering and "
-            f"remained motionless for 3 seconds after falling. "
-            f"The notification system has ALREADY alerted the emergency contact. "
-            f"Your ONLY job is to announce this to the room. "
-            f"Say EXACTLY THIS: 'Attention. The camera system has detected a fall. "
-            f"Emergency contacts have been notified. If you are okay,"
-            f"say something.' "
-        )
 
     else: 
         system_prompt = (
@@ -189,7 +173,6 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
 
         async for chunk in chat_with_ai(user_input=system_prompt, thread_id="home_system_thread"):
             if not isinstance(chunk, str): continue
-            print(chunk, end="", flush=True)
             sentence_buffer += chunk
             await broadcast({"status": "text_chunk", "chunk": chunk})
 
@@ -212,340 +195,105 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
 
     except Exception as e:
         logger.error(f"Agent trigger error: {e}")
-        await broadcast({"status": "error", "message": "An error occurred."})
         await broadcast({"status": "stream_finished"})
 
 
-async def execute_emergency_lockdown(person_name: str, settings: SecuritySettings):
-    logger.warning(f"EMERGENCY LOCKDOWN INITIATED BY {person_name}")
-    ActionState.last_emergency_time = time.time()  
+@router.post("/cancel_fall_alarm")
+async def cancel_fall_alarm(event: VoiceCancelEvent):
+    """Endpoint that cancels the audible fall alarm."""
+
+    text = event.transcript.lower()
+    cancel_keywords = ["fine", "okay", "ok", "im good", "i am good", "safe", "cancel", "don't worry"]
     
-    async def flash_lights_dynamic():
-        try:
-            with Session(engine) as session:
-                bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
-                if not bulbs: return
-                
-                loop_count = getattr(settings, 'emergency_duration', 10) // 2 
-                color_setting = getattr(settings, 'emergency_light_color', 'red')
-                
-                for i in range(loop_count):
-                    for bulb in bulbs:
-                        if color_setting == "blue":
-                            target_hue = 240
-                        elif color_setting == "police":
-                            target_hue = 0 if i % 2 == 0 else 240
-                        else: 
-                            target_hue = 0
-                            
-                        try:
-                            await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=target_hue, saturation=100)), timeout=1.0)
-                            await asyncio.wait_for(set_brightness(device_id=bulb.name, control=BrightnessControl(brightness=100)), timeout=1.0)
-                        except Exception as e:
-                            pass
-                        
-                    await asyncio.sleep(1.0)
-                    
-                    for bulb in bulbs:
-                        try:
-                            await asyncio.wait_for(control_device(device_id=bulb.name, control=DeviceControl(on=False)), timeout=1.0)
-                        except: pass
-                    
-                    await asyncio.sleep(1.0)
-                
-                for bulb in bulbs:
-                    try:
-                        await asyncio.wait_for(control_device(device_id=bulb.name, control=DeviceControl(on=True)), timeout=1.0)
-                        await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)), timeout=1.0)
-                    except: pass
-        except Exception as e:
-            logger.error(f"Lockdown lights failed: {e}")
-
-    asyncio.create_task(flash_lights_dynamic())
-
-    target_phone = settings.emergency_phone
-    target_name = settings.emergency_contact_name
-
-    alert_sms = f"EMERGENCY: {person_name} has triggered an SOS alarm in their smart home system. Please check the situation or contact us immediately!"
+    if any(word in text for word in cancel_keywords):
+        if ActionState.active_sos_tasks.get("system_fall") == "PENDING":
+            logger.info(f"VOICE INTERCEPT: Heard '{text}'. Cancelling Fall Alarm!")
+            ActionState.active_sos_tasks["system_fall"] = "CANCELLED"
+            return {"status": "cancelled", "message": "Fall alarm aborted via voice."}
     
-    alert_telegram = (
-        f"*EMERGENCY ALERT* \n\n"
-        f"*Reporter:* {person_name}\n"
-        f"*Location:* Smart Home Center\n"
-        f"*Status:* Home security protocol manually triggered!\n\n"
-        f"Please contact {person_name} immediately."
-    )
-    
-    tts_voice = f"Attention. An emergency alarm has been triggered by {person_name}. Security protocol is active. {target_name} has been notified via SMS and voice call."
+    return {"status": "ignored", "message": "No cancellation keywords detected or no active alarm."}
 
-    if settings.use_telegram:
-        asyncio.create_task(notifier.send_telegram_alert(alert_telegram))
-        
-    if settings.use_sms and target_phone:
-        asyncio.create_task(notifier.send_sms(target_phone, alert_sms))
-        
-    if settings.use_voice_call and target_phone:
-        asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
+async def ask_and_wait_for_fall(confidence: float, screenshot_bytes: Optional[bytes]):
+    """Ten-second listening and verification engine after the fall."""
 
-    active_channels = []
-    if settings.use_voice_call: active_channels.append("phone call")
-    if settings.use_sms: active_channels.append("SMS")
-    if settings.use_telegram: active_channels.append("Telegram")
+    logger.critical("FALL DETECTED! Initiating verification window...")
+    ActionState.last_emergency_time = time.time()
+    ActionState.active_sos_tasks["system_fall"] = "PENDING"
 
-    notification_status = "No external notifications were sent."
-    if active_channels:
-        if len(active_channels) > 1:
-            channels_str = ", ".join(active_channels[:-1]) + " and " + active_channels[-1]
-        else:
-            channels_str = active_channels[0]
-        notification_status = f"{target_name} has been notified via {channels_str}."
+    with Session(engine) as session:
+        settings = session.exec(select(SecuritySettings)).first()
 
-    user_announcement = getattr(settings, 'emergency_action_text', 'Security protocol activated.')
-    
-    system_prompt = (
-        f"[User: Admin] "
-        f"CRITICAL SYSTEM DIRECTIVE: "
-        f"An emergency override was JUST TRIGGERED manually by {person_name}. "
-        f"The backend system HAS ALREADY executed hardware lockdowns (flashing lights). "
-        f"The backend system HAS ALREADY contacted the authorities and sent SMS/Telegram messages. "
-        f"DO NOT USE ANY TOOLS. I REPEAT, DO NOT TRIGGER THE EMERGENCY ALERT TOOL BECAUSE ALERTS ARE ALREADY SENT! "
-        f"Your ONLY job is to announce the emergency to the room out loud. "
-        f"The user wrote this specific custom directive to tell the intruder/room: '{user_announcement}'\n"
-        f"Also, seamlessly include this status update: '{notification_status}' "
-        f"Create a terrifying, highly authoritative 2-sentence security warning incorporating the user's directive."
-    )
+    if not settings or not settings.is_active or not getattr(settings, 'use_fall_detection', True):
+        return
+
+    question = "Attention. The camera has detected a fall. Are you okay? Please say 'I am fine' or show your cancel gesture to abort the alarm."
     
     async def broadcast(message_dict: dict):
         for connection in manager.active_connections:
             try:
                 await manager.send_json(message_dict, connection)
-            except:
-                pass
+            except Exception: pass
 
     try:
         await broadcast({"status": "processing"})
-        sentence_buffer = ""
-        async for chunk in chat_with_ai(user_input=system_prompt, thread_id="emergency_thread"):
-            if not isinstance(chunk, str): continue
-            sentence_buffer += chunk
-            await broadcast({"status": "text_chunk", "chunk": chunk})
+        await broadcast({"status": "text_chunk", "chunk": question})
 
-            if any(punct in chunk for punct in [".", "?", "!", "\n"]):
-                if sentence_buffer.strip():
-                    audio_bytes = await text_to_speech(sentence_buffer)
-                    if audio_bytes:
-                        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-                        await broadcast({"status": "audio_chunk", "audio": audio_base64})
-                sentence_buffer = ""
-
-        if sentence_buffer.strip():
-            audio_bytes = await text_to_speech(sentence_buffer)
-            if audio_bytes:
-                audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-                await broadcast({"status": "audio_chunk", "audio": audio_base64})
-
+        audio_bytes = await text_to_speech(question)
+        if audio_bytes:
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+            await broadcast({"status": "audio_chunk", "audio": audio_base64})
+            
         await broadcast({"status": "stream_finished"})
-    except Exception as e:
-        logger.error(f"Emergency TTS error: {e}")
+        
+        logger.info("Waiting for AI to finish speaking before opening microphone...")
+        await asyncio.sleep(8.0) 
+        
+        await broadcast({"status": "force_mic_open", "duration": 10})
+    except: pass
 
 
-async def delayed_emergency_lockdown(person_name: str, settings: SecuritySettings):
-    """5-Second Silent Waiting Period (Grace Period) and Cancel Motor."""
-
-    logger.info(f"SOS GRACE PERIOD STARTED: {person_name} has 5 seconds to cancel...")
-    
-    try:
-        with Session(engine) as session:
-            bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
-            
-            for bulb in bulbs:
-                try:
-                    await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=100)), timeout=1.0)
-                except Exception:
-                    pass
-
+    for _ in range(15):
         await asyncio.sleep(1.0)
-        
-        with Session(engine) as session:
-            bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
-            
-            for bulb in bulbs:
-                try:
-                    await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)), timeout=1.0)
-                except Exception:
-                    pass
-    except Exception as e:
-        logger.error(f"Silent Acknowledge error: {e}")
+        if ActionState.active_sos_tasks.get("system_fall") == "CANCELLED":
+            logger.info("FALL EMERGENCY ABORTED BY USER.")
+            ActionState.active_sos_tasks.pop("system_fall", None)
+            try:
+                ack_msg = "Alarm cancelled. I am glad you are safe."
+                
+                await broadcast({"status": "processing"})
+                await broadcast({"status": "text_chunk", "chunk": ack_msg})
 
-    await asyncio.sleep(4.0)
-    
-    if ActionState.active_sos_tasks.get(person_name) == "CANCELLED":
-        logger.info(f"SOS ABORTED: {person_name} successfully cancelled the alarm during grace period.")
-        ActionState.active_sos_tasks.pop(person_name, None)
-        return 
-        
-    logger.critical(f"GRACE PERIOD EXPIRED! EXECUTING LOCKDOWN FOR {person_name}!")
-    ActionState.active_sos_tasks.pop(person_name, None)
-    
-    await execute_emergency_lockdown(person_name, settings)
-
-
-async def continuous_presence_check():
-    await asyncio.sleep(10) 
-    logger.info("Continuous presence check active.")
-    while True:
-        try:
-            exited_people = presence_service.check_timeouts()
-            for person in exited_people:
-                await trigger_agent_proactively(person, "exited")
-        except Exception as e:
-            pass
-        await asyncio.sleep(15) 
-
-@router.on_event("startup")
-async def startup_event():
-    asyncio.create_task(continuous_presence_check())
-
-@router.post("/identify")
-async def identify_face(image_file: UploadFile = File(...)):
-    try:
-        image_bytes = await image_file.read()
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        result = vision_service.recognize(frame, is_cropped=True)
-        if not result["face_found"]: return {"status": "no_face"}
-        
-        person_name = result["name"]
-        if person_name == "Unknown" or person_name is None: return {"status": "unknown_person"}
-            
-        return {"status": "authorized", "user": person_name, "confidence": result["confidence"]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Identify Error")
-
-
-@router.post("/gesture")
-async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks):
-    try:
-        presence_service.log_gesture(event.user, event.gesture, event.location)
-        current_time = time.time()
-        
-        if event.duration >= 1.0:
-            last_exec = ActionState.last_executions.get(f"{event.user}_{event.gesture}", 0)
-            
-            if current_time - last_exec > ACTION_COOLDOWN:
-                with Session(engine) as session:
-                    user_obj = session.exec(select(User).where(User.username == event.user)).first()
+                audio_bytes = await text_to_speech(ack_msg)
+                if audio_bytes:
+                    audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+                    await broadcast({"status": "audio_chunk", "audio": audio_b64})
                     
-                    if user_obj:
-                        
-                        security_config = session.exec(select(SecuritySettings).where(
-                            SecuritySettings.owner_id == user_obj.id
-                        )).first()
+                await broadcast({"status": "stream_finished"})
+            except: pass
+            return
 
-                        if security_config:
-                            if getattr(security_config, 'emergency_cancel_gesture', "Open_Palm") == event.gesture:
-                                if event.duration >= 2.0:
-                                    if ActionState.active_sos_tasks.get(event.user) == "PENDING":
-                                        ActionState.active_sos_tasks[event.user] = "CANCELLED"
-                                        return {"status": "sos_cancelled_successfully"}
-
-                            if security_config.emergency_gesture == event.gesture:
-                                if event.duration >= 4.0:
-                                    if ActionState.active_sos_tasks.get(event.user) == "PENDING":
-                                        return {"status": "sos_grace_period_already_active"}
-                                    
-                                    ActionState.active_sos_tasks[event.user] = "PENDING"
-                                    background_tasks.add_task(delayed_emergency_lockdown, event.user, security_config)
-                                    ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
-                                    return {"status": "sos_grace_period_started"}
-                                else:
-                                    remaining = round(4.0 - event.duration, 1)
-                                    return {"status": "buffering_sos", "remaining": remaining}
-                        
-                        mapping = session.exec(select(GestureMapping).where(
-                            GestureMapping.owner_id == user_obj.id,
-                            GestureMapping.gesture_name == event.gesture
-                        )).first()
-
-                        if mapping:
-                            target_device = session.exec(select(Device).where(Device.id == mapping.target_device_id)).first()
-                            
-                            if target_device:
-                                logger.info(f"DYNAMIC GESTURE: '{event.user}' mapped '{event.gesture}' to '{mapping.action}'")
-                                device_id = target_device.name 
-                                cached_devices = get_cached("all_devices", ttl=3600) or {}
-                                curr_device_state = cached_devices.get(device_id, {})
-
-                                if target_device.device_type == "bulb":
-                                    if mapping.action == "turn_on":
-                                        await control_device(device_id=device_id, control=DeviceControl(on=True))
-                                    elif mapping.action == "turn_off":
-                                        await control_device(device_id=device_id, control=DeviceControl(on=False))
-                                    elif mapping.action == "brightness_up":
-                                        curr_b = curr_device_state.get("brightness", 50)
-                                        new_b = min(100, curr_b + 25)
-                                        await set_brightness(device_id=device_id, control=BrightnessControl(brightness=new_b))
-                                        cached_devices[device_id]["brightness"] = new_b
-                                        set_cache("all_devices", cached_devices)
-                                    elif mapping.action == "brightness_down":
-                                        curr_b = curr_device_state.get("brightness", 50)
-                                        new_b = max(1, curr_b - 25)
-                                        await set_brightness(device_id=device_id, control=BrightnessControl(brightness=new_b))
-                                        cached_devices[device_id]["brightness"] = new_b
-                                        set_cache("all_devices", cached_devices)
-                                        
-                                elif target_device.device_type == "outlet":
-                                    if mapping.action == "turn_on":
-                                        await control_device(device_id=device_id, control=DeviceControl(on=True))
-                                    elif mapping.action == "turn_off":
-                                        await control_device(device_id=device_id, control=DeviceControl(on=False))
-                                    elif mapping.action == "toggle":
-                                        curr_state = curr_device_state.get("on", False)
-                                        await control_device(device_id=device_id, control=DeviceControl(on=not curr_state))
-
-                                ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
-                                return {
-                                    "status": "dynamic_gesture_executed", 
-                                    "device": target_device.display_name, 
-                                    "action": mapping.action
-                                }
-                                
-        return {"status": "gesture_processed", "gesture": event.gesture, "duration": event.duration}
-        
-    except Exception as e:
-        logger.error(f"Gesture Processing Error: {e}")
-        raise HTTPException(status_code=500, detail="Gesture Processing Error")
+    logger.critical("NO RESPONSE! EXECUTING FALL EMERGENCY LOCKDOWN!")
+    ActionState.active_sos_tasks.pop("system_fall", None)
+    await execute_fall_emergency_lockdown(confidence, screenshot_bytes, settings)
 
 
-async def execute_fall_emergency(confidence: float, screenshot_bytes: Optional[bytes]):
-    logger.critical(f"FALL EMERGENCY PROTOCOL — Confidence: {confidence:.0%}")
-    ActionState.last_emergency_time = time.time()  
+async def execute_fall_emergency_lockdown(confidence: float, screenshot_bytes: Optional[bytes], settings: SecuritySettings):
+    """Function that sends an SMS/Call if no response is received within 10 seconds."""
 
-    with Session(engine) as session:
-        settings = session.exec(select(SecuritySettings)).first()
-
-    if not settings or not settings.is_active:
-        logger.warning("SecuritySettings not found or inactive. Only agent announcement will run.")
-        await trigger_agent_proactively("System", "fall_detected")
-        return
-
-    if not getattr(settings, 'use_fall_detection', True):
-        logger.info("Fall detection is DISABLED by the user in settings. Ignoring alert.")
-        return
+    ActionState.last_emergency_time = time.time()
 
     target_phone = settings.emergency_phone
     target_name = settings.emergency_contact_name
 
     alert_text = (
         f"⚠️ *FALL DETECTED*\n\n"
-        f"The home camera system detected a fall.\n"
+        f"The home camera system detected a fall and received NO RESPONSE from the user.\n"
         f"Confidence: {confidence:.0%}\n"
         f"Please check immediately."
     )
 
     tts_voice = (
-        "Attention. The smart home camera system has detected a fall. "
+        "No response received. The smart home camera system has initiated the fall emergency protocol. "
         f"{target_name}, please check the situation immediately."
     )
 
@@ -556,17 +304,35 @@ async def execute_fall_emergency(confidence: float, screenshot_bytes: Optional[b
             asyncio.create_task(notifier.send_telegram_alert(alert_text))
 
     if settings.use_sms and target_phone:
-        sms_text = f"FALL DETECTED by home camera (confidence: {confidence:.0%}). Please check immediately."
+        sms_text = f"FALL DETECTED. NO RESPONSE from user (confidence: {confidence:.0%}). Please check immediately."
         asyncio.create_task(notifier.send_sms(target_phone, sms_text))
 
     if settings.use_voice_call and target_phone:
         asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
 
-    await trigger_agent_proactively("System", "fall_detected")
+    try:
+        final_msg = "No response received. Emergency contacts and authorities have been notified. Help is on the way."
+        
+        for conn in manager.active_connections:
+            await manager.send_json({"status": "processing"}, conn)
+            await manager.send_json({"status": "text_chunk", "chunk": final_msg}, conn)
+
+        audio_bytes = await text_to_speech(final_msg)
+        if audio_bytes:
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+            for conn in manager.active_connections:
+                await manager.send_json({"status": "audio_chunk", "audio": audio_base64}, conn)
+                
+        for conn in manager.active_connections:
+            await manager.send_json({"status": "stream_finished"}, conn)
+    except Exception as e:
+        logger.error(f"Final Fall TTS error: {e}")
 
 
 @router.post("/fall_alert")
 async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks):
+    """The main endpoint that receives the fall warning from the camera."""
+
     content_type = request.headers.get("content-type", "")
     screenshot_bytes = None
 
@@ -586,10 +352,201 @@ async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks)
 
     logger.critical(f"FALL ALERT RECEIVED — confidence: {confidence:.0%}, source: {source}")
     presence_service.log_fall_event("living_room", confidence)
-    background_tasks.add_task(execute_fall_emergency, confidence, screenshot_bytes)
+    
+    background_tasks.add_task(ask_and_wait_for_fall, confidence, screenshot_bytes)
 
     return {"status": "fall_alert_received"}
 
+
+async def delayed_emergency_lockdown(person_name: str, settings: SecuritySettings):
+    """Wait 5 seconds after giving a manual SOS (hand gesture)."""
+
+    logger.info(f"SOS GRACE PERIOD STARTED: {person_name} has 5 seconds to cancel...")
+    
+    try:
+        with Session(engine) as session:
+            bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
+            for bulb in bulbs:
+                try: await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=100)), timeout=1.0)
+                except Exception: pass
+
+        await asyncio.sleep(1.0)
+        
+        with Session(engine) as session:
+            bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
+            for bulb in bulbs:
+                try: await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)), timeout=1.0)
+                except Exception: pass
+    except Exception as e:
+        logger.error(f"Silent Acknowledge error: {e}")
+
+    await asyncio.sleep(4.0)
+    
+    if ActionState.active_sos_tasks.get(person_name) == "CANCELLED":
+        logger.info(f"SOS ABORTED: {person_name} successfully cancelled the alarm during grace period.")
+        ActionState.active_sos_tasks.pop(person_name, None)
+        return 
+        
+    logger.critical(f"GRACE PERIOD EXPIRED! EXECUTING LOCKDOWN FOR {person_name}!")
+    ActionState.active_sos_tasks.pop(person_name, None)
+    await execute_emergency_lockdown(person_name, settings)
+
+
+async def execute_emergency_lockdown(person_name: str, settings: SecuritySettings):
+    logger.warning(f"EMERGENCY LOCKDOWN INITIATED BY {person_name}")
+    ActionState.last_emergency_time = time.time()  
+    
+    async def flash_lights_dynamic():
+        try:
+            with Session(engine) as session:
+                bulbs = session.exec(select(Device).where(Device.device_type == "bulb")).all()
+                if not bulbs: return
+                
+                loop_count = getattr(settings, 'emergency_duration', 10) // 2 
+                color_setting = getattr(settings, 'emergency_light_color', 'red')
+                
+                for i in range(loop_count):
+                    for bulb in bulbs:
+                        if color_setting == "blue": target_hue = 240
+                        elif color_setting == "police": target_hue = 0 if i % 2 == 0 else 240
+                        else: target_hue = 0
+                            
+                        try:
+                            await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=target_hue, saturation=100)), timeout=1.0)
+                            await asyncio.wait_for(set_brightness(device_id=bulb.name, control=BrightnessControl(brightness=100)), timeout=1.0)
+                        except Exception: pass
+                        
+                    await asyncio.sleep(1.0)
+                    for bulb in bulbs:
+                        try: await asyncio.wait_for(control_device(device_id=bulb.name, control=DeviceControl(on=False)), timeout=1.0)
+                        except: pass
+                    
+                    await asyncio.sleep(1.0)
+                
+                for bulb in bulbs:
+                    try:
+                        await asyncio.wait_for(control_device(device_id=bulb.name, control=DeviceControl(on=True)), timeout=1.0)
+                        await asyncio.wait_for(set_color(device_id=bulb.name, control=ColorControl(hue=0, saturation=0)), timeout=1.0)
+                    except: pass
+        except Exception as e:
+            logger.error(f"Lockdown lights failed: {e}")
+
+    asyncio.create_task(flash_lights_dynamic())
+
+    target_phone = settings.emergency_phone
+    target_name = settings.emergency_contact_name
+
+    alert_sms = f"EMERGENCY: {person_name} has triggered an SOS alarm in their smart home system. Please check the situation or contact us immediately!"
+    
+    if settings.use_telegram:
+        asyncio.create_task(notifier.send_telegram_alert(f"*EMERGENCY ALERT* \n\n*Reporter:* {person_name}\n*Status:* Home security protocol manually triggered!"))
+    if settings.use_sms and target_phone:
+        asyncio.create_task(notifier.send_sms(target_phone, alert_sms))
+    if settings.use_voice_call and target_phone:
+        asyncio.create_task(notifier.make_voice_call(target_phone, f"Attention. An emergency alarm has been triggered by {person_name}."))
+
+    try:
+        announcement = getattr(settings, 'emergency_action_text', 'Security protocol activated.')
+        
+        for conn in manager.active_connections:
+            await manager.send_json({"status": "processing"}, conn)
+            await manager.send_json({"status": "text_chunk", "chunk": announcement}, conn)
+
+        audio_bytes = await text_to_speech(announcement)
+        if audio_bytes:
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+            for conn in manager.active_connections:
+                await manager.send_json({"status": "audio_chunk", "audio": audio_base64}, conn)
+                
+        for conn in manager.active_connections:
+            await manager.send_json({"status": "stream_finished"}, conn)
+    except: pass
+
+
+@router.post("/gesture")
+async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks):
+    try:
+        presence_service.log_gesture(event.user, event.gesture, event.location)
+        current_time = time.time()
+        
+        if event.duration >= 1.0:
+            last_exec = ActionState.last_executions.get(f"{event.user}_{event.gesture}", 0)
+            
+            if current_time - last_exec > ACTION_COOLDOWN:
+                with Session(engine) as session:
+                    user_obj = session.exec(select(User).where(User.username == event.user)).first()
+                    
+                    if user_obj:
+                        security_config = session.exec(select(SecuritySettings).where(SecuritySettings.owner_id == user_obj.id)).first()
+
+                        if security_config:
+                            if getattr(security_config, 'emergency_cancel_gesture', "Open_Palm") == event.gesture:
+                                if event.duration >= 2.0:
+                                    cancelled = False
+                                    if ActionState.active_sos_tasks.get(event.user) == "PENDING":
+                                        ActionState.active_sos_tasks[event.user] = "CANCELLED"
+                                        cancelled = True
+                                    if ActionState.active_sos_tasks.get("system_fall") == "PENDING":
+                                        ActionState.active_sos_tasks["system_fall"] = "CANCELLED"
+                                        cancelled = True
+                                        
+                                    if cancelled:
+                                        return {"status": "sos_cancelled_successfully"}
+
+                            if security_config.emergency_gesture == event.gesture:
+                                if event.duration >= 4.0:
+                                    if ActionState.active_sos_tasks.get(event.user) == "PENDING":
+                                        return {"status": "sos_grace_period_already_active"}
+                                    
+                                    ActionState.active_sos_tasks[event.user] = "PENDING"
+                                    background_tasks.add_task(delayed_emergency_lockdown, event.user, security_config)
+                                    ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
+                                    return {"status": "sos_grace_period_started"}
+                                else:
+                                    return {"status": "buffering_sos", "remaining": round(4.0 - event.duration, 1)}
+                        
+                        mapping = session.exec(select(GestureMapping).where(
+                            GestureMapping.owner_id == user_obj.id,
+                            GestureMapping.gesture_name == event.gesture
+                        )).first()
+
+                        if mapping:
+                            target_device = session.exec(select(Device).where(Device.id == mapping.target_device_id)).first()
+                            
+                            if target_device:
+                                logger.info(f"DYNAMIC GESTURE: '{event.user}' mapped '{event.gesture}' to '{mapping.action}'")
+                                device_id = target_device.name 
+                                cached_devices = get_cached("all_devices", ttl=3600) or {}
+                                curr_device_state = cached_devices.get(device_id, {})
+
+                                if target_device.device_type == "bulb":
+                                    if mapping.action == "turn_on": await control_device(device_id=device_id, control=DeviceControl(on=True))
+                                    elif mapping.action == "turn_off": await control_device(device_id=device_id, control=DeviceControl(on=False))
+                                    elif mapping.action == "brightness_up":
+                                        new_b = min(100, curr_device_state.get("brightness", 50) + 25)
+                                        await set_brightness(device_id=device_id, control=BrightnessControl(brightness=new_b))
+                                        cached_devices[device_id]["brightness"] = new_b
+                                        set_cache("all_devices", cached_devices)
+                                    elif mapping.action == "brightness_down":
+                                        new_b = max(1, curr_device_state.get("brightness", 50) - 25)
+                                        await set_brightness(device_id=device_id, control=BrightnessControl(brightness=new_b))
+                                        cached_devices[device_id]["brightness"] = new_b
+                                        set_cache("all_devices", cached_devices)
+                                        
+                                elif target_device.device_type == "outlet":
+                                    if mapping.action == "turn_on": await control_device(device_id=device_id, control=DeviceControl(on=True))
+                                    elif mapping.action == "turn_off": await control_device(device_id=device_id, control=DeviceControl(on=False))
+                                    elif mapping.action == "toggle":
+                                        curr_state = curr_device_state.get("on", False)
+                                        await control_device(device_id=device_id, control=DeviceControl(on=not curr_state))
+
+                                ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
+                                return {"status": "dynamic_gesture_executed", "device": target_device.display_name, "action": mapping.action}
+                                
+        return {"status": "gesture_processed", "gesture": event.gesture, "duration": event.duration}
+    except Exception as e:
+        logger.error(f"Gesture Processing Error: {e}")
+        raise HTTPException(status_code=500, detail="Gesture Processing Error")
 
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
@@ -613,11 +570,41 @@ async def update_presence(event: PresenceEvent, background_tasks: BackgroundTask
             if data.get("location") == location and name not in ["Unknown", "Identifying...", "A Stranger", "Guest", person_name]
         ]
         if person_name in ["Unknown", "Identifying...", "A Stranger", "Guest"]:
-            if len(authorized_hosts) > 0:
-                pass
-            else:
-                background_tasks.add_task(trigger_agent_proactively, "Guest", "entered")
+            if len(authorized_hosts) > 0: pass
+            else: background_tasks.add_task(trigger_agent_proactively, "Guest", "entered")
         else:
             background_tasks.add_task(trigger_agent_proactively, person_name, "entered")
 
     return {"status": "ok"}
+
+async def continuous_presence_check():
+    await asyncio.sleep(10) 
+    logger.info("Continuous presence check active.")
+    while True:
+        try:
+            exited_people = presence_service.check_timeouts()
+            for person in exited_people:
+                await trigger_agent_proactively(person, "exited")
+        except Exception: pass
+        await asyncio.sleep(15) 
+
+@router.on_event("startup")
+async def startup_event():
+    asyncio.create_task(continuous_presence_check())
+
+@router.post("/identify")
+async def identify_face(image_file: UploadFile = File(...)):
+    try:
+        image_bytes = await image_file.read()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        result = vision_service.recognize(frame, is_cropped=True)
+        if not result["face_found"]: return {"status": "no_face"}
+        
+        person_name = result["name"]
+        if person_name == "Unknown" or person_name is None: return {"status": "unknown_person"}
+            
+        return {"status": "authorized", "user": person_name, "confidence": result["confidence"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Identify Error")

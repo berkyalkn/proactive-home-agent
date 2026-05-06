@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Hand, X, Settings2, CheckCircle, Loader2, Zap, Lightbulb, Save, ShieldAlert } from "lucide-react";
+import { Hand, X, Settings2, CheckCircle, Loader2, Zap, Lightbulb, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -12,17 +12,6 @@ interface DeviceAction {
   device_name: string;
   action: string;
   label: string;
-}
-
-interface SecuritySettings {
-  emergency_gesture: string;
-  emergency_contact_name: string;
-  emergency_phone: string;
-  emergency_action_text: string;
-  use_sms: boolean;
-  use_voice_call: boolean;
-  use_telegram: boolean;
-  is_active: boolean;
 }
 
 const AVAILABLE_GESTURES = [
@@ -43,7 +32,8 @@ export function GestureManager() {
   
   const [actions, setActions] = useState<DeviceAction[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
-  const [security, setSecurity] = useState<SecuritySettings | null>(null);
+  
+  const [reservedGestures, setReservedGestures] = useState<string[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -74,13 +64,18 @@ export function GestureManager() {
       setActions(actionsData.available_actions || []);
       
       const currentMap: Record<string, string> = {};
-      mapData.mappings.forEach((m: any) => {
-        currentMap[`${m.target_device_id}|${m.action}`] = m.gesture_name;
-      });
+      if (mapData.mappings) {
+        mapData.mappings.forEach((m: any) => {
+          currentMap[`${m.target_device_id}|${m.action}`] = m.gesture_name;
+        });
+      }
       setMappings(currentMap);
       
       if (secData) {
-        setSecurity(secData);
+        const reserved = [];
+        if (secData.emergency_gesture) reserved.push(secData.emergency_gesture);
+        if (secData.emergency_cancel_gesture) reserved.push(secData.emergency_cancel_gesture);
+        setReservedGestures(reserved);
       }
       
       setHasChanges(false);
@@ -105,13 +100,6 @@ export function GestureManager() {
     setHasChanges(true);
   };
 
-  const handleSecurityGestureChange = (newGesture: string) => {
-    if (security) {
-      setSecurity({ ...security, emergency_gesture: newGesture });
-      setHasChanges(true);
-    }
-  };
-
   const handleSaveAll = async () => {
     setSaving(true);
     const token = localStorage.getItem("token");
@@ -124,25 +112,12 @@ export function GestureManager() {
           return { gesture_name: gestureName, target_device_id: deviceId, action: action };
         });
 
-      const savePromises = [
-        fetch(`${API_URL}/gestures/mappings/bulk`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ mappings: mappingsArray })
-        })
-      ];
+      await fetch(`${API_URL}/gestures/mappings/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mappings: mappingsArray })
+      });
 
-      if (security) {
-        savePromises.push(
-          fetch(`${API_URL}/gestures/security`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify(security)
-          })
-        );
-      }
-
-      await Promise.all(savePromises);
       setHasChanges(false);
     } catch (e) {
       console.error("Bulk save failed", e);
@@ -157,10 +132,7 @@ export function GestureManager() {
     return acc;
   }, {} as Record<string, DeviceAction[]>);
 
-  const assignedGestures = [
-    ...Object.values(mappings),
-    security?.emergency_gesture
-  ].filter(Boolean) as string[];
+  const assignedGestures = Object.values(mappings);
 
   return (
     <div ref={containerRef} className={`relative transition-all duration-300 ${isOpen ? "z-[100]" : "z-40"}`}>
@@ -188,7 +160,7 @@ export function GestureManager() {
                     </div>
                     <div>
                         <h3 className="text-base font-semibold text-zinc-100 leading-tight">Device Functions</h3>
-                        <p className="text-xs text-zinc-500 mt-0.5">Assign hand gestures to commands</p>
+                        <p className="text-xs text-zinc-500 mt-0.5">Assign hand gestures to commands. (Security gestures are hidden)</p>
                     </div>
                 </div>
             </div>
@@ -198,33 +170,6 @@ export function GestureManager() {
                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-zinc-600"/></div>
               ) : (
                 <div className="p-5 space-y-6">
-                  
-                  <div className="relative overflow-hidden border border-rose-900/50 bg-rose-950/20 rounded-xl p-4">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-rose-500/80"></div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" />
-                      <h4 className="text-sm font-bold text-rose-400">Emergency Protocol Trigger</h4>
-                    </div>
-                    
-                    <div className="flex items-center justify-between pl-2">
-                      <span className="text-xs font-medium text-zinc-400 w-1/2">SOS Gesture</span>
-                      <div className="w-1/2 relative">
-                        <select 
-                          className={`w-full bg-zinc-950 border rounded-md p-1.5 text-xs focus:outline-none transition-colors appearance-none ${security?.emergency_gesture ? "border-rose-500/50 text-rose-400" : "border-zinc-800 text-zinc-500"}`}
-                          value={security?.emergency_gesture || ""}
-                          onChange={(e) => handleSecurityGestureChange(e.target.value)}
-                        >
-                          <option value="">-- Select SOS Gesture --</option>
-                          {AVAILABLE_GESTURES.map(g => {
-                            const isUsedByOther = assignedGestures.includes(g.id) && security?.emergency_gesture !== g.id;
-                            if (isUsedByOther) return null;
-                            return <option key={g.id} value={g.id}>{g.label}</option>;
-                          })}
-                        </select>
-                        {security?.emergency_gesture && <CheckCircle className="w-3 h-3 text-rose-500 absolute right-6 top-2 pointer-events-none" />}
-                      </div>
-                    </div>
-                  </div>
 
                   {Object.keys(groupedActions).length === 0 ? (
                     <div className="text-center py-8 text-zinc-500 text-sm">No compatible devices found.</div>
@@ -259,7 +204,9 @@ export function GestureManager() {
                                       <option value="">-- Select --</option>
                                       {AVAILABLE_GESTURES.map(g => {
                                         const isUsedByOther = assignedGestures.includes(g.id) && currentAssignedGesture !== g.id;
-                                        if (isUsedByOther) return null; 
+                                        const isReservedForSecurity = reservedGestures.includes(g.id);
+                                        
+                                        if (isUsedByOther || isReservedForSecurity) return null; 
                                         return <option key={g.id} value={g.id}>{g.label}</option>;
                                       })}
                                     </select>

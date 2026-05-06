@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hand, ShieldAlert, Sparkles, Loader2, Lightbulb, Zap, Settings2, Save } from 'lucide-react';
+import { Hand, Sparkles, Loader2, Lightbulb, Zap, Settings2, Save } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -33,7 +33,8 @@ export default function Step5Gestures({ onNext, onPrev }: Props) {
   
   const [actions, setActions] = useState<DeviceAction[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
-  const [sosGesture, setSosGesture] = useState<string>("");
+  
+  const [reservedGestures, setReservedGestures] = useState<string[]>([]);
 
   const fetchData = async () => {
     setLoadingData(true);
@@ -60,8 +61,11 @@ export default function Step5Gestures({ onNext, onPrev }: Props) {
       }
       setMappings(currentMap);
       
-      if (secData && secData.emergency_gesture) {
-        setSosGesture(secData.emergency_gesture);
+      if (secData) {
+        const reserved = [];
+        if (secData.emergency_gesture) reserved.push(secData.emergency_gesture);
+        if (secData.emergency_cancel_gesture) reserved.push(secData.emergency_cancel_gesture);
+        setReservedGestures(reserved);
       }
     } catch (e) {
       console.error(e);
@@ -91,21 +95,11 @@ export default function Step5Gestures({ onNext, onPrev }: Props) {
           return { gesture_name: gestureName, target_device_id: deviceId, action: action };
         });
 
-      const secRes = await fetch(`${API_URL}/gestures/security`, { headers: { Authorization: `Bearer ${token}` } });
-      const currentSecurity = await secRes.json();
-
-      await Promise.all([
-        fetch(`${API_URL}/gestures/mappings/bulk`, {
+      await fetch(`${API_URL}/gestures/mappings/bulk`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ mappings: mappingsArray })
-        }),
-        fetch(`${API_URL}/gestures/security`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ ...currentSecurity, emergency_gesture: sosGesture })
-        })
-      ]);
+      });
 
       setTimeout(() => onNext(), 2500); 
     } catch (e) {
@@ -120,7 +114,7 @@ export default function Step5Gestures({ onNext, onPrev }: Props) {
     return acc;
   }, {} as Record<string, DeviceAction[]>);
 
-  const assignedGestures = [...Object.values(mappings), sosGesture].filter(Boolean);
+  const assignedGestures = Object.values(mappings);
 
   return (
     <div className="bg-white border border-slate-200 p-8 md:p-10 rounded-[2rem] shadow-xl shadow-slate-200/50 text-center min-h-[500px] flex flex-col items-center justify-center transform-gpu relative overflow-hidden">
@@ -166,7 +160,7 @@ export default function Step5Gestures({ onNext, onPrev }: Props) {
             
             <div className="flex-1 flex flex-col w-full h-[480px]">
                 <h3 className="text-2xl font-extrabold text-slate-900 mb-1">Gesture Mapping</h3>
-                <p className="text-sm text-slate-500 mb-4 font-medium">Assign gestures to devices and secure your home.</p>
+                <p className="text-sm text-slate-500 mb-4 font-medium">Assign gestures to devices. (Security gestures are hidden)</p>
 
                 {loadingData ? (
                     <div className="flex-1 flex items-center justify-center">
@@ -175,29 +169,6 @@ export default function Step5Gestures({ onNext, onPrev }: Props) {
                 ) : (
                     <div className="flex-1 overflow-y-auto scrollbar-hide text-left space-y-6 pr-2 pb-4">
                         
-                        <div className="border border-rose-200 bg-rose-50/50 rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
-                            <div className="flex items-center gap-2 mb-4 pl-1">
-                                <ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" />
-                                <h4 className="text-sm font-extrabold text-rose-800">Emergency Trigger</h4>
-                            </div>
-                            <div className="flex flex-col pl-1">
-                                <label className="text-[10px] font-extrabold text-slate-500 ml-1 mb-1.5 block tracking-widest uppercase">Select SOS Gesture</label>
-                                <select 
-                                    className="w-full px-4 py-3 rounded-xl bg-white border border-rose-200 focus:border-rose-400 outline-none transition-colors text-sm font-bold text-rose-700 shadow-sm cursor-pointer"
-                                    value={sosGesture}
-                                    onChange={(e) => setSosGesture(e.target.value)}
-                                >
-                                    <option value="">-- Unassigned --</option>
-                                    {AVAILABLE_GESTURES.map(g => {
-                                        const isUsed = assignedGestures.includes(g.id) && sosGesture !== g.id;
-                                        if (isUsed) return null;
-                                        return <option key={g.id} value={g.id}>{g.label}</option>;
-                                    })}
-                                </select>
-                            </div>
-                        </div>
-
                         {Object.keys(groupedActions).length === 0 ? (
                             <div className="text-center py-6 text-slate-500 text-sm">No compatible devices found in your home yet.</div>
                         ) : (
@@ -225,8 +196,11 @@ export default function Step5Gestures({ onNext, onPrev }: Props) {
                                                         >
                                                             <option value="">-- Select --</option>
                                                             {AVAILABLE_GESTURES.map(g => {
-                                                                const isUsed = assignedGestures.includes(g.id) && currentAssigned !== g.id;
-                                                                if (isUsed) return null; 
+                                                                // Güvenlik jestleri ve hali hazırda atananlar listede çıkmaz
+                                                                const isUsedByOtherDevice = assignedGestures.includes(g.id) && currentAssigned !== g.id;
+                                                                const isReservedForSecurity = reservedGestures.includes(g.id);
+                                                                
+                                                                if (isUsedByOtherDevice || isReservedForSecurity) return null; 
                                                                 return <option key={g.id} value={g.id}>{g.label}</option>;
                                                             })}
                                                         </select>

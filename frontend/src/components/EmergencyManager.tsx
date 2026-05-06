@@ -285,6 +285,15 @@ export function EmergencyManager() {
                         <span className={`text-sm font-medium ${security.use_fall_detection ? "text-purple-100" : "text-zinc-500"}`}>Enable AI Fall Detection</span>
                         {security.use_fall_detection && <CheckCircle className="w-4 h-4 text-purple-500 ml-auto" />}
                     </label>
+                    
+                    {security.use_fall_detection && (
+                        <div className="mt-2 p-3 bg-purple-950/10 border border-purple-500/20 rounded-lg flex gap-3 text-left animate-in fade-in slide-in-from-top-1">
+                            <Info className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+                            <p className="text-[11px] text-purple-100/80 leading-relaxed">
+                                <strong>Protocol Flow:</strong> Upon detecting a fall, the AI will ask if you are okay and activate the microphone for <strong>10 seconds</strong>. You can abort the emergency alert by saying keywords like <strong>"I'm fine", "Okay", or "Cancel"</strong>, or by showing the <strong>Cancel Gesture</strong> to the camera.
+                            </p>
+                        </div>
+                    )}
                   </div>
 
                   <div className="space-y-3 pt-2 border-t border-zinc-800/50">

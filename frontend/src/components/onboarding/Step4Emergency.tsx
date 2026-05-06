@@ -274,6 +274,15 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
                                 <Activity className={`w-4 h-4 mr-3 ${security.use_fall_detection ? "text-purple-500" : "text-slate-400"}`} />
                                 <span className={`text-sm font-bold ${security.use_fall_detection ? "text-purple-700" : "text-slate-500"}`}>Enable AI Fall Detection</span>
                             </label>
+                            
+                            {security.use_fall_detection && (
+                                <div className="mt-2 p-3 bg-purple-50 border border-purple-100 rounded-xl flex gap-3 text-left animate-in fade-in slide-in-from-top-1">
+                                    <Info className="w-5 h-5 text-purple-500 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-purple-700 leading-relaxed font-medium">
+                                        <strong>Protocol Flow:</strong> Upon detecting a fall, the AI will ask if you are okay and activate the microphone for <strong>10 seconds</strong>. You can abort the emergency alert by saying keywords like <strong>"I'm fine", "Okay", or "Cancel"</strong>, or by showing the <strong>Cancel Gesture</strong> to the camera.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2">

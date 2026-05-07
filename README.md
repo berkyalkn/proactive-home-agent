@@ -32,7 +32,7 @@
 
 This project is a local-first, privacy-centric smart home ecosystem designed to bridge the gap between traditional reactive IoT systems and true agentic intelligence. While standard hubs wait for explicit commands, this project leverages a Hybrid AI Architecture running on a Raspberry Pi 5 to proactively manage the environment based on context, visual observation, spatial-episodic memory, and physical gestures.
 
-By orchestrating **Distributed ESP32 Sensor Nodes, Edge Computer Vision, Multi-Modal Presence Management, Omnichannel Security Alerts, and Generative AI (LangGraph)**, the system creates a "conscious" living space. It doesn't just switch lights on; it understands context, visually identifies users upon entry via multi-angle biometrics, comprehends hand gestures, triggers autonomous emergency protocols, retains a chronological memory of spatial events, and executes complex natural language goals—while keeping critical data within the home network.
+By orchestrating **Distributed ESP32 Sensor Nodes, Edge Computer Vision, Multi-Modal Presence Management, Omnichannel Security Alerts, and Generative AI (LangGraph)**, the system creates a "conscious" living space. It doesn't just switch lights on; it understands context, visually identifies users upon entry via multi-angle biometrics, comprehends hand gestures, interactively verifies fall emergencies, triggers autonomous lockdown protocols, retains a chronological memory of spatial events, and executes complex natural language goals—while keeping critical data within the home network.
 
 ---
 
@@ -42,7 +42,7 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 
 | Layer | Component | Description |
 | :--- | :--- | :--- |
-| **L5** | **Presentation** | Next.js Dashboard, **5-Step Autonomous Onboarding Engine**, an independent Omnichannel **Security Hub**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with real-time UI/UX via GPU-accelerated Framer Motion. |
+| **L5** | **Presentation** | Next.js Dashboard, **5-Step Autonomous Onboarding Engine**, an independent Omnichannel **Security Hub**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with event-driven auto-microphone triggering. |
 | **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision (YOLOv8-Face Alignment + GhostFaceNet Biometrics + Asynchronous MediaPipe Gestures), and Predictive Models. It filters intents through a 3-stage logic (Edge -> Local RAG -> Cloud LLM) and utilizes Zero-Latency Omniscient Context Injection and Graceful Degradation. |
 | **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, **dynamic relational data persistence (PostgreSQL/SQLModel)** replacing static registries, omnichannel notifications (Twilio/Telegram), presence ledgers, and real-time System Integrity Diagnostics. |
 | **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST(Edge Node Image Transmission/External APIs) ensuring <50ms local latency. |
@@ -102,30 +102,39 @@ No command is executed without continuous authentication, utilizing both visual 
 ### 4. Event-Driven Edge Vision & State Machine
 The system visually monitors the environment and acts autonomously without melting the central CPU.
 
-- **Zero-Latency Multi-Tracking & Anti-Drift:** Once MediaPipe detects a face, the edge node switches to an asynchronous **KCF Tracker**, following the user locally at 30 FPS. It stops sending heavy image payloads and instead streams lightweight JSON telemetries (`{"user": "Berkay", "status": "PRESENT"}`) to the backend. To eliminate bounding-box drift, this tracker uses **IoU (Intersection over Union)** matching to periodically re-initialize with fresh BlazeFace data.
+- **Zero-Latency Multi-Tracking & Anti-Drift:** Once MediaPipe detects a face, the edge node switches to an asynchronous **KCF Tracker**, following the user locally at 30 FPS. It stops sending heavy image payloads and instead streams lightweight JSON telemetries ({`"user": "Berkay", "status": "PRESENT"`}) to the backend. To eliminate bounding-box drift, this tracker uses **IoU (Intersection over Union)** matching to periodically re-initialize with fresh BlazeFace data.
 
-- **Producer-Consumer Threading & Ghost Box TTL:** Camera reading and frame processing are strictly separated into different threads to prevent stream blocking. A 1-second Time-To-Live (TTL) mechanism forcefully deletes lingering "ghost boxes" when a user leaves the frame.
-
-- **Zero-Latency Context Injection:** Upon entry, FastAPI `BackgroundTasks` awaken the LangGraph Agent. Before the LLM generates a single token, current MQTT telemetry (Temp, Light) and smart plug states are injected directly from RAM into the `system_prompt`, enabling instant, proactive suggestions (e.g., offering to turn on the study lamp at 2 AM).
+- **Zero-Latency Context Injection & Anti-Spam:** Upon entry, FastAPI `BackgroundTasks` awaken the LangGraph Agent. Before the LLM generates a single token, current MQTT telemetry (Temp, Light) and smart plug states are injected directly from RAM into the `system_prompt`, enabling instant, proactive suggestions. The system employs RAM-based **Greeting Cooldowns (15 mins)** and **Emergency Mutes (2 mins)** to prevent repetitive TTS spam and maintain social awareness.
 
 - **Persistent Spatial Ledger & Silent Guest Protocol:** Maintains a debounced, time-zone-aware history of room events. If an unrecognized face is detected while an authorized user is already present, the system intelligently suppresses security alerts to maintain social grace.
 
 ### 5. Risk-Based Hybrid Action Engine (Gestures & Security)
-The system transforms passive hand gestures into physical actuations via a sophisticated, fully database-driven rule engine designed for zero false-positives and maximum personalization.
 
-- **Temporal Gating & Debounce Filtering:** Eliminates accidental triggers by tracking sustained actions. A gesture is only processed if it is held continuously for a specific duration (e.g., 1.0s). A server-side `ActionState` lock prevents network spamming by enforcing strict action cooldowns.
+The system transforms passive observation and hand gestures into physical actuations via a sophisticated, fully database-driven rule engine designed for zero false-positives and life-saving interventions.
 
-- **Gaze-Locked UX (Frontality Check):** The system inherently understands user intentionality. By fusing MediaPipe hand tracking with BlazeFace projection matrix checks, it actively ignores gestures if the user is looking away (e.g., talking to a friend in the room), executing commands only when the user makes direct eye contact with the camera.
+- **Temporal Gating & Gaze-Locked UX:** Eliminates accidental triggers by tracking sustained actions. A gesture is only processed if it is held continuously for a specific duration. By fusing hand tracking with BlazeFace projection matrix checks, it actively ignores gestures if the user is looking away, executing commands only when direct eye contact is established.
 
-- **Hierarchical DB-Driven Actuation:**
-  - **Level 1 (Dynamic Mapping):** Users can map available gestures (e.g., `Victory`, `Pointing_Up`) to any discovered IoT device via PostgreSQL relationships. Actions execute with zero latency, bypassing the LLM entirely.
+- **Interactive AI Fall Detection & Verification Engine:** Instead of blind panic, the system implements a highly intelligent context-verification loop:
 
-  - **Level 2 (The Red Zone - Emergency Lockdown):** Users assign an exclusive SOS gesture (e.g., `Closed_Fist`) that triggers a catastrophic `execute_emergency_lockdown` macro. This macro runs on a **Fail-Fast architecture**, ignoring unresponsive devices (1s timeouts) to prevent system freezing. It executes parallel tasks:
-    1.  **Hardware Override:** Instantly forces all discovered smart bulbs into a deterministic alert state based on user preferences (e.g., Police Strobe Red/Blue for 20 seconds).
-    2.  **Omnichannel Alerts:** Simultaneously dispatches SMS, Automated Voice Calls (Twilio), and Telegram alerts.
-    3.  **Dynamic AI Voice Announcement:** Bypasses standard LLM processing delays. The system injects dynamic context (e.g., "SMS sent to Tuna") into the user's custom pre-defined SOS prompt and streams it instantly to the Text-to-Speech engine, generating an authoritative, context-aware room broadcast within milliseconds.
+  - **Detection:** Edge cameras detect a confirmed fall and alert the backend.
 
-- **Silent Episodic Memory:** Every gesture—whether it triggers an action or is simply an observation—is silently logged into the agent's `history_ledger`, granting the LLM a highly accurate episodic memory to answer queries like "What did I just do?".
+  - **Speak-Then-Listen Sync:** The AI autonomously asks the user if they are okay via TTS. Once finished speaking, it forcefully triggers the dashboard's microphone over WebSockets for a 10-second verification window.
+
+  - **No-Response Lockdown:** If the 10-second window expires without confirmation, the system assumes loss of consciousness and executes the emergency lockdown protocol.
+
+- **Multimodal Emergency Abort (Cancel Protocol):** Users have absolute control over false alarms. During the verification window or SOS grace period, alarms can be instantly aborted through two modes:
+
+  - **Voice Intercept:** Simply saying keywords like "I am fine" or "Cancel" into the auto-opened microphone triggers an immediate system abort.
+
+  - **Gesture Override:** Showing a pre-defined Cancel Gesture (e.g., `Open_Palm`) to the camera silently disarms the protocol.
+
+- **The Red Zone (Emergency Lockdown Protocol):** Whether triggered manually via an SOS Gesture (e.g., `Closed_Fist`) or by an unverified fall, this Fail-Fast macro executes parallel tasks:
+
+  - **Hardware Override:** Instantly forces all discovered smart bulbs into a deterministic alert state based on user preferences (e.g., Police Strobe Red/Blue).
+
+  - **Omnichannel Alerts:** Simultaneously dispatches SMS, Automated Voice Calls (Twilio), and Telegram photo alerts.
+
+  - **Dynamic AI Voice Announcement:** The Generative Agent broadcasts an authoritative, context-aware room announcement (e.g., "Authorities have been notified") to deter intruders or inform the fallen user that help is on the way.
 
 ---
 
@@ -139,10 +148,11 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 
 - **3- Biometric Security Calibration:** Captures a 5-point face mesh and acoustic footprint via an interactive, gaze-guided UI. Designed with human-centric copywriting to avoid intimidating technical jargon.
 
-- **4- Gesture Mapping & Advanced SOS Protocol:** Empowers users to dynamically link hand gestures to physical actuators. Integrates a highly granular Emergency SOS configuration where users define their trigger gesture, specific hardware overrides (**Alert Color** such as Police Strobe, and **Duration**), an emergency contact, and a **Custom AI Voice Announcement** that the generative agent will broadcast during a lockdown.
+- **4- Security Hub & Emergency Protocol:** Integrates a highly granular SOS configuration where users define their trigger/cancel gestures, AI fall detection logic, hardware overrides (**Alert Color** and **Duration**), emergency contacts, and a **Custom AI Voice Announcement** to be broadcasted during a lockdown.
 
-- **5- System Finalization (The Labor Illusion):** Employs psychological UX design (deliberate UI delays and dynamic log tracking) to build anticipation and perceived value as the system compiles PostgreSQL schemas, syncs gesture rules, encrypts signatures, and assembles the dashboard.
+- **5- Gesture Mapping:** Empowers users to dynamically link hand gestures to physical actuators for seamless, controller-free smart home management.
 
+- **System Finalization (The Labor Illusion):** Employs psychological UX design (deliberate UI delays and dynamic log tracking) to build anticipation and perceived value as the system compiles PostgreSQL schemas, syncs gesture rules, encrypts signatures, and assembles the dashboard.
 ---
 
 ## Tech Stack
@@ -156,6 +166,7 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 | **Computer Vision**| **OpenCV & KCF** | Lightweight motion detection and high-speed bounding box tracking on edge nodes. |
 | **Edge Vision**| **MediaPipe BlazeFace** | Ultra-lightweight mobile-optimized face detection for extracting ROIs at high FPS on edge devices. |
 | **Gesture AI** | **MediaPipe Tasks API** | Asynchronous real-time hand gesture recognition (Victory, Open Palm, Closed Fist) running on non-blocking C++ worker threads. |
+| **Pose Estimation**| **MediaPipe Pose** | Extracts real-time 33-point body landmarks to calculate spatial velocity and asynchronously detect falls. |
 | **Alignment**| **YOLOv8-Face** | Executes 5-point facial landmark detection on the Hub for surgical face alignment before recognition. |
 | **Face Recognition**| **DeepFace (GhostFaceNet)**| Extracts high-dimensional facial embeddings for real-time biometric verification. |
 | **Biometrics** | **Resemblyzer** | Generates 256-dimensional voice embeddings for real-time speaker identification. |
@@ -258,8 +269,6 @@ The system completely redefines the traditional login/register flow by treating 
 ## Future Roadmap
 
 - [ ] **True Local Autonomy:** Replacing cloud dependencies with quantized **Local LLMs (Llama-3)**, **Whisper.cpp** (STT), and **Piper TTS** for 100% offline privacy and zero-latency response.
-
-- [ ] **Advanced Pose Estimation:** Expanding MediaPipe capabilities to include full-body pose estimation for emergency Fall Detection.
 
 - [ ] **Acoustic Event Detection (SED):** Integrating Audio Intelligence models (e.g., YAMNet) to recognize critical environmental sounds such as *baby crying* or *glass breaking* and trigger emergency protocols.
 

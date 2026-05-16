@@ -227,7 +227,15 @@ class DiscoveryService:
                     except Exception as e:
                         logger.error(f"[{ip}] Restore failed: {e}")
                     logger.info(f"[{ip}] Identify complete. Restored to original state.")
-                
+                    
+                    try:
+                        if hasattr(device, 'logout'):
+                            await device.logout()
+                        elif hasattr(device, 'close'):
+                            await device.close()
+                    except Exception as e:
+                        logger.debug(f"[{ip}] Warning displayed when logging out of the device: {e}")
+                    
                 return True
 
             elif device_id != "mac-cam-internal":

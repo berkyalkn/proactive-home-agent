@@ -147,26 +147,41 @@ async def set_bulb_color_temperature(device, color_temp: int):
 async def get_device_model(ip: str, username: str, password: str, retries: int = 3) -> str:
     """
     Rust tolerates hardware fatigue and IoT connection issues, and finds the true model of the device with 100% accuracy.
+    (Memory Leak & Ghost Connection koruması eklendi)
     """
     import asyncio 
     client = ApiClient(username, password)
     
     for attempt in range(retries):
+        device = None
         try:
             device = await asyncio.wait_for(client.l530(ip), timeout=2.0)
             info = await asyncio.wait_for(device.get_device_info(), timeout=2.0)
             return str(info.to_dict().get("model", "")).upper()
         except Exception:
             pass
-            
+        finally:
+            if device:
+                try:
+                    if hasattr(device, 'logout'): await device.logout()
+                    elif hasattr(device, 'close'): await device.close()
+                except: pass
+                
         await asyncio.sleep(0.3) 
         
+        device_plug = None
         try:
-            device = await asyncio.wait_for(client.p110(ip), timeout=2.0)
-            info = await asyncio.wait_for(device.get_device_info(), timeout=2.0)
+            device_plug = await asyncio.wait_for(client.p110(ip), timeout=2.0)
+            info = await asyncio.wait_for(device_plug.get_device_info(), timeout=2.0)
             return str(info.to_dict().get("model", "")).upper()
         except Exception:
             pass
+        finally:
+            if device_plug:
+                try:
+                    if hasattr(device_plug, 'logout'): await device_plug.logout()
+                    elif hasattr(device_plug, 'close'): await device_plug.close()
+                except: pass
 
         if attempt < retries - 1:
             await asyncio.sleep(1.0) 

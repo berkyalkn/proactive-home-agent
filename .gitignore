@@ -16,4 +16,7 @@ backend/.env
 
 backend/Vertex_credentials.json
 
-*.tflite
+*.onnx
+backend/data/models/**/*.json
+backend/data/models/**/*.pt
+backend/data/models/**/*.tflite

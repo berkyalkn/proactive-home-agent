@@ -159,7 +159,12 @@ async def get_home_status():
 
 @tool
 async def control_smart_device(target: str, action: str):
-    """Controls REAL smart plugs. Target can be the custom name given by the user (e.g. 'Oven', 'Desk Lamp')."""
+    """
+    Controls REAL smart plugs.
+    Args:
+        target: The custom name given by the user (e.g. 'Oven', 'Desk Lamp').
+        action: MUST be exactly one of: "on", "off".
+    """
 
     target_device_id = None
     disp_name = target
@@ -194,7 +199,15 @@ async def control_smart_device(target: str, action: str):
 
 @tool
 async def control_bulb(location: str, action: str, brightness: int = None, hue: int = None, saturation: int = None):
-    """Controls a smart bulb in the specified location (room name)."""
+    """
+    Controls a smart bulb in the specified location.
+    Args:
+        location: The room name (e.g., "livingroom", "bedroom").
+        action: MUST be exactly one of: "on", "off", "set_brightness", "set_color".
+        brightness: Integer from 1 to 100.
+        hue: Integer from 0 to 360 (color).
+        saturation: Integer from 0 to 100.
+    """
     
     target_bulb_id = None
     disp_name = None
@@ -245,6 +258,7 @@ async def trigger_emergency_alert(reason: str):
     Args:
         reason: A short description of why help is needed (e.g., "User fell down", "User feels sick").
     """
+    
     logger.critical(f"AGENT INITIATED EMERGENCY ALERT! Reason: {reason}")
     
     alert_msg = f"AI AGENT ALERT: Smart home assistant reported an emergency. Reason: {reason}"

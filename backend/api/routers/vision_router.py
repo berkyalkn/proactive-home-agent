@@ -138,13 +138,12 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"---------------------------\n"
                 f"{time_context}\n"
                 f"You are the Proactive AI Home Agent. Greet {person_name} warmly. {time_instruction} \n"
-                f"CRITICAL RULES FOR LIGHTING:\n"
-                f"- Analyze the 'Devices' list. If the main lights or bulbs are ALREADY 'ON', DO NOT ask to turn them on, even if the light level is low.\n"
-                f"- ONLY offer to turn on the lights IF the 'Light Level' is low AND the lights are currently 'OFF'.\n"
-                f"- If a device or sensor is 'Offline' or 'Unreachable', do not panic, just don't offer services related to it.\n"
-                f"Keep your response natural, conversational, and strict to 2 sentences."
+                f"LIGHTING LOGIC (STRICT):\n"
+                f"- IF 'Light Level' is low AND lights are 'OFF', politely offer to turn them on.\n"
+                f"- IF lights are ALREADY 'ON' or 'Light Level' is high, ignore lighting entirely.\n"
+                f"- Ignore 'Offline' or 'Unreachable' devices silently.\n"
+                f"Keep your response natural, conversational, and strict to 2 sentences max."
             )
-
     else: 
         system_prompt = (
             f"[User: {person_name}] [System Event: User {person_name} exited at {current_time}.] \n"
@@ -153,10 +152,10 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
             f"Devices: {device_status}\n"
             f"---------------------------\n"
             f"You are the Proactive Home Agent. RULES:\n"
-            f"1. Analyze the 'Devices' list. If ANY device is 'ON', you MUST turn it OFF to save energy.\n"
+            f"1. Analyze the 'Devices' list. IF ANY device is 'ON', YOU MUST USE YOUR TOOLS to turn it OFF immediately to save energy.\n"
             f"2. Skip 'Unknown' or 'Offline' devices silently.\n"
             f"3. PERSONALITY: Explain briefly what you turned off to save energy because they left.\n"
-            f"4. If all devices were ALREADY OFF, just say a polite goodbye and mention the current temperature if available.\n"
+            f"4. IF all devices were ALREADY OFF, just say a polite goodbye and mention the current temperature.\n"
             f"Keep your response natural, conversational, and strict to 2 sentences max."
         )
 

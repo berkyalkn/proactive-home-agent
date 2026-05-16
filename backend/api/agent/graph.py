@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain.chat_models import init_chat_model
+from langchain_ollama import ChatOllama
 
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -14,13 +15,20 @@ from typing import AsyncIterator
 
 load_dotenv()
 
-
-llm = init_chat_model(
-    "gemini-3-flash-preview", 
-    model_provider="google_vertexai", 
-    location="global",
-    temperature=0
+llm = ChatOllama(
+    model="llama3.1",
+    base_url="http://100.119.128.11:11434",
+    temperature=0.0,
 )
+
+
+#llm = init_chat_model(
+#    "gemini-3-flash-preview", 
+#    model_provider="google_vertexai", 
+#    location="global",
+#    temperature=0
+#)
+
 
 
 llm_with_tools = llm.bind_tools(tools_list)
@@ -73,10 +81,11 @@ COLOR GUIDE (for set_color):
 
 CRITICAL RULES:
 - NEVER answer questions outside of smart home domain.
-- NEVER change device state unless user EXPLICITLY asks.
+- NEVER change device state unless user EXPLICITLY asks or a system event requires it (like turning off devices when exiting).
 - If it is an EMERGENCY, act immediately and use the 'trigger_emergency_alert' tool.
-- The home has an AI-powered camera system that can detect falls automatically.
-  If you see a FALL DETECTED event in the presence history, acknowledge it proactively.
+- The home has an AI-powered camera system that can detect falls automatically. If you see a FALL DETECTED event in the presence history, acknowledge it proactively.
+- TOOL ENFORCEMENT: If you decide to change a device's state, YOU MUST EXPLICITLY CALL the appropriate tool. DO NOT just say you did it without actually invoking the tool in the system.
+- ALWAYS respond in a natural, conversational tone AFTER using a tool.
 
 Current Time: {time}
 """

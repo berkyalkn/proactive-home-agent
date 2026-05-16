@@ -236,6 +236,7 @@ async def ask_and_wait_for_fall(confidence: float, screenshot_bytes: Optional[by
 
     try:
         await broadcast({"status": "processing"})
+        await asyncio.sleep(0.2)
         await broadcast({"status": "text_chunk", "chunk": question})
 
         audio_bytes = await text_to_speech(question)
@@ -261,6 +262,7 @@ async def ask_and_wait_for_fall(confidence: float, screenshot_bytes: Optional[by
                 ack_msg = "Alarm cancelled. I am glad you are safe."
                 
                 await broadcast({"status": "processing"})
+                await asyncio.sleep(0.2)
                 await broadcast({"status": "text_chunk", "chunk": ack_msg})
 
                 audio_bytes = await text_to_speech(ack_msg)
@@ -310,21 +312,25 @@ async def execute_fall_emergency_lockdown(confidence: float, screenshot_bytes: O
     if settings.use_voice_call and target_phone:
         asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
 
+    async def broadcast(message_dict: dict):
+        for connection in manager.active_connections:
+            try:
+                await manager.send_json(message_dict, connection)
+            except Exception: pass
+
     try:
         final_msg = "No response received. Emergency contacts and authorities have been notified. Help is on the way."
         
-        for conn in manager.active_connections:
-            await manager.send_json({"status": "processing"}, conn)
-            await manager.send_json({"status": "text_chunk", "chunk": final_msg}, conn)
+        await broadcast({"status": "processing"})
+        await asyncio.sleep(0.2) 
+        await broadcast({"status": "text_chunk", "chunk": final_msg})
 
         audio_bytes = await text_to_speech(final_msg)
         if audio_bytes:
             audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-            for conn in manager.active_connections:
-                await manager.send_json({"status": "audio_chunk", "audio": audio_base64}, conn)
+            await broadcast({"status": "audio_chunk", "audio": audio_base64})
                 
-        for conn in manager.active_connections:
-            await manager.send_json({"status": "stream_finished"}, conn)
+        await broadcast({"status": "stream_finished"})
     except Exception as e:
         logger.error(f"Final Fall TTS error: {e}")
 
@@ -445,21 +451,25 @@ async def execute_emergency_lockdown(person_name: str, settings: SecuritySetting
     if settings.use_voice_call and target_phone:
         asyncio.create_task(notifier.make_voice_call(target_phone, f"Attention. An emergency alarm has been triggered by {person_name}."))
 
+    async def broadcast(message_dict: dict):
+        for connection in manager.active_connections:
+            try:
+                await manager.send_json(message_dict, connection)
+            except Exception: pass
+
     try:
         announcement = getattr(settings, 'emergency_action_text', 'Security protocol activated.')
         
-        for conn in manager.active_connections:
-            await manager.send_json({"status": "processing"}, conn)
-            await manager.send_json({"status": "text_chunk", "chunk": announcement}, conn)
+        await broadcast({"status": "processing"})
+        await asyncio.sleep(0.2) 
+        await broadcast({"status": "text_chunk", "chunk": announcement})
 
         audio_bytes = await text_to_speech(announcement)
         if audio_bytes:
             audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-            for conn in manager.active_connections:
-                await manager.send_json({"status": "audio_chunk", "audio": audio_base64}, conn)
+            await broadcast({"status": "audio_chunk", "audio": audio_base64})
                 
-        for conn in manager.active_connections:
-            await manager.send_json({"status": "stream_finished"}, conn)
+        await broadcast({"status": "stream_finished"})
     except: pass
 
 

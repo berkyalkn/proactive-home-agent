@@ -40,7 +40,7 @@ export function VoiceCommandCenter() {
     const nextAudioBase64 = audioQueueRef.current.shift(); 
     if (!nextAudioBase64) return;
 
-    const audio = new Audio(`data:audio/mp3;base64,${nextAudioBase64}`);
+    const audio = new Audio(`data:audio/wav;base64,${nextAudioBase64}`);
     currentAudioRef.current = audio;
 
     audio.onended = () => playNextAudio();

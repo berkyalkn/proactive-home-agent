@@ -1,32 +1,49 @@
-from openai import AsyncOpenAI
 import os
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
-api_key = os.getenv("OPENAI_API_KEY")
-client = AsyncOpenAI(api_key=api_key) if api_key else None
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MODEL_PATH = os.path.join(BASE_DIR, "data", "models", "tts", "en_US-lessac-medium.onnx")
 
 async def text_to_speech(text: str) -> bytes:
     """
-    OpenAI uses the TTS-1 model to convert text to speech.
+    Uses the Piper TTS model to convert text to speech.
     """
-    if not client:
-        logger.error("OpenAI API Key missing")
-        return None
 
     safe_text = text.strip()
+    if not safe_text:
+        return None
+        
     if not safe_text.endswith((".", "!", "?")):
         safe_text += "."
 
     try:
-        response = await client.audio.speech.create(
-            model="tts-1",  
-            voice="nova",
-            input=safe_text
+        logger.info(f"Piper synthesizes (CLI Subprocess): '{safe_text}'")
+
+        process = await asyncio.create_subprocess_exec(
+            "piper", 
+            "--model", MODEL_PATH,
+            "--output_file", "-",  
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
-        return response.content
-        
+
+        stdout_data, stderr_data = await process.communicate(input=safe_text.encode())
+
+        if process.returncode != 0:
+            logger.error(f"Piper CLI Error: {stderr_data.decode()}")
+            return None
+
+        if stdout_data:
+            logger.info(f"Piper Generated the Sound! Actual WAV Size: {len(stdout_data)} bytes.")
+            return stdout_data
+        else:
+            logger.error("Piper worked but couldn't produce any sound (0 bytes).")
+            return None
+            
     except Exception as e:
-        logger.error(f"TTS Error: {str(e)}")
+        logger.error(f"Local TTS Generation Error (Subprocess): {str(e)}")
         return None

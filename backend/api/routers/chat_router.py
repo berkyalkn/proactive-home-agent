@@ -116,8 +116,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         sentence_buffer = ""
 
                         async for chunk in stream_generator:
-                            if not isinstance(chunk, str):
-                                logger.warning(f"Non-string chunk received: {type(chunk)}")
+                            if not chunk or not isinstance(chunk, str):
                                 continue
 
                             sentence_buffer += chunk 
@@ -127,9 +126,10 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "chunk": chunk
                             }, websocket)
 
-                            if any(punct in chunk for punct in [".", "?", "!", "\n"]):
-                                if sentence_buffer.strip():
-                                    audio_bytes = await text_to_speech(sentence_buffer)
+                            if any(p in sentence_buffer for p in [".", "?", "!"]):
+                                if len(sentence_buffer.strip()) > 5:
+                                    logger.info(f"Synthesized Sentence:{sentence_buffer.strip()}")
+                                    audio_bytes = await text_to_speech(sentence_buffer.strip())
                                     if audio_bytes:
                                         audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
                                         await manager.send_json({
@@ -139,8 +139,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                     sentence_buffer = ""
                         
                         if sentence_buffer.strip():
-                            logger.info(f"Flush: {sentence_buffer}")
-                            audio_bytes = await text_to_speech(sentence_buffer)
+                            logger.info(f"The Last Remaining Piece is Being Synthesized (Flush): {sentence_buffer.strip()}")
+                            audio_bytes = await text_to_speech(sentence_buffer.strip())
                             if audio_bytes:
                                 audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
                                 await manager.send_json({

@@ -17,3 +17,6 @@ backend/.env
 backend/Vertex_credentials.json
 
 *.tflite
+
+# Agent data and skills
+.agent/

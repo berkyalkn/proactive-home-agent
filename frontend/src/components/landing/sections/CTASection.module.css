@@ -1,0 +1,65 @@
+.section {
+  padding: 80px 0 40px;
+  position: relative;
+}
+
+.card {
+  border-radius: 32px;
+  overflow: hidden;
+  position: relative;
+  padding: 100px 60px;
+  text-align: center;
+  background: linear-gradient(180deg,
+    #8ba4d0 0%, #a0b0d8 15%, #c0b8d8 30%,
+    #d0b0c8 50%, #d8b8c8 65%, #c0b0d0 80%,
+    #a0a8d0 100%);
+}
+
+.card h2 {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 300;
+  color: #1a1d24;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  font-size: clamp(16px, 2vw, 20px);
+  font-weight: 300;
+  color: rgba(26, 29, 36, 0.75);
+  margin-bottom: 32px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #1a1d24;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 14px 28px;
+  border-radius: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-2px);
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 60px 32px;
+  }
+}

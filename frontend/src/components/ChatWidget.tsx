@@ -30,7 +30,7 @@ export function ChatWidget() {
 
   const isTyping = agentStatus === "processing";
 
-  const hiddenRoutes = ["/", "/login", "/register", "/onboarding"];
+  const hiddenRoutes = ["/", "/story", "/login", "/register", "/onboarding"];
   if (hiddenRoutes.includes(pathname)) {
     return null; 
   }

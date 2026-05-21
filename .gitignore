@@ -20,3 +20,7 @@ backend/Vertex_credentials.json
 
 # Agent data and skills
 .agent/
+**.onnx
+backend/data/models/**/*.json
+backend/data/models/**/*.pt
+backend/data/models/**/*.tflite

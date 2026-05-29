@@ -27,20 +27,6 @@ export default function Step1Init({ formData, updateFormData, onNext, onPrev }: 
             <circle cx="8" cy="23" r="3.2" fill="currentColor" />
             <circle cx="16" cy="26" r="2.8" fill="currentColor" />
           </svg>
-          <div style={{
-            position: 'absolute',
-            top: -8,
-            right: -8,
-            padding: 6,
-            background: '#4ade80',
-            borderRadius: '50%',
-            border: '2px solid var(--bg-card)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <Sparkles size={12} color="#fff" />
-          </div>
         </div>
         <h1 className={s.title}>Welcome to HOMIEE</h1>
         <p className={s.subtitle}>Let&apos;s give your AI assistant some context.</p>

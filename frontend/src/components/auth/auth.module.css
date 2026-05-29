@@ -206,7 +206,7 @@
   font-weight: 600;
   font-family: inherit;
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -233,7 +233,7 @@
   padding: 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-card);
-  border-radius: var(--radius-pill);
+  border-radius: 12px;
   color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
@@ -566,7 +566,7 @@
   margin-top: 24px;
   background: rgba(255, 255, 255, 0.06);
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: 12px;
   color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
@@ -1323,7 +1323,7 @@
   background: linear-gradient(135deg, #e8956a, #f0c8a0);
   color: #1a1d24;
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;

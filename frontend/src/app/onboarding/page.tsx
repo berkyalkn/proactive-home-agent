@@ -8,7 +8,6 @@ import Step3Biometrics from '@/components/onboarding/Step3Biometrics';
 import Step4Emergency from '@/components/onboarding/Step4Emergency';  
 import Step5Gestures from '@/components/onboarding/Step5Gestures';    
 import Step6Finalize from '@/components/onboarding/Step6Finalize';   
-import Navbar from '@/components/landing/Navbar/Navbar';
 import '@/app/landing.css';
 import s from '@/components/auth/auth.module.css';
 
@@ -53,8 +52,6 @@ export default function OnboardingPage() {
   return (
     <div className="landing-scope">
       <div className={s.page}>
-        <Navbar />
-
         {/* Animated background orbs (matching auth pages) */}
         <div className={s.orbWarm} style={{ top: '-20%', left: '-10%' }} />
         <div className={s.orbCool} style={{ bottom: '-20%', right: '-10%' }} />

@@ -560,12 +560,12 @@ export default function Step2Hardware({ formData, updateFormData, onNext, onPrev
                 <button
                   onClick={() => setIsBuildingRoom(false)}
                   className={s.btnSecondary}
-                  style={{ flex: 'none', padding: '14px 24px' }}
+                  style={{ flex: 1, maxWidth: 180 }}
                 >
                   Cancel
                 </button>
               )}
-              <button onClick={saveRoom} className={s.btnPrimary} style={{ flex: 1 }}>
+              <button onClick={saveRoom} className={s.btnPrimary} style={{ flex: 2 }}>
                 Save Room <CheckCircle2 size={20} />
               </button>
             </div>
@@ -658,12 +658,12 @@ export default function Step2Hardware({ formData, updateFormData, onNext, onPrev
                 <button
                   onClick={onPrev}
                   className={s.btnSecondary}
-                  style={{ flex: 'none', padding: '14px 24px' }}
+                  style={{ flex: 1, maxWidth: 180 }}
                 >
                   Back
                 </button>
               )}
-              <button onClick={startProvisioning} className={s.btnPrimary} style={{ flex: 1 }}>
+              <button onClick={startProvisioning} className={s.btnPrimary} style={{ flex: 2 }}>
                 Continue to Next Step <ChevronRight size={20} />
               </button>
             </div>

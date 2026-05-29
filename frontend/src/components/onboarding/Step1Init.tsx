@@ -18,7 +18,15 @@ export default function Step1Init({ formData, updateFormData, onNext, onPrev }: 
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
         <div className={s.headerIcon}>
-          <Bot size={28} />
+          <svg viewBox="0 0 32 32" fill="none" style={{ width: 28, height: 28, color: 'var(--accent-orange)' }}>
+            <circle cx="8" cy="8" r="3.2" fill="currentColor" />
+            <circle cx="16" cy="5" r="2.8" fill="currentColor" />
+            <circle cx="23" cy="8" r="3.2" fill="currentColor" />
+            <circle cx="6" cy="16" r="2.8" fill="currentColor" />
+            <circle cx="25" cy="16" r="2.8" fill="currentColor" />
+            <circle cx="8" cy="23" r="3.2" fill="currentColor" />
+            <circle cx="16" cy="26" r="2.8" fill="currentColor" />
+          </svg>
           <div style={{
             position: 'absolute',
             top: -8,

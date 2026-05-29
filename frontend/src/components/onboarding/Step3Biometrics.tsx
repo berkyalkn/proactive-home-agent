@@ -256,10 +256,10 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
               </div>
             </div>
 
-            <div className={s.actionRow}>
+            <div className={`${s.actionRow} w-full`}>
               <button 
                 onClick={() => { stopMediaTracks(); setMode('voice'); }} 
-                className={s.btnSecondary}
+                className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-all"
                 style={{ flex: 1, maxWidth: 180 }}
               >
                 Skip Face
@@ -267,7 +267,7 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
               <button 
                 onClick={capturePhoto} 
                 disabled={currentFaceStep === "done"} 
-                className={s.btnPrimary}
+                className="py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ flex: 2 }}
               >
                 <Camera className="w-5 h-5" /> Capture Photo
@@ -292,10 +292,10 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
               </div>
             </div>
 
-            <div className={s.actionRow}>
+            <div className={`${s.actionRow} w-full`}>
               <button 
                 onClick={() => executeFinalSave(null)} 
-                className={s.btnSecondary}
+                className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-all"
                 style={{ flex: 1, maxWidth: 180 }}
               >
                 Skip Voice
@@ -304,7 +304,7 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
               {isRecording ? (
                 <button 
                   onClick={stopVoiceRecording} 
-                  className={`${s.btnPrimary} animate-pulse`}
+                  className="py-3.5 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white animate-pulse"
                   style={{ flex: 2 }}
                 >
                   <StopCircle className="w-5 h-5" /> Finish & Save
@@ -312,7 +312,7 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
               ) : (
                 <button 
                   onClick={startVoiceRecording} 
-                  className={s.btnPrimary}
+                  className="py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
                   style={{ flex: 2 }}
                 >
                   <Mic className="w-5 h-5" /> Start Recording

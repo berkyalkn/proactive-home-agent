@@ -183,64 +183,73 @@
 
 /* CTA Card */
 .ctaWrapper {
-  padding: 0 40px 100px 40px;
-  max-width: 1400px;
+  padding: 0 24px 100px 24px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .ctaCard {
   position: relative;
   text-align: center;
-  padding: 120px 40px;
+  padding: 100px 60px;
   border-radius: 32px;
   overflow: hidden;
-  background: linear-gradient(180deg, #b7cae9 0%, #ddbed3 55%, #a8c1e8 100%);
+  background: linear-gradient(180deg,
+    #8ba4d0 0%, #a0b0d8 15%, #c0b8d8 30%,
+    #d0b0c8 50%, #d8b8c8 65%, #c0b0d0 80%,
+    #a0a8d0 100%);
 }
 
 .ctaCard h2 {
   position: relative;
   z-index: 2;
-  font-size: 3.5rem;
+  font-size: clamp(28px, 4vw, 42px);
   font-weight: 300;
   margin-top: 0;
-  margin-bottom: 16px;
-  letter-spacing: -0.02em;
-  color: #1a1a24;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: #1a1d24;
 }
 
 .ctaSubtitle {
   position: relative;
   z-index: 2;
-  font-size: 1.5rem;
-  font-weight: 400;
-  color: rgba(26, 26, 36, 0.55);
-  margin-bottom: 40px;
+  font-size: clamp(16px, 2vw, 20px);
+  font-weight: 300;
+  color: rgba(26, 29, 36, 0.75);
+  margin-bottom: 32px;
   margin-top: 0;
 }
 
 .ctaBtn {
   position: relative;
   z-index: 2;
-  font-size: 1.125rem;
-  padding: 16px 32px;
-  border-radius: 40px;
-  background-color: #fff;
-  color: #000;
-  font-weight: 500;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  text-decoration: none;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #1a1d24;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 14px 28px;
+  border-radius: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  border: none;
   font-family: inherit;
+  text-decoration: none;
 }
 
 .ctaBtn:hover {
+  background: rgba(255, 255, 255, 0.95);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+.ctaBtn svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* Animation states */
@@ -280,4 +289,13 @@
     max-width: 100%;
   }
   .narrativeRight { padding-bottom: 40px; }
+}
+
+@media (max-width: 768px) {
+  .ctaWrapper {
+    padding: 0 16px 80px 16px;
+  }
+  .ctaCard {
+    padding: 60px 32px;
+  }
 }

@@ -51,7 +51,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const isStreamFinishedRef = useRef(false);
   const isReceivingStreamRef = useRef(false);
 
-  const playNextAudio = useCallback(() => {
+  const playNextAudio = useCallback(function internalPlayNextAudio() {
     if (audioQueueRef.current.length === 0) {
       isPlayingRef.current = false;
       
@@ -66,7 +66,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     const nextAudioBase64 = audioQueueRef.current.shift();
     if (!nextAudioBase64) {
-        playNextAudio(); 
+        internalPlayNextAudio(); 
         return;
     }
 
@@ -74,17 +74,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     currentAudioRef.current = audio;
 
     audio.onended = () => {
-        playNextAudio();
+        internalPlayNextAudio();
     };
 
     audio.onerror = (e) => {
         console.error("Audio Error:", e);
-        playNextAudio();
+        internalPlayNextAudio();
     };
 
     audio.play().catch(e => {
         console.error("Autoplay Blocked or Error:", e);
-        playNextAudio(); 
+        internalPlayNextAudio(); 
     });
 
   }, []); 
@@ -93,7 +93,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setMessages(prev => [...prev, { role, content }]);
   }, []);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(function internalConnect() {
     if (socketRef.current?.readyState === WebSocket.OPEN) return;
 
     const socket = new WebSocket(WS_URL);
@@ -108,7 +108,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       console.log("Global WS Disconnected");
       setIsConnected(false);
       socketRef.current = null;
-      reconnectTimeoutRef.current = setTimeout(connect, 3000);
+      reconnectTimeoutRef.current = setTimeout(internalConnect, 3000);
     };
 
     socket.onmessage = (event) => {

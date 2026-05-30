@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer, Activity, Info } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer, Activity, Info, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -32,8 +31,127 @@ const AVAILABLE_GESTURES = [
   { id: "ILoveYou", label: "I Love You (🤟)" },
 ];
 
-export function EmergencyManager() {
-  const [isOpen, setIsOpen] = useState(false);
+interface EmergencyManagerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onActiveStatusChange?: (isActive: boolean) => void;
+}
+
+/* ─── Inline styles as typed objects ───────────────────────────── */
+
+const sectionHeadingStyle: React.CSSProperties = {
+  fontSize: '13px',
+  fontWeight: 600,
+  color: 'rgba(161, 161, 170, 0.9)',
+  letterSpacing: '0.02em',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  paddingLeft: '14px',
+  borderLeft: '3px solid rgba(244, 63, 94, 0.6)',
+  lineHeight: '1',
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: '13px',
+  fontWeight: 600,
+  color: 'rgba(113, 113, 122, 1)',
+  letterSpacing: '0.02em',
+  textTransform: 'uppercase' as const,
+};
+
+const inputStyle: React.CSSProperties = {
+  fontSize: '16px',
+  lineHeight: '1.5',
+};
+
+const selectStyle: React.CSSProperties = {
+  fontSize: '16px',
+  lineHeight: '1.5',
+};
+
+const protocolBoxBaseStyle: React.CSSProperties = {
+  padding: '14px 16px',
+  borderRadius: '14px',
+  display: 'flex',
+  gap: '12px',
+  alignItems: 'flex-start',
+  transition: 'all 0.3s ease',
+};
+
+const protocolBoxSkyStyle: React.CSSProperties = {
+  ...protocolBoxBaseStyle,
+  background: 'rgba(255, 255, 255, 0.03)',
+  backdropFilter: 'blur(12px)',
+  border: '1px solid rgba(14, 165, 233, 0.12)',
+};
+
+const protocolBoxPurpleStyle: React.CSSProperties = {
+  ...protocolBoxBaseStyle,
+  background: 'rgba(255, 255, 255, 0.03)',
+  backdropFilter: 'blur(12px)',
+  border: '1px solid rgba(168, 85, 247, 0.12)',
+};
+
+const protocolIconWrapperStyle = (color: string): React.CSSProperties => ({
+  width: '28px',
+  height: '28px',
+  borderRadius: '8px',
+  background: color === 'sky' ? 'rgba(14, 165, 233, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  marginTop: '1px',
+});
+
+const protocolTextStyle: React.CSSProperties = {
+  fontSize: '13px',
+  lineHeight: '1.65',
+  color: 'rgba(200, 210, 225, 0.75)',
+};
+
+const channelRowStyle = (isActive: boolean, accentColor: string): React.CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  height: '48px',
+  padding: '0 14px',
+  borderRadius: '12px',
+  cursor: 'pointer',
+  transition: 'all 0.25s ease',
+  border: `1px solid ${isActive ? (accentColor === 'emerald' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(14, 165, 233, 0.25)') : 'rgba(255,255,255,0.04)'}`,
+  background: isActive
+    ? (accentColor === 'emerald' ? 'rgba(16, 185, 129, 0.06)' : 'rgba(14, 165, 233, 0.06)')
+    : 'rgba(255,255,255,0.01)',
+});
+
+const toggleTrackStyle = (isActive: boolean, accentColor: string): React.CSSProperties => ({
+  width: '36px',
+  height: '20px',
+  borderRadius: '10px',
+  background: isActive
+    ? (accentColor === 'emerald' ? 'rgba(16, 185, 129, 0.7)' : accentColor === 'purple' ? 'rgba(168, 85, 247, 0.7)' : 'rgba(14, 165, 233, 0.7)')
+    : 'rgba(255,255,255,0.08)',
+  position: 'relative' as const,
+  transition: 'background 0.25s ease',
+  flexShrink: 0,
+  cursor: 'pointer',
+});
+
+const toggleThumbStyle = (isActive: boolean): React.CSSProperties => ({
+  width: '16px',
+  height: '16px',
+  borderRadius: '50%',
+  background: '#fff',
+  position: 'absolute' as const,
+  top: '2px',
+  left: isActive ? '18px' : '2px',
+  transition: 'left 0.25s ease',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+});
+
+export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: EmergencyManagerProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -55,18 +173,6 @@ export function EmergencyManager() {
     is_active: true
   });
 
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
   const fetchSecuritySettings = async () => {
     setLoading(true);
     const token = localStorage.getItem("token");
@@ -80,7 +186,7 @@ export function EmergencyManager() {
       const mapData = await mapRes.json();
       
       if (data) {
-        setSecurity({
+        const newSettings = {
           emergency_gesture: data.emergency_gesture || "Closed_Fist",
           emergency_cancel_gesture: data.emergency_cancel_gesture || "Open_Palm",
           emergency_contact_name: data.emergency_contact_name || "",
@@ -93,7 +199,9 @@ export function EmergencyManager() {
           use_telegram: data.use_telegram ?? true,
           use_fall_detection: data.use_fall_detection ?? true,
           is_active: data.is_active ?? true
-        });
+        };
+        setSecurity(newSettings);
+        onActiveStatusChange?.(newSettings.is_active);
       }
 
       if (mapData && mapData.mappings) {
@@ -116,6 +224,9 @@ export function EmergencyManager() {
   const handleChange = (field: keyof SecuritySettings, value: any) => {
     setSecurity(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
+    if (field === 'is_active') {
+      onActiveStatusChange?.(value as boolean);
+    }
   };
 
   const handleSave = async () => {
@@ -135,73 +246,78 @@ export function EmergencyManager() {
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div ref={containerRef} className={`relative transition-all duration-300 ${isOpen ? "z-[100]" : "z-40"}`}>
-      <Button 
-          onClick={() => setIsOpen(!isOpen)}
-          variant="outline" 
-          className={`h-11 px-4 flex items-center gap-3 transition-all duration-300 border-zinc-800 ${
-            isOpen 
-            ? "bg-rose-900/50 text-white border-rose-700 shadow-lg shadow-rose-500/20" 
-            : "bg-black/40 backdrop-blur text-zinc-100 hover:bg-rose-950/30 hover:border-rose-900/50 hover:text-rose-400" 
-          }`}
-      >
-          {isOpen ? <X className="w-5 h-5"/> : <ShieldAlert className="w-5 h-5" />}
-          <span className="hidden md:inline font-medium text-sm">Security Hub</span>
-          {hasChanges && <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full animate-pulse" />}
-      </Button>
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 45, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+      
+      <div style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 50, width: 460, maxWidth: 'calc(100vw - 20px)', background: 'linear-gradient(135deg, rgba(20, 22, 28, 0.7) 0%, rgba(20, 22, 28, 0.4) 100%)', backdropFilter: 'blur(40px)', borderRight: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 1px 0 0 rgba(255, 255, 255, 0.05), 8px 0 40px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' as const }}>
+          
+          {/* ── Header ─────────────────────────────────────────── */}
+          <div className="flex items-center justify-between shrink-0" style={{ paddingLeft: '28px', paddingRight: '20px', paddingTop: '20px', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(159, 18, 57, 0.06)' }}>
+              <div className="flex items-center gap-3">
+                  <div style={{ padding: '8px', background: 'rgba(244, 63, 94, 0.15)', borderRadius: '10px' }}>
+                      <ShieldAlert className="w-5 h-5 text-rose-400"/>
+                  </div>
+                  <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255, 228, 230, 0.95)', lineHeight: '1.2' }}>Emergency Protocol</h3>
+                      <p style={{ fontSize: '13px', color: 'rgba(244, 63, 94, 0.55)', marginTop: '2px' }}>Configure SOS actions and notifications</p>
+                  </div>
+              </div>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+          </div>
 
-      {isOpen && (
-        <Card className="absolute top-14 left-0 w-[400px] md:w-[450px] bg-black/95 backdrop-blur-xl border-zinc-800 shadow-2xl p-0 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left rounded-xl flex flex-col max-h-[85vh]">
-            
-            <div className="flex items-center justify-between p-5 border-b border-zinc-800 bg-rose-950/20 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-rose-500/20 rounded-lg">
-                        <ShieldAlert className="w-5 h-5 text-rose-400"/>
-                    </div>
-                    <div>
-                        <h3 className="text-base font-semibold text-rose-100 leading-tight">Emergency Protocol</h3>
-                        <p className="text-xs text-rose-400/70 mt-0.5">Configure SOS actions and notifications</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="p-5 space-y-6 overflow-y-auto scrollbar-hide">
-              {loading ? (
-                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600"/></div>
-              ) : (
-                <>
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Emergency Contact</h4>
-                    
-                    <div className="flex items-center bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-1 focus-within:border-rose-500/50 transition-colors">
-                      <div className="pl-3 pr-2 text-zinc-500"><User className="w-4 h-4" /></div>
-                      <input 
-                        type="text" 
-                        placeholder="Contact Name (e.g. Tuna)" 
-                        value={security.emergency_contact_name}
-                        onChange={(e) => handleChange("emergency_contact_name", e.target.value)}
-                        className="w-full bg-transparent p-2 text-sm text-zinc-200 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="flex items-center bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-1 focus-within:border-rose-500/50 transition-colors">
-                      <div className="pl-3 pr-2 text-zinc-500"><Phone className="w-4 h-4" /></div>
-                      <input 
-                        type="text" 
-                        placeholder="Phone Number (+90...)" 
-                        value={security.emergency_phone}
-                        onChange={(e) => handleChange("emergency_phone", e.target.value)}
-                        className="w-full bg-transparent p-2 text-sm text-zinc-200 focus:outline-none"
-                      />
-                    </div>
+          {/* ── Scrollable Content ──────────────────────────────── */}
+          <div className="overflow-y-auto overflow-x-hidden scrollbar-hide flex-1" style={{ display: 'flex', flexDirection: 'column', gap: '32px', paddingLeft: '28px', paddingRight: '20px', paddingTop: '28px', paddingBottom: '28px' }}>
+            {loading ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600"/></div>
+            ) : (
+              <>
+                {/* ─── Emergency Contact ────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h4 style={sectionHeadingStyle}>
+                    <User style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Emergency Contact
+                  </h4>
+                  
+                  <div className="flex items-center bg-white/[0.02] border border-white/[0.05] rounded-xl focus-within:border-rose-500/35 focus-within:bg-rose-950/5 transition-all duration-300" style={{ padding: '4px 6px 4px 4px' }}>
+                    <div style={{ paddingLeft: '10px', paddingRight: '8px', flexShrink: 0 }} className="text-zinc-500"><User className="w-4 h-4" /></div>
+                    <input 
+                      type="text" 
+                      placeholder="Contact Name (e.g. Tuna)" 
+                      value={security.emergency_contact_name}
+                      onChange={(e) => handleChange("emergency_contact_name", e.target.value)}
+                      style={{ ...inputStyle, minWidth: 0 }}
+                      className="w-full bg-transparent p-2 text-zinc-200 focus:outline-none"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50">
-                      <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 tracking-widest uppercase">SOS Trigger (4s)</label>
+                  <div className="flex items-center bg-white/[0.02] border border-white/[0.05] rounded-xl focus-within:border-rose-500/35 focus-within:bg-rose-950/5 transition-all duration-300" style={{ padding: '4px 6px 4px 4px' }}>
+                    <div style={{ paddingLeft: '10px', paddingRight: '8px', flexShrink: 0 }} className="text-zinc-500"><Phone className="w-4 h-4" /></div>
+                    <input 
+                      type="text" 
+                      placeholder="Phone Number (+90...)" 
+                      value={security.emergency_phone}
+                      onChange={(e) => handleChange("emergency_phone", e.target.value)}
+                      style={{ ...inputStyle, minWidth: 0 }}
+                      className="w-full bg-transparent p-2 text-zinc-200 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* ─── SOS Gestures ─────────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h4 style={sectionHeadingStyle}>
+                    <Settings2 style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> SOS Gestures
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <label style={labelStyle}>SOS Trigger (4s)</label>
                           <select 
-                              className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-2.5 text-sm text-zinc-200 focus:outline-none focus:border-rose-500/50 cursor-pointer transition-colors"
+                              className="w-full bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-rose-500/35 hover:border-white/[0.1] hover:bg-white/[0.04] cursor-pointer transition-all duration-300"
+                              style={{ ...selectStyle, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
                               value={security.emergency_gesture}
                               onChange={(e) => handleChange("emergency_gesture", e.target.value)}
                           >
@@ -210,17 +326,18 @@ export function EmergencyManager() {
                                   const isUsedByDevice = assignedDeviceGestures.includes(g.id);
                                   const isDisabled = isUsedByCancel || isUsedByDevice;
                                   return (
-                                      <option key={g.id} value={g.id} disabled={isDisabled}>
+                                      <option key={g.id} value={g.id} disabled={isDisabled} className="bg-zinc-900 text-zinc-200">
                                           {g.label} {isUsedByDevice ? "(Used)" : ""}
                                       </option>
                                   );
                               })}
                           </select>
                       </div>
-                      <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 tracking-widest uppercase">SOS Cancel (2s)</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <label style={labelStyle}>SOS Cancel (2s)</label>
                           <select 
-                              className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500/50 cursor-pointer transition-colors"
+                              className="w-full bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-emerald-500/35 hover:border-white/[0.1] hover:bg-white/[0.04] cursor-pointer transition-all duration-300"
+                              style={{ ...selectStyle, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
                               value={security.emergency_cancel_gesture}
                               onChange={(e) => handleChange("emergency_cancel_gesture", e.target.value)}
                           >
@@ -229,7 +346,7 @@ export function EmergencyManager() {
                                   const isUsedByDevice = assignedDeviceGestures.includes(g.id);
                                   const isDisabled = isUsedByTrigger || isUsedByDevice;
                                   return (
-                                      <option key={g.id} value={g.id} disabled={isDisabled}>
+                                      <option key={g.id} value={g.id} disabled={isDisabled} className="bg-zinc-900 text-zinc-200">
                                           {g.label} {isUsedByDevice ? "(Used)" : ""}
                                       </option>
                                   );
@@ -238,134 +355,168 @@ export function EmergencyManager() {
                       </div>
                   </div>
 
-                  <div className="mt-1 p-3 bg-sky-950/20 border border-sky-500/30 rounded-lg flex gap-3 text-left">
-                      <Info className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-sky-100/80 leading-relaxed">
-                          <strong>Protocol Flow:</strong> Hold trigger for <strong>4s</strong> to initiate. The smart bulbs will flash <strong>RED for 1s</strong> to silently confirm. You then have a <strong>4s window</strong> to abort the lockdown by holding the Cancel Gesture for <strong>2s</strong>.
-                      </p>
+                  {/* Protocol Flow — SOS */}
+                  <div style={protocolBoxSkyStyle}>
+                      <div style={protocolIconWrapperStyle('sky')}>
+                        <Zap style={{ width: '14px', height: '14px', color: 'rgba(56, 189, 248, 0.9)' }} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(186, 230, 253, 0.85)', marginBottom: '4px' }}>Protocol Flow</p>
+                        <p style={protocolTextStyle}>
+                            Hold trigger for <strong>4s</strong> to initiate. The smart bulbs will flash <strong>RED for 1s</strong> to silently confirm. You then have a <strong>4s window</strong> to abort the lockdown by holding the Cancel Gesture for <strong>2s</strong>.
+                        </p>
+                      </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 tracking-widest uppercase"><Palette className="w-3 h-3"/> Alert Color</label>
+                {/* ─── Alert Customization ──────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h4 style={sectionHeadingStyle}>
+                    <Palette style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Alert Customization
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <label style={labelStyle}>Alert Color</label>
                         <select 
-                            className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-2.5 text-sm text-zinc-200 focus:outline-none focus:border-rose-500/50 cursor-pointer transition-colors"
+                            className="w-full bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-rose-500/35 hover:border-white/[0.1] hover:bg-white/[0.04] cursor-pointer transition-all duration-300"
+                            style={{ ...selectStyle, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
                             value={security.emergency_light_color}
                             onChange={(e) => handleChange("emergency_light_color", e.target.value)}
                         >
-                            <option value="red">Flashing Red</option>
-                            <option value="blue">Flashing Blue</option>
-                            <option value="police">Police Strobe</option>
+                            <option value="red" className="bg-zinc-900 text-zinc-200">Flashing Red</option>
+                            <option value="blue" className="bg-zinc-900 text-zinc-200">Flashing Blue</option>
+                            <option value="police" className="bg-zinc-900 text-zinc-200">Police Strobe</option>
                         </select>
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 tracking-widest uppercase"><Timer className="w-3 h-3"/> Duration</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <label style={labelStyle}>Duration</label>
                         <select 
-                            className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-2.5 text-sm text-zinc-200 focus:outline-none focus:border-rose-500/50 cursor-pointer transition-colors"
+                            className="w-full bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-rose-500/35 hover:border-white/[0.1] hover:bg-white/[0.04] cursor-pointer transition-all duration-300"
+                            style={{ ...selectStyle, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
                             value={security.emergency_duration}
                             onChange={(e) => handleChange("emergency_duration", parseInt(e.target.value))}
                         >
-                            <option value={10}>10 Seconds</option>
-                            <option value={20}>20 Seconds</option>
-                            <option value={30}>30 Seconds</option>
+                            <option value={10} className="bg-zinc-900 text-zinc-200">10 Seconds</option>
+                            <option value={20} className="bg-zinc-900 text-zinc-200">20 Seconds</option>
+                            <option value={30} className="bg-zinc-900 text-zinc-200">30 Seconds</option>
                         </select>
                     </div>
                   </div>
+                </div>
 
-                  <div className="space-y-3 pt-2 border-t border-zinc-800/50">
-                    <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Smart Sensors</h4>
-                    <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all ${security.use_fall_detection ? "bg-purple-950/20 border-purple-500/30" : "bg-zinc-900/30 border-zinc-800/50"}`}>
-                        <input 
-                          type="checkbox" 
-                          className="hidden" 
-                          checked={security.use_fall_detection} 
-                          onChange={(e) => handleChange("use_fall_detection", e.target.checked)} 
-                        />
-                        <Activity className={`w-4 h-4 mr-3 ${security.use_fall_detection ? "text-purple-400" : "text-zinc-600"}`} />
-                        <span className={`text-sm font-medium ${security.use_fall_detection ? "text-purple-100" : "text-zinc-500"}`}>Enable AI Fall Detection</span>
-                        {security.use_fall_detection && <CheckCircle className="w-4 h-4 text-purple-500 ml-auto" />}
-                    </label>
-                    
-                    {security.use_fall_detection && (
-                        <div className="mt-2 p-3 bg-purple-950/10 border border-purple-500/20 rounded-lg flex gap-3 text-left animate-in fade-in slide-in-from-top-1">
-                            <Info className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
-                            <p className="text-[11px] text-purple-100/80 leading-relaxed">
-                                <strong>Protocol Flow:</strong> Upon detecting a fall, the AI will ask if you are okay and activate the microphone for <strong>10 seconds</strong>. You can abort the emergency alert by saying keywords like <strong>"I'm fine", "Okay", or "Cancel"</strong>, or by showing the <strong>Cancel Gesture</strong> to the camera.
-                            </p>
-                        </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-3 pt-2 border-t border-zinc-800/50">
-                    <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Alert Channels</h4>
-                    
-                    <div className="grid grid-cols-1 gap-2">
-                      <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all ${security.use_sms ? "bg-emerald-950/20 border-emerald-500/30" : "bg-zinc-900/30 border-zinc-800/50"}`}>
-                        <input 
-                          type="checkbox" 
-                          className="hidden" 
-                          checked={security.use_sms} 
-                          onChange={(e) => handleChange("use_sms", e.target.checked)} 
-                        />
-                        <MessageSquare className={`w-4 h-4 mr-3 ${security.use_sms ? "text-emerald-400" : "text-zinc-600"}`} />
-                        <span className={`text-sm font-medium ${security.use_sms ? "text-emerald-100" : "text-zinc-500"}`}>Send SMS Alert</span>
-                        {security.use_sms && <CheckCircle className="w-4 h-4 text-emerald-500 ml-auto" />}
-                      </label>
-
-                      <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all ${security.use_voice_call ? "bg-emerald-950/20 border-emerald-500/30" : "bg-zinc-900/30 border-zinc-800/50"}`}>
-                        <input 
-                          type="checkbox" 
-                          className="hidden" 
-                          checked={security.use_voice_call} 
-                          onChange={(e) => handleChange("use_voice_call", e.target.checked)} 
-                        />
-                        <PhoneCall className={`w-4 h-4 mr-3 ${security.use_voice_call ? "text-emerald-400" : "text-zinc-600"}`} />
-                        <span className={`text-sm font-medium ${security.use_voice_call ? "text-emerald-100" : "text-zinc-500"}`}>Make Voice Call (Robot TTS)</span>
-                        {security.use_voice_call && <CheckCircle className="w-4 h-4 text-emerald-500 ml-auto" />}
-                      </label>
-
-                      <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all ${security.use_telegram ? "bg-sky-950/20 border-sky-500/30" : "bg-zinc-900/30 border-zinc-800/50"}`}>
-                        <input 
-                          type="checkbox" 
-                          className="hidden" 
-                          checked={security.use_telegram} 
-                          onChange={(e) => handleChange("use_telegram", e.target.checked)} 
-                        />
-                        <Send className={`w-4 h-4 mr-3 ${security.use_telegram ? "text-sky-400" : "text-zinc-600"}`} />
-                        <span className={`text-sm font-medium ${security.use_telegram ? "text-sky-100" : "text-zinc-500"}`}>Send Telegram Push</span>
-                        {security.use_telegram && <CheckCircle className="w-4 h-4 text-sky-500 ml-auto" />}
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 pt-2 border-t border-zinc-800/50">
-                     <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                       <Bot className="w-4 h-4" /> AI Voice Announcement
-                     </h4>
-                     <textarea 
-                        rows={3}
-                        placeholder="What should the AI say to the intruder?"
-                        value={security.emergency_action_text}
-                        onChange={(e) => handleChange("emergency_action_text", e.target.value)}
-                        className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-3 text-sm text-zinc-300 focus:outline-none focus:border-rose-500/50 resize-none transition-colors"
+                {/* ─── Smart Sensors ────────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h4 style={sectionHeadingStyle}>
+                    <Activity style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Smart Sensors
+                  </h4>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    height: '48px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.25s ease',
+                    border: `1px solid ${security.use_fall_detection ? 'rgba(168, 85, 247, 0.25)' : 'rgba(255,255,255,0.04)'}`,
+                    background: security.use_fall_detection ? 'rgba(168, 85, 247, 0.06)' : 'rgba(255,255,255,0.01)',
+                  }}>
+                      <input 
+                        type="checkbox" 
+                        className="hidden" 
+                        checked={security.use_fall_detection} 
+                        onChange={(e) => handleChange("use_fall_detection", e.target.checked)} 
                       />
-                  </div>
-                </>
-              )}
-            </div>
+                      <Activity style={{ width: '16px', height: '16px', color: security.use_fall_detection ? 'rgba(192, 132, 252, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                      <span style={{ fontSize: '16px', fontWeight: 500, color: security.use_fall_detection ? 'rgba(233, 213, 255, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Enable AI Fall Detection</span>
+                      <div style={toggleTrackStyle(security.use_fall_detection, 'purple')}>
+                        <div style={toggleThumbStyle(security.use_fall_detection)} />
+                      </div>
+                  </label>
+                  
+                  {security.use_fall_detection && (
+                      <div style={protocolBoxPurpleStyle} className="animate-in fade-in slide-in-from-top-1">
+                          <div style={protocolIconWrapperStyle('purple')}>
+                            <Zap style={{ width: '14px', height: '14px', color: 'rgba(192, 132, 252, 0.9)' }} />
+                          </div>
+                          <div>
+                            <p style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(233, 213, 255, 0.85)', marginBottom: '4px' }}>Protocol Flow</p>
+                            <p style={protocolTextStyle}>
+                                Upon detecting a fall, the AI will ask if you are okay and activate the microphone for <strong>10 seconds</strong>. You can abort the emergency alert by saying keywords like <strong>&quot;I&apos;m fine&quot;, &quot;Okay&quot;, or &quot;Cancel&quot;</strong>, or by showing the <strong>Cancel Gesture</strong> to the camera.
+                            </p>
+                          </div>
+                      </div>
+                  )}
+                </div>
 
-            <div className="p-4 border-t border-zinc-800 bg-zinc-950 shrink-0">
-               <Button 
-                 onClick={handleSave}
-                 disabled={!hasChanges || saving}
-                 className={`w-full h-11 font-semibold transition-all ${hasChanges ? "bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-900/20" : "bg-zinc-800 text-zinc-500"}`}
-               >
-                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldAlert className="w-4 h-4 mr-2" />}
-                 {saving ? "Updating Protocols..." : "Save Security Protocol"}
-               </Button>
-            </div>
-        </Card>
-      )}
-    </div>
+                {/* ─── Alert Channels ───────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <h4 style={sectionHeadingStyle}>
+                    <PhoneCall style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Alert Channels
+                  </h4>
+                  
+                  {/* SMS */}
+                  <label style={channelRowStyle(security.use_sms, 'emerald')}>
+                    <input type="checkbox" className="hidden" checked={security.use_sms} onChange={(e) => handleChange("use_sms", e.target.checked)} />
+                    <MessageSquare style={{ width: '16px', height: '16px', color: security.use_sms ? 'rgba(52, 211, 153, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '16px', fontWeight: 500, color: security.use_sms ? 'rgba(209, 250, 229, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Send SMS Alert</span>
+                    <div style={toggleTrackStyle(security.use_sms, 'emerald')}>
+                      <div style={toggleThumbStyle(security.use_sms)} />
+                    </div>
+                  </label>
+
+                  {/* Voice Call */}
+                  <label style={channelRowStyle(security.use_voice_call, 'emerald')}>
+                    <input type="checkbox" className="hidden" checked={security.use_voice_call} onChange={(e) => handleChange("use_voice_call", e.target.checked)} />
+                    <PhoneCall style={{ width: '16px', height: '16px', color: security.use_voice_call ? 'rgba(52, 211, 153, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '16px', fontWeight: 500, color: security.use_voice_call ? 'rgba(209, 250, 229, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Make Voice Call (Robot TTS)</span>
+                    <div style={toggleTrackStyle(security.use_voice_call, 'emerald')}>
+                      <div style={toggleThumbStyle(security.use_voice_call)} />
+                    </div>
+                  </label>
+
+                  {/* Telegram */}
+                  <label style={channelRowStyle(security.use_telegram, 'sky')}>
+                    <input type="checkbox" className="hidden" checked={security.use_telegram} onChange={(e) => handleChange("use_telegram", e.target.checked)} />
+                    <Send style={{ width: '16px', height: '16px', color: security.use_telegram ? 'rgba(56, 189, 248, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '16px', fontWeight: 500, color: security.use_telegram ? 'rgba(186, 230, 253, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Send Telegram Push</span>
+                    <div style={toggleTrackStyle(security.use_telegram, 'sky')}>
+                      <div style={toggleThumbStyle(security.use_telegram)} />
+                    </div>
+                  </label>
+                </div>
+
+                {/* ─── AI Announcement ──────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                   <h4 style={sectionHeadingStyle}>
+                     <Bot style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> AI Voice Announcement
+                   </h4>
+                   <textarea 
+                      rows={3}
+                      placeholder="What should the AI say to the intruder?"
+                      value={security.emergency_action_text}
+                      onChange={(e) => handleChange("emergency_action_text", e.target.value)}
+                      style={{ fontSize: '16px', lineHeight: '1.6', boxSizing: 'border-box', maxWidth: '100%', padding: '16px 16px 16px 20px' }}
+                      className="w-full bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl text-zinc-300 focus:outline-none focus:border-rose-500/30 resize-none transition-all duration-300 font-normal"
+                    />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ── Sticky Bottom Bar ───────────────────────────────── */}
+          <div className="shrink-0" style={{ position: 'sticky', bottom: 0, paddingLeft: '28px', paddingRight: '20px', paddingTop: '16px', paddingBottom: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(20px)' }}>
+             <Button 
+               onClick={handleSave}
+               disabled={!hasChanges || saving}
+               className={`w-full h-12 font-semibold transition-all rounded-xl ${hasChanges ? "bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white shadow-lg hover:shadow-rose-500/20" : "bg-zinc-800 text-zinc-500"}`}
+               style={{ fontSize: '16px' }}
+             >
+               {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ShieldAlert className="w-5 h-5 mr-2" />}
+               {saving ? "Updating Protocols..." : "Save Security Protocol"}
+             </Button>
+          </div>
+      </div>
+    </>
   );
 }

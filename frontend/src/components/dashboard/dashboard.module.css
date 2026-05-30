@@ -1,0 +1,892 @@
+/* ═══════════════════════════════════════════════
+   Dashboard Layout — Dark theme (matches landing)
+   ═══════════════════════════════════════════════ */
+
+/* ─── Layout Container ─── */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* ─── Sidebar ─── */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: rgba(30, 33, 40, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.sidebarExpanded {
+  width: 280px;
+}
+
+.sidebarCollapsed {
+  width: 72px;
+}
+
+/* ─── Sidebar Logo Area ─── */
+.sidebarLogo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  height: 76px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.sidebarLogoIcon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebarLogoIcon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.sidebarLogoText {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.sidebarCollapsed .sidebarLogoText {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+/* ─── Sidebar Section Label ─── */
+.sidebarSection {
+  padding: 24px 20px 12px;
+  flex-shrink: 0;
+}
+
+.sidebarSectionLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.sidebarCollapsed .sidebarSectionLabel {
+  opacity: 0;
+}
+
+/* ─── Hub Cards Container ─── */
+.hubList {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ─── Hub Card ─── */
+.hubCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+}
+
+.hubCard:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(2px);
+}
+
+.hubCardActive {
+  transform: translateX(2px);
+}
+
+/* Hub icon containers */
+.hubIcon {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+}
+
+.hubInfo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.sidebarCollapsed .hubInfo {
+  opacity: 0;
+  width: 0;
+}
+
+.sidebarCollapsed .hubCard {
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  justify-content: center;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.sidebarCollapsed .hubCard:hover {
+  background: transparent !important;
+  transform: scale(1.05);
+}
+
+.sidebarCollapsed .hubCardActive {
+  transform: scale(1.05);
+}
+
+.sidebarCollapsed .hubIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.hubName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.hubSubtitle {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+/* Hub status badge */
+.hubBadge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+}
+
+.sidebarCollapsed .hubBadge {
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  font-size: 8px;
+  padding: 0 4px;
+  z-index: 5;
+}
+
+.hubDot {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: hubDotPulse 2s ease-in-out infinite;
+}
+
+.sidebarCollapsed .hubDot {
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  z-index: 5;
+}
+
+@keyframes hubDotPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ─── Access Control Hub ─── */
+.hubAccess {
+  border-color: rgba(99, 102, 241, 0.06);
+}
+
+.hubAccess:hover,
+.hubAccess.hubCardActive {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.02));
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 
+    0 4px 20px -2px rgba(99, 102, 241, 0.12), 
+    0 2px 8px -1px rgba(99, 102, 241, 0.08);
+}
+
+.hubAccessIcon {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  box-shadow: none;
+}
+
+.hubAccess:hover .hubAccessIcon,
+.hubAccess.hubCardActive .hubAccessIcon {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+}
+
+.hubAccessBadge {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+/* ─── Hand Control Hub ─── */
+.hubGesture {
+  border-color: rgba(16, 185, 129, 0.06);
+}
+
+.hubGesture:hover,
+.hubGesture.hubCardActive {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(52, 211, 153, 0.02));
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 
+    0 4px 20px -2px rgba(16, 185, 129, 0.12), 
+    0 2px 8px -1px rgba(16, 185, 129, 0.08);
+}
+
+.hubGestureIcon {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  box-shadow: none;
+}
+
+.hubGesture:hover .hubGestureIcon,
+.hubGesture.hubCardActive .hubGestureIcon {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+}
+
+.hubGestureDot {
+  background: #f43f5e;
+}
+
+/* ─── Security Hub ─── */
+.hubSecurity {
+  border-color: rgba(244, 63, 94, 0.06);
+}
+
+.hubSecurity:hover,
+.hubSecurity.hubCardActive {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.08), rgba(251, 113, 133, 0.02));
+  border-color: rgba(244, 63, 94, 0.35);
+  box-shadow: 
+    0 4px 20px -2px rgba(244, 63, 94, 0.12), 
+    0 2px 8px -1px rgba(244, 63, 94, 0.08);
+}
+
+.hubSecurityIcon {
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  box-shadow: none;
+}
+
+.hubSecurity:hover .hubSecurityIcon,
+.hubSecurity.hubCardActive .hubSecurityIcon {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.4);
+  box-shadow: 0 0 16px rgba(244, 63, 94, 0.35);
+}
+
+.hubSecurityBadge {
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.hubSecurityBadgeActive {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.hubSecurityBadgeInactive {
+  background: rgba(244, 63, 94, 0.12);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.2);
+}
+
+/* ─── Sidebar Toggle ─── */
+.sidebarToggle {
+  flex-shrink: 0;
+  padding: 16px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.toggleBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.toggleBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.toggleBtnText {
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+.sidebarCollapsed .toggleBtnText {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.toggleIcon {
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggleIconCollapsed {
+  transform: rotate(180deg);
+}
+
+/* ─── Main Content ─── */
+.mainArea {
+  flex: 1;
+  transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mainAreaExpanded {
+  margin-left: 280px;
+}
+
+.mainAreaCollapsed {
+  margin-left: 72px;
+}
+
+/* ─── Dashboard Header ─── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  background: rgba(26, 29, 36, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: none;
+  height: 76px;
+  box-sizing: border-box;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.headerGreeting {
+  display: flex;
+  flex-direction: column;
+}
+
+.headerGreetingText {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.headerGreetingSub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.15);
+  border-radius: 12px;
+  color: #fb7185;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logoutBtn:hover {
+  background: rgba(244, 63, 94, 0.14);
+  border-color: rgba(244, 63, 94, 0.25);
+  transform: translateY(-1px);
+}
+
+.mobileMenuBtn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobileMenuBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+/* ─── Content ─── */
+.content {
+  flex: 1;
+  padding: 32px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.contentInner {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* ─── Section Headers ─── */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sectionIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(196, 168, 224, 0.1);
+  border: 1px solid rgba(196, 168, 224, 0.12);
+  color: var(--accent-lavender);
+}
+
+.sectionTitle {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.sectionSubtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ─── Room Cards Grid ─── */
+.roomGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .roomGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.roomCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background: rgba(40, 44, 53, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+}
+
+.roomCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(196, 168, 224, 0.04), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.roomCard:hover {
+  border-color: rgba(196, 168, 224, 0.2);
+  transform: translateY(-3px);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(196, 168, 224, 0.08);
+}
+
+.roomCard:hover::before {
+  opacity: 1;
+}
+
+.roomCardIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(196, 168, 224, 0.1);
+  border: 1px solid rgba(196, 168, 224, 0.12);
+  color: var(--accent-lavender);
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.roomCard:hover .roomCardIcon {
+  background: rgba(196, 168, 224, 0.16);
+  box-shadow: 0 0 20px rgba(196, 168, 224, 0.12);
+}
+
+.roomCardName {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.roomCardDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.roomCardArrow {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.3s ease;
+}
+
+.roomCard:hover .roomCardArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ─── Loading State ─── */
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.loadingSpinner {
+  color: var(--accent-lavender);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Empty State ─── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  border: 2px dashed rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--text-muted);
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.emptyText {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  max-width: 300px;
+}
+
+/* ─── Hub Flyout Panel ─── */
+.flyoutOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 45;
+  opacity: 0;
+  animation: flyoutFadeIn 0.2s ease forwards;
+}
+
+@keyframes flyoutFadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+.flyoutPanel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 50;
+  width: 460px;
+  max-width: calc(100vw - 20px);
+  background: rgba(26, 29, 36, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 8px 0 40px rgba(0, 0, 0, 0.4);
+  overflow-y: auto;
+  transform: translateX(-100%);
+  animation: flyoutSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes flyoutSlideIn {
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* ─── Background Orbs ─── */
+.orbWarm {
+  position: absolute;
+  width: 50vw;
+  height: 50vw;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+      rgba(196, 168, 224, 0.08),
+      rgba(212, 160, 192, 0.04),
+      transparent 70%);
+  filter: blur(120px);
+  pointer-events: none;
+  animation: driftWarm 20s ease-in-out infinite alternate;
+}
+
+.orbCool {
+  position: absolute;
+  width: 50vw;
+  height: 50vw;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+      rgba(196, 168, 224, 0.06),
+      rgba(126, 184, 216, 0.04),
+      transparent 70%);
+  filter: blur(120px);
+  pointer-events: none;
+  animation: driftCool 25s ease-in-out infinite alternate;
+}
+
+@keyframes driftWarm {
+  0% {
+    transform: translate(-10%, -20%);
+  }
+
+  100% {
+    transform: translate(5%, -10%);
+  }
+}
+
+@keyframes driftCool {
+  0% {
+    transform: translate(10%, 20%);
+  }
+
+  100% {
+    transform: translate(-5%, 10%);
+  }
+}
+
+/* ─── Mobile Overlay ─── */
+.mobileOverlay {
+  display: none;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    width: 280px !important;
+    z-index: 60;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebarMobileOpen {
+    transform: translateX(0);
+  }
+
+  .mobileOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 55;
+    animation: flyoutFadeIn 0.2s ease forwards;
+  }
+
+  .mainAreaExpanded,
+  .mainAreaCollapsed {
+    margin-left: 0;
+  }
+
+  .mobileMenuBtn {
+    display: flex;
+  }
+
+  .content {
+    padding: 20px 16px;
+  }
+
+  .header {
+    padding: 14px 16px;
+  }
+
+  .roomGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .flyoutPanel {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .logoutBtnText {
+    display: none;
+  }
+
+  .logoutBtn {
+    padding: 10px;
+  }
+}

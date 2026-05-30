@@ -18,7 +18,7 @@ export interface OnboardingData {
     householdType: string;    
     userAge: string;          
     topology: string;
-    rooms: any[];
+    rooms: unknown[];
 }
 
 export default function OnboardingPage() {
@@ -73,8 +73,8 @@ export default function OnboardingPage() {
                 {step === 2 && <Step2Hardware formData={formData} updateFormData={updateFormData} onNext={nextStep} onPrev={prevStep} />}
                 {step === 3 && <Step3Biometrics onNext={nextStep} onPrev={prevStep} />}
                 {step === 4 && <Step4Emergency onNext={nextStep} onPrev={prevStep} />} 
-                {step === 5 && <Step5Gestures onNext={nextStep} onPrev={prevStep} />} 
-                {step === 6 && <Step6Finalize formData={formData} />}
+                {step === 5 && <Step5Gestures formData={formData} onNext={nextStep} onPrev={prevStep} />} 
+                {step === 6 && <Step6Finalize formData={formData} onPrev={prevStep} />}
               </motion.div>
             </AnimatePresence>
 

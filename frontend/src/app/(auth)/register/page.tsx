@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,16 +18,11 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isExiting, setIsExiting] = useState(false);
 
-  const [strength, setStrength] = useState(0);
-
-  useEffect(() => {
-    let score = 0;
-    if (password.length >= 8) score += 25;
-    if (/[A-Z]/.test(password)) score += 25;
-    if (/[0-9]/.test(password)) score += 25;
-    if (/[^A-Za-z0-9]/.test(password)) score += 25;
-    setStrength(score);
-  }, [password]);
+  let strength = 0;
+  if (password.length >= 8) strength += 25;
+  if (/[A-Z]/.test(password)) strength += 25;
+  if (/[0-9]/.test(password)) strength += 25;
+  if (/[^A-Za-z0-9]/.test(password)) strength += 25;
 
   const getStrengthClass = () => {
     if (strength <= 25) return s.strengthWeak;

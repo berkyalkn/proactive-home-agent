@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScanFace, Mic, CheckCircle2, Camera, StopCircle, User, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
+import { ScanFace, Mic, CheckCircle2, Camera, StopCircle, User, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Sparkles, Loader2 } from 'lucide-react';
 import s from '@/components/auth/auth.module.css';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -13,10 +13,10 @@ interface Props {
 
 export default function Step3Biometrics({ onNext, onPrev }: Props) {
   const [mode, setMode] = useState<'intro' | 'face' | 'voice' | 'saving'>('intro');
+  const [savingStep, setSavingStep] = useState(0); // 0: off, 1: face scan, 2: voice analysis, 3: vault locking, 4: complete
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
   
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -27,6 +27,7 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
   });
 
   const [savingText, setSavingText] = useState("Securing your data...");
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const currentFaceStep = !faces.front ? "front" 
                         : !faces.left ? "left" 
@@ -39,12 +40,14 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
-      setIsCameraActive(false);
     }
   }, [stream]);
 
   useEffect(() => {
-    return () => stopMediaTracks();
+    return () => {
+      stopMediaTracks();
+      timeoutsRef.current.forEach(clearTimeout);
+    };
   }, [stopMediaTracks]);
 
   const startFaceSetup = async () => {
@@ -54,9 +57,8 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        setIsCameraActive(true);
       }
-    } catch (err) {
+    } catch {
       alert("Camera access denied. We'll skip Face Recognition for now.");
       setMode('voice');
     }
@@ -109,7 +111,7 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
       mediaRecorderRef.current.start();
       setIsRecording(true);
       
-    } catch (err) {
+    } catch {
       alert("Microphone access denied. Finishing setup.");
       executeFinalSave(null);
     }
@@ -123,14 +125,25 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
   };
 
   const executeFinalSave = async (recordedAudio: Blob | null) => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+
     setMode('saving');
+    setSavingStep(1);
+    setSavingText("Opening the front door...");
     
     const loadingSteps = [
-      "Processing your face scans...", 
-      "Analyzing voice patterns...", 
-      "Securing your personal profile..."
+      { text: "Warming up the living room lights...", step: 2 },
+      { text: "Calibrating sensors to your voice...", step: 3 },
+      { text: "Securing your personal profile...", step: 3 }
     ];
-    loadingSteps.forEach((text, i) => setTimeout(() => setSavingText(text), (i + 1) * 1200));
+    loadingSteps.forEach((item, i) => {
+      const t = setTimeout(() => {
+        setSavingText(item.text);
+        setSavingStep(item.step);
+      }, (i + 1) * 1200);
+      timeoutsRef.current.push(t);
+    });
 
     const token = localStorage.getItem('token'); 
 
@@ -144,6 +157,7 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
         body: form1,
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
       if (!res.ok) throw new Error("Registration failed on primary biometrics");
 
       const angles = [
@@ -155,24 +169,34 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
 
       for (const angle of angles) {
         if (angle.file) {
-          const form = new FormData();
-          form.append("image_file", angle.file, angle.name);
-          await fetch(`${API_URL}/users/register`, { 
-            method: "POST", 
-            body: form,
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
+          try {
+            const form = new FormData();
+            form.append("image_file", angle.file, angle.name);
+            await fetch(`${API_URL}/users/register`, { 
+              method: "POST", 
+              body: form,
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+          } catch (e) {
+            console.warn("Angle sync failed", e);
+          }
         }
       }
 
-      setTimeout(() => { 
-        setSavingText("All set! Profile secured.");
-        setTimeout(() => onNext(), 1000); 
-      }, loadingSteps.length * 1200 + 500);
+      const tFinal = setTimeout(() => { 
+        setSavingText("Welcome home! Everything is ready.");
+        setSavingStep(4);
+        const tNext = setTimeout(() => onNext(), 1500);
+        timeoutsRef.current.push(tNext);
+      }, loadingSteps.length * 1200 + 600);
+      timeoutsRef.current.push(tFinal);
 
     } catch (error) {
-      console.error(error);
-      setTimeout(() => onNext(), 2000);
+      console.error("Biometrics registration error:", error);
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
+      alert("Registration failed. Please make sure the Raspberry Pi is online and try again.");
+      setMode('voice');
     }
   };
 
@@ -323,13 +347,119 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
         )}
 
         {mode === 'saving' && (
-          <motion.div key="saving" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center w-full relative z-10 h-64">
-            <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-              <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="absolute inset-0 rounded-full border-4 border-white/5 border-t-indigo-500" />
-              <ShieldCheck className="w-8 h-8 text-indigo-400" />
+          <motion.div 
+            key="saving" 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            className="flex flex-col items-center justify-center w-full relative z-10 py-6"
+          >
+            <div className="relative w-36 h-36 mb-6 flex items-center justify-center">
+              {/* Radial background glow that breathes */}
+              <motion.div 
+                animate={savingStep === 4 ? { scale: [1, 1.15, 1], opacity: [0.1, 0.25, 0.1] } : { scale: [1, 1.05, 1], opacity: [0.05, 0.12, 0.05] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute w-44 h-44 bg-radial from-[#c4a8e0] to-transparent blur-2xl pointer-events-none rounded-full" 
+              />
+              
+              <svg viewBox="0 0 120 120" className="w-28 h-28 relative z-10 text-slate-200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="warmGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#c4a8e0" />
+                    <stop offset="100%" stopColor="#d4a0c0" />
+                  </linearGradient>
+                </defs>
+
+                {/* Chimney */}
+                <path d="M82 32 V18 H92 V38" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                
+                {/* Chimney Sparkles / Smoke Orbs */}
+                {savingStep >= 3 && (
+                  <g className="transition-opacity duration-700" style={{ opacity: savingStep >= 3 ? 1 : 0 }}>
+                    <motion.circle 
+                      cx="87" 
+                      cy="10" 
+                      r="2" 
+                      fill="url(#warmGlow)" 
+                      animate={{ y: [-2, -15], x: [87, 85, 88], opacity: [0, 1, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, delay: 0 }}
+                    />
+                    <motion.circle 
+                      cx="90" 
+                      cy="6" 
+                      r="1.5" 
+                      fill="url(#warmGlow)" 
+                      animate={{ y: [-2, -22], x: [90, 93, 89], opacity: [0, 1, 0] }}
+                      transition={{ duration: 2.5, repeat: Infinity, delay: 0.8 }}
+                    />
+                  </g>
+                )}
+
+                {/* Left Side (Living Room) Interior Glow */}
+                <rect 
+                  x="28" 
+                  y="48" 
+                  width="30" 
+                  height="49" 
+                  rx="2" 
+                  fill="url(#warmGlow)" 
+                  className="transition-opacity duration-1000"
+                  style={{ opacity: savingStep >= 1 ? 0.85 : 0.03 }} 
+                />
+
+                {/* Right Side (Bedroom) Interior Glow */}
+                <rect 
+                  x="62" 
+                  y="48" 
+                  width="30" 
+                  height="49" 
+                  rx="2" 
+                  fill="url(#warmGlow)" 
+                  className="transition-opacity duration-1000"
+                  style={{ opacity: savingStep >= 2 ? 0.85 : 0.03 }} 
+                />
+
+                {/* Roof */}
+                <polygon points="12,45 60,12 108,45" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                
+                {/* Main House Frame */}
+                <rect x="25" y="45" width="70" height="55" rx="4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                
+                {/* Front Door */}
+                <rect 
+                  x="48" 
+                  y="68" 
+                  width="24" 
+                  height="32" 
+                  rx="2" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  fill={savingStep >= 3 ? "url(#warmGlow)" : "transparent"}
+                  className="transition-all duration-700"
+                  style={{ fillOpacity: savingStep >= 3 ? 0.3 : 0 }}
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                />
+                
+                {/* Door Knob */}
+                <circle cx="66" cy="84" r="1.5" fill="currentColor" />
+
+                {/* Left Room Window */}
+                <rect x="34" y="53" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="43" y1="53" x2="43" y2="71" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="34" y1="62" x2="52" y2="62" stroke="currentColor" strokeWidth="1.5" />
+
+                {/* Right Room Window */}
+                <rect x="68" y="53" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="77" y1="53" x2="77" y2="71" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="68" y1="62" x2="86" y2="62" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
             </div>
-            <h3 className={s.title}>Securing Your Profile</h3>
-            <div className="h-8 flex items-center justify-center mt-2">
+
+            <h3 className={s.title}>
+              {savingStep === 4 ? "Profile Secured" : "Securing Your Profile"}
+            </h3>
+            
+            <div className="h-8 flex items-center justify-center mt-3">
               <AnimatePresence mode="wait">
                 <motion.p 
                   key={savingText} 

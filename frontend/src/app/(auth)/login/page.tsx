@@ -100,10 +100,13 @@ export default function LoginPage() {
         }, 600);
       } catch {
         setIsExiting(true);
-        setTimeout(() => router.push('/onboarding'), 600);
+        setTimeout(() => {
+          router.push('/onboarding');
+        }, 600);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Face not recognized. Try again.");
+    } catch (err) {
+      const errorObj = err as { response?: { data?: { detail?: string } } };
+      setError(errorObj.response?.data?.detail || "Face not recognized. Try again.");
       setIsScanningFace(false);
     }
   };
@@ -141,7 +144,9 @@ export default function LoginPage() {
         }, 600);
       } catch {
         setIsExiting(true);
-        setTimeout(() => router.push('/onboarding'), 600);
+        setTimeout(() => {
+          router.push('/onboarding');
+        }, 600);
       }
     } catch {
       setError("Incorrect username or password. Please try again.");
@@ -156,9 +161,10 @@ export default function LoginPage() {
       const res = await api.post('/auth/forgot-password', { email: forgotEmail });
       setForgotStatus('success');
       setForgotMessage(res.data.message);
-    } catch (err: any) {
+    } catch (err) {
+      const errorObj = err as { response?: { data?: { detail?: string } } };
       setForgotStatus('error');
-      setForgotMessage(err.response?.data?.detail || "An error occurred.");
+      setForgotMessage(errorObj.response?.data?.detail || "An error occurred.");
     }
   };
 

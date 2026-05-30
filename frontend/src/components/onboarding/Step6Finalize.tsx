@@ -4,18 +4,21 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Activity, CheckCircle2, Loader2, BrainCircuit, ShieldCheck, Home, Hand, ShieldAlert, Layers } from 'lucide-react';
 import { OnboardingData } from '@/app/onboarding/page';
+import s from '@/components/auth/auth.module.css';
 
 interface Props {
   formData: OnboardingData;
+  onPrev?: () => void;
 }
 
-export default function Step6Finalize({ formData }: Props) {
+export default function Step6Finalize({ formData, onPrev }: Props) {
   const router = useRouter();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   const BUILD_STEPS = [
     { id: 'db', label: `Personalizing ${formData.homeName || 'your home'}...`, icon: Home },
-    { id: 'ws', label: `Connecting devices across ${formData.rooms.length} rooms...`, icon: Layers }, 
+    { id: 'ws', label: `Connecting devices across ${formData.rooms?.length || 0} rooms...`, icon: Layers }, 
     { id: 'mqtt', label: 'Securing your privacy and Face ID...', icon: ShieldCheck },
     { id: 'sec', label: 'Activating your emergency SOS alerts...', icon: ShieldAlert }, 
     { id: 'gestures', label: 'Saving your custom hand gestures...', icon: Hand },
@@ -26,120 +29,232 @@ export default function Step6Finalize({ formData }: Props) {
     if (currentStepIndex < BUILD_STEPS.length) {
       const timer = setTimeout(() => {
         setCurrentStepIndex(prev => prev + 1);
-      }, 1600); 
+      }, 1200); 
       return () => clearTimeout(timer);
-    } else {
-      const finalizeOnboarding = async () => {
-        try {
-          const token = localStorage.getItem('token');
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/onboarding/complete`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-        } catch (error) {
-          console.error("Failed to update onboarding status:", error);
-        } finally {
-          router.push('/dashboard');
-        }
-      };
-
-      const finalTimer = setTimeout(() => {
-        finalizeOnboarding();
-      }, 1000);
-      return () => clearTimeout(finalTimer);
     }
-  }, [currentStepIndex, BUILD_STEPS.length, router]);
+  }, [currentStepIndex, BUILD_STEPS.length]);
 
-  const progress = Math.min(((currentStepIndex) / BUILD_STEPS.length) * 100, 100);
+  const handleFinalize = async () => {
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/onboarding/complete`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error("Failed to update onboarding status:", error);
+    } finally {
+      setIsSaving(false);
+      router.push('/dashboard');
+    }
+  };
+
+  const progress = Math.min((currentStepIndex / BUILD_STEPS.length) * 100, 100);
+  const isFinished = currentStepIndex === BUILD_STEPS.length;
 
   return (
-    <div className="bg-white border border-slate-200 p-8 md:p-10 rounded-[2rem] shadow-xl shadow-slate-200/50 w-full max-w-2xl mx-auto relative overflow-hidden transform-gpu">
-      
-      <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-indigo-50 to-white pointer-events-none" />
-
-      <div className="flex flex-col items-center mb-8 relative z-10">
-        <div className="relative mb-5">
-          <motion.div 
-            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }} 
-            transition={{ duration: 2, repeat: Infinity }} 
-            className="absolute inset-0 bg-indigo-300 rounded-full blur-xl" 
-          />
-          <div className="relative p-4 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/30 text-white transform-gpu">
-            <Activity className="w-8 h-8" />
-            <div className="absolute -top-2 -right-2 p-1.5 bg-emerald-500 rounded-full border-2 border-white shadow-sm">
-              <CheckCircle2 className="w-3 h-3 text-white" />
-            </div>
-          </div>
-        </div>
-
-        <h2 className="text-3xl font-extrabold text-slate-900 text-center tracking-tight mb-2">Almost Ready!</h2>
-        <p className="text-slate-500 text-center font-medium">Please wait while we put the finishing touches on your smart home.</p>
-      </div>
-      
-      <div className="space-y-6 relative z-10">
+    <div className={s.cardWide} style={{ minHeight: 480, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
+      <AnimatePresence mode="wait">
         
-        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+        {!isFinished ? (
           <motion.div 
-            className="h-full bg-indigo-600 rounded-full relative"
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
+            key="loading" 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0, scale: 0.95 }} 
+            className="w-full relative z-10 flex flex-col h-full text-left"
           >
-            <div className="absolute top-0 right-0 bottom-0 w-20 bg-gradient-to-r from-transparent to-white/40 blur-[2px]" />
-          </motion.div>
-        </div>
+            <div className="flex flex-col items-center" style={{ marginBottom: '32px' }}>
+              <div className={s.headerIcon} style={{ background: 'rgba(196, 168, 224, 0.1)', borderColor: 'rgba(196, 168, 224, 0.15)', color: 'var(--accent-orange)' }}>
+                <Activity size={28} className="animate-pulse" />
+              </div>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
-          {BUILD_STEPS.map((step, index) => {
-            const isCompleted = currentStepIndex > index;
-            const isCurrent = currentStepIndex === index;
+              <h2 className={s.title} style={{ color: 'rgba(255, 255, 255, 0.8)' }}>Almost Ready!</h2>
+              <p className={s.subtitle} style={{ maxWidth: 440, margin: '8px auto 0', color: 'rgba(255, 255, 255, 0.8)' }}>
+                Please wait while we put the finishing touches on your smart home.
+              </p>
+            </div>
 
-            return (
-              <div 
-                key={step.id} 
-                className={`flex items-center justify-between p-3 rounded-xl transition-all duration-500 ${
-                  isCurrent ? 'bg-white shadow-sm border border-slate-200 scale-[1.02]' : 'border border-transparent'
-                } ${index > currentStepIndex ? 'opacity-40' : 'opacity-100'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg transition-colors duration-500 ${isCompleted ? 'bg-emerald-100 text-emerald-600' : isCurrent ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-400'}`}>
-                    <step.icon className="w-4 h-4" />
+            <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden relative" style={{ marginBottom: '24px' }}>
+              <motion.div 
+                className="h-full bg-gradient-to-r from-[var(--accent-orange)] to-[var(--accent-peach)] rounded-full"
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {BUILD_STEPS.map((step, index) => {
+                const isCompleted = currentStepIndex > index;
+                const isCurrent = currentStepIndex === index;
+
+                return (
+                  <div 
+                    key={step.id} 
+                    className="flex items-center justify-between p-4 rounded-xl border transition-all duration-300"
+                    style={
+                      isCurrent 
+                        ? { background: 'rgba(196, 168, 224, 0.05)', borderColor: 'rgba(196, 168, 224, 0.25)' }
+                        : { background: 'rgba(255, 255, 255, 0.02)', borderColor: 'var(--border-card)', opacity: index > currentStepIndex ? 0.3 : 1 }
+                    }
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="p-2 rounded-lg transition-colors duration-300"
+                        style={
+                          isCompleted 
+                            ? { background: 'rgba(196, 168, 224, 0.15)', color: 'var(--accent-orange)' }
+                            : isCurrent 
+                            ? { background: 'rgba(196, 168, 224, 0.1)', color: 'var(--accent-peach)' }
+                            : { background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.2)' }
+                        }
+                      >
+                        <step.icon size={18} />
+                      </div>
+                      <span 
+                        className="text-sm font-semibold"
+                        style={{ color: isCurrent || isCompleted ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.4)' }}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                    
+                    <div>
+                      {isCompleted ? (
+                        <CheckCircle2 size={20} className="text-[var(--accent-orange)]" />
+                      ) : isCurrent ? (
+                        <Loader2 size={20} className="text-[var(--accent-peach)] animate-spin" />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border border-white/10" />
+                      )}
+                    </div>
                   </div>
-                  <span className={`font-bold text-sm transition-colors duration-500 ${isCompleted ? 'text-slate-800' : isCurrent ? 'text-indigo-900' : 'text-slate-500'}`}>
-                    {step.label}
-                  </span>
-                </div>
-                
-                <div>
-                  {isCompleted ? (
-                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }}>
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    </motion.div>
-                  ) : isCurrent ? (
-                    <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-slate-200" />
-                  )}
+                );
+              })}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="success" 
+            initial={{ opacity: 0, y: 15 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ duration: 0.5 }}
+            className="w-full relative z-10 flex flex-col h-full text-left"
+          >
+            <div className="flex flex-col items-center" style={{ marginBottom: '32px' }}>
+              <div className={s.headerIcon} style={{ background: 'rgba(196, 168, 224, 0.15)', borderColor: 'rgba(196, 168, 224, 0.3)', color: 'var(--accent-orange)', width: 64, height: 64, marginBottom: 16 }}>
+                <CheckCircle2 size={36} className="text-[var(--accent-orange)]" />
+              </div>
+
+              <h2 className={s.title} style={{ color: 'rgba(255, 255, 255, 0.8)' }}>Setup Complete!</h2>
+              <p className={s.subtitle} style={{ maxWidth: 440, margin: '8px auto 0', color: 'rgba(255, 255, 255, 0.8)' }}>
+                Congratulations! Your smart home is now active, secure, and proactive.
+              </p>
+            </div>
+
+            <div>
+              {/* Setup Summary Panel */}
+              <div 
+                className="border rounded-2xl p-5"
+                style={{ background: 'rgba(255, 255, 255, 0.02)', borderColor: 'var(--border-card)', marginBottom: '20px' }}
+              >
+                <h4 
+                  className="text-xs font-extrabold tracking-wider uppercase border-b border-white/5 pb-2"
+                  style={{ 
+                    color: 'rgba(255, 255, 255, 0.8)', 
+                    paddingLeft: '12px' 
+                  }}
+                >
+                  Setup Summary
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: '16px', columnGap: '16px', marginTop: '12px' }}>
+                  <div>
+                    <span className="block text-[11px] uppercase font-semibold" style={{ color: 'rgba(255, 255, 255, 0.8)', opacity: 0.65 }}>Home Name</span>
+                    <span className="text-sm font-bold" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>{formData.homeName || 'My Home'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] uppercase font-semibold" style={{ color: 'rgba(255, 255, 255, 0.8)', opacity: 0.65 }}>Smart Assistant</span>
+                    <span className="text-sm font-bold" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>{formData.assistantName || 'HOMIEE'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] uppercase font-semibold" style={{ color: 'rgba(255, 255, 255, 0.8)', opacity: 0.65 }}>Location / Rooms</span>
+                    <span className="text-sm font-bold" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                      {formData.location || 'Not Specified'} / {formData.rooms?.length || 0} Rooms
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] uppercase font-semibold" style={{ color: 'rgba(255, 255, 255, 0.8)', opacity: 0.65 }}>Topology</span>
+                    <span className="text-sm font-bold" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>{formData.topology || 'Apartment'}</span>
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        <AnimatePresence>
-          {currentStepIndex >= BUILD_STEPS.length && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              className="text-center pt-2"
-            >
-              <p className="text-emerald-600 font-bold text-sm flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4" /> All set! Taking you to your dashboard...
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {/* List of Activated Features */}
+              <div 
+                className="border rounded-2xl p-5"
+                style={{ background: 'rgba(255, 255, 255, 0.02)', borderColor: 'var(--border-card)', marginBottom: '28px' }}
+              >
+                <h4 
+                  className="text-xs font-extrabold tracking-wider uppercase border-b border-white/5 pb-2"
+                  style={{ 
+                    color: 'rgba(255, 255, 255, 0.8)', 
+                    paddingLeft: '12px' 
+                  }}
+                >
+                  Activated Features
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
+                  <div className="flex items-center gap-3 text-sm" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                    <CheckCircle2 size={16} className="text-[var(--accent-orange)] shrink-0" />
+                    <span>Biometric Identity Verification (Face & Voice ID) active</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                    <CheckCircle2 size={16} className="text-[var(--accent-orange)] shrink-0" />
+                    <span>24/7 AI Fall Detection Security Protocol enabled</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                    <CheckCircle2 size={16} className="text-[var(--accent-orange)] shrink-0" />
+                    <span>Omnichannel (SMS, Call, Telegram) Emergency SOS online</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                    <CheckCircle2 size={16} className="text-[var(--accent-orange)] shrink-0" />
+                    <span>Custom Hand Gesture control configurations completed</span>
+                  </div>
+                </div>
+              </div>
 
-      </div>
+              {/* Action Row */}
+              <div className={s.actionRow} style={{ width: '100%', display: 'flex', gap: 24, alignItems: 'stretch' }}>
+                {onPrev && (
+                  <button 
+                    onClick={onPrev} 
+                    className={s.btnSecondary} 
+                    style={{ width: 90, flex: '0 0 90px', padding: '16px' }}
+                  >
+                    Back
+                  </button>
+                )}
+                <button 
+                  onClick={handleFinalize} 
+                  disabled={isSaving}
+                  className={s.btnPrimary} 
+                  style={{ flex: 1, padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" /> Finalizing...
+                    </>
+                  ) : (
+                    'Open Dashboard'
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+      </AnimatePresence>
     </div>
   );
 }

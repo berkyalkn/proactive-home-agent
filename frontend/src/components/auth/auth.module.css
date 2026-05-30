@@ -9,6 +9,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  --accent-orange: #c4a8e0;
+  --accent-peach: #d4a0c0;
 }
 
 /* ─── Animated Background Orbs ─── */
@@ -19,8 +21,8 @@
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(232, 149, 106, 0.15),
-    rgba(240, 200, 160, 0.08),
+    rgba(196, 168, 224, 0.15),
+    rgba(212, 160, 192, 0.08),
     transparent 70%
   );
   filter: blur(120px);
@@ -94,8 +96,8 @@
   justify-content: center;
   width: 56px;
   height: 56px;
-  background: rgba(232, 149, 106, 0.1);
-  border: 1px solid rgba(232, 149, 106, 0.15);
+  background: rgba(196, 168, 224, 0.1);
+  border: 1px solid rgba(196, 168, 224, 0.15);
   border-radius: var(--radius-md);
   margin: 0 auto 20px;
   color: var(--accent-orange);
@@ -156,8 +158,8 @@
 }
 
 .input:focus {
-  border-color: rgba(232, 149, 106, 0.5);
-  box-shadow: 0 0 0 3px rgba(232, 149, 106, 0.1);
+  border-color: rgba(196, 168, 224, 0.5);
+  box-shadow: 0 0 0 3px rgba(196, 168, 224, 0.1);
 }
 
 .inputWrapper {
@@ -200,7 +202,7 @@
 .btnPrimary {
   width: 100%;
   padding: 16px;
-  background: linear-gradient(135deg, #e8956a, #f0c8a0);
+  background: linear-gradient(135deg, #c4a8e0, #d4a0c0);
   color: #1a1d24;
   font-size: 15px;
   font-weight: 600;
@@ -213,12 +215,12 @@
   justify-content: center;
   gap: 8px;
   transition: var(--transition);
-  box-shadow: 0 4px 16px rgba(232, 149, 106, 0.2);
+  box-shadow: 0 4px 16px rgba(196, 168, 224, 0.2);
 }
 
 .btnPrimary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(232, 149, 106, 0.3);
+  box-shadow: 0 8px 24px rgba(196, 168, 224, 0.3);
 }
 
 .btnPrimary:disabled {
@@ -440,7 +442,7 @@
   height: 256px;
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid rgba(232, 149, 106, 0.2);
+  border: 3px solid rgba(196, 168, 224, 0.2);
   margin: 32px 0;
   background: var(--bg-primary);
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
@@ -460,7 +462,7 @@
   width: 100%;
   height: 2px;
   background: var(--accent-orange);
-  box-shadow: 0 0 15px rgba(232, 149, 106, 0.8);
+  box-shadow: 0 0 15px rgba(196, 168, 224, 0.8);
   z-index: 10;
 }
 
@@ -518,8 +520,8 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  background: rgba(232, 149, 106, 0.1);
-  border: 1px solid rgba(232, 149, 106, 0.15);
+  background: rgba(196, 168, 224, 0.1);
+  border: 1px solid rgba(196, 168, 224, 0.15);
   border-radius: var(--radius-md);
   margin: 0 auto 16px;
   color: var(--accent-orange);
@@ -723,8 +725,8 @@
 }
 
 .selectInput:focus {
-  border-color: rgba(232, 149, 106, 0.5);
-  box-shadow: 0 0 0 3px rgba(232, 149, 106, 0.1);
+  border-color: rgba(196, 168, 224, 0.5);
+  box-shadow: 0 0 0 3px rgba(196, 168, 224, 0.1);
 }
 
 .selectInput option {
@@ -790,12 +792,12 @@
 }
 
 .deviceCardActive {
-  background: rgba(232, 149, 106, 0.06);
-  border-color: rgba(232, 149, 106, 0.25);
+  background: rgba(196, 168, 224, 0.06);
+  border-color: rgba(196, 168, 224, 0.25);
 }
 
 .deviceCardActive:hover {
-  background: rgba(232, 149, 106, 0.08);
+  background: rgba(196, 168, 224, 0.08);
 }
 
 .deviceCardCheck {
@@ -830,15 +832,15 @@
 
 /* ─── Light variant accents (sensors/lights/plugs/cameras) ─── */
 .deviceCardSensor.deviceCardActive {
-  background: rgba(232, 149, 106, 0.06);
-  border-color: rgba(232, 149, 106, 0.25);
+  background: rgba(196, 168, 224, 0.06);
+  border-color: rgba(196, 168, 224, 0.25);
 }
 .deviceCardSensor.deviceCardActive .deviceCardIcon { color: var(--accent-orange); }
 .deviceCardSensor.deviceCardActive .deviceCardCheck { color: var(--accent-orange); }
 
 .deviceCardLight.deviceCardActive {
-  background: rgba(240, 200, 160, 0.06);
-  border-color: rgba(240, 200, 160, 0.25);
+  background: rgba(212, 160, 192, 0.06);
+  border-color: rgba(212, 160, 192, 0.25);
 }
 .deviceCardLight.deviceCardActive .deviceCardIcon { color: var(--accent-peach); }
 .deviceCardLight.deviceCardActive .deviceCardCheck { color: var(--accent-peach); }
@@ -885,8 +887,8 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: rgba(232, 149, 106, 0.1);
-  border: 1px solid rgba(232, 149, 106, 0.12);
+  background: rgba(196, 168, 224, 0.1);
+  border: 1px solid rgba(196, 168, 224, 0.12);
   border-radius: var(--radius-sm);
   color: var(--accent-orange);
 }
@@ -945,14 +947,14 @@
 }
 
 .deviceBadgeSensor {
-  background: rgba(232, 149, 106, 0.08);
-  border: 1px solid rgba(232, 149, 106, 0.12);
+  background: rgba(196, 168, 224, 0.08);
+  border: 1px solid rgba(196, 168, 224, 0.12);
   color: var(--accent-orange);
 }
 
 .deviceBadgeLight {
-  background: rgba(240, 200, 160, 0.08);
-  border: 1px solid rgba(240, 200, 160, 0.12);
+  background: rgba(212, 160, 192, 0.08);
+  border: 1px solid rgba(212, 160, 192, 0.12);
   color: var(--accent-peach);
 }
 
@@ -996,9 +998,9 @@
 }
 
 .addRoomBtn:hover {
-  border-color: rgba(232, 149, 106, 0.3);
+  border-color: rgba(196, 168, 224, 0.3);
   color: var(--accent-peach);
-  background: rgba(232, 149, 106, 0.04);
+  background: rgba(196, 168, 224, 0.04);
 }
 
 .addRoomBtnIcon {
@@ -1013,7 +1015,7 @@
 }
 
 .addRoomBtn:hover .addRoomBtnIcon {
-  background: rgba(232, 149, 106, 0.1);
+  background: rgba(196, 168, 224, 0.1);
 }
 
 /* ─── Scan Modal (dark) ─── */
@@ -1082,7 +1084,7 @@
 .scanRing {
   position: absolute;
   inset: 0;
-  border: 2px solid rgba(232, 149, 106, 0.4);
+  border: 2px solid rgba(196, 168, 224, 0.4);
   border-radius: 50%;
   animation: scanPing 2s ease-in-out infinite;
   opacity: 0.75;
@@ -1091,7 +1093,7 @@
 .scanRingInner {
   position: absolute;
   inset: 8px;
-  border: 2px solid rgba(232, 149, 106, 0.3);
+  border: 2px solid rgba(196, 168, 224, 0.3);
   border-radius: 50%;
   animation: scanPing 2.5s ease-in-out infinite;
   opacity: 0.5;
@@ -1105,8 +1107,8 @@
 .scanIconCircle {
   width: 64px;
   height: 64px;
-  background: rgba(232, 149, 106, 0.1);
-  border: 1px solid rgba(232, 149, 106, 0.15);
+  background: rgba(196, 168, 224, 0.1);
+  border: 1px solid rgba(196, 168, 224, 0.15);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1169,8 +1171,8 @@
 }
 
 .deviceRowSelected {
-  background: rgba(232, 149, 106, 0.06);
-  border-color: rgba(232, 149, 106, 0.25);
+  background: rgba(196, 168, 224, 0.06);
+  border-color: rgba(196, 168, 224, 0.25);
 }
 
 .deviceRowName {
@@ -1231,12 +1233,12 @@
 }
 
 .addBtn {
-  background: rgba(232, 149, 106, 0.1);
+  background: rgba(196, 168, 224, 0.1);
   color: var(--accent-orange);
 }
 
 .addBtn:hover {
-  background: rgba(232, 149, 106, 0.15);
+  background: rgba(196, 168, 224, 0.15);
 }
 
 .removeBtn {
@@ -1252,8 +1254,8 @@
 .namingBox {
   padding: 16px;
   margin-top: 12px;
-  background: rgba(232, 149, 106, 0.05);
-  border: 1px solid rgba(232, 149, 106, 0.12);
+  background: rgba(196, 168, 224, 0.05);
+  border: 1px solid rgba(196, 168, 224, 0.12);
   border-radius: var(--radius-sm);
 }
 
@@ -1290,12 +1292,12 @@
 }
 
 .namingInput:focus {
-  border-color: rgba(232, 149, 106, 0.5);
+  border-color: rgba(196, 168, 224, 0.5);
 }
 
 .namingSave {
   padding: 10px 18px;
-  background: linear-gradient(135deg, #e8956a, #f0c8a0);
+  background: linear-gradient(135deg, #c4a8e0, #d4a0c0);
   color: #1a1d24;
   font-size: 13px;
   font-weight: 600;
@@ -1320,7 +1322,7 @@
 .scanConfirmBtn {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #e8956a, #f0c8a0);
+  background: linear-gradient(135deg, #c4a8e0, #d4a0c0);
   color: #1a1d24;
   border: none;
   border-radius: 12px;
@@ -1333,7 +1335,7 @@
 
 .scanConfirmBtn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(232, 149, 106, 0.2);
+  box-shadow: 0 4px 16px rgba(196, 168, 224, 0.2);
 }
 
 /* ─── Empty Scan State ─── */
@@ -1381,7 +1383,7 @@
 .provisionPulse {
   position: absolute;
   inset: 0;
-  background: rgba(232, 149, 106, 0.15);
+  background: rgba(196, 168, 224, 0.15);
   border-radius: 50%;
   filter: blur(20px);
   animation: provPulse 2s ease-in-out infinite;
@@ -1395,9 +1397,9 @@
 .provisionIconBox {
   position: relative;
   padding: 16px;
-  background: linear-gradient(135deg, #e8956a, #f0c8a0);
+  background: linear-gradient(135deg, #c4a8e0, #d4a0c0);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(232, 149, 106, 0.3);
+  box-shadow: 0 8px 24px rgba(196, 168, 224, 0.3);
   color: #1a1d24;
 }
 
@@ -1493,13 +1495,13 @@
 
 .stepDotActive {
   width: 40px;
-  background: linear-gradient(135deg, #e8956a, #f0c8a0);
-  box-shadow: 0 0 12px rgba(232, 149, 106, 0.3);
+  background: linear-gradient(135deg, #c4a8e0, #d4a0c0);
+  box-shadow: 0 0 12px rgba(196, 168, 224, 0.3);
 }
 
 .stepDotDone {
   width: 24px;
-  background: rgba(232, 149, 106, 0.4);
+  background: rgba(196, 168, 224, 0.4);
 }
 
 .stepDotPending {

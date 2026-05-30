@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ShieldAlert, Phone, User, MessageSquare, PhoneCall, Send, 
   Bot, Settings2, ArrowRight, Loader2, Palette, Timer, 
-  Activity, Info, ChevronDown 
+  Activity, Info, ChevronDown, Zap 
 } from 'lucide-react';
 import s from '@/components/auth/auth.module.css';
 
@@ -39,6 +39,93 @@ const AVAILABLE_GESTURES = [
   { id: "Victory", label: "Victory / Peace (✌️)" },
   { id: "ILoveYou", label: "I Love You (🤟)" },
 ];
+
+const sectionHeadingStyle: React.CSSProperties = {
+  fontSize: '13px',
+  fontWeight: 600,
+  color: 'rgba(161, 161, 170, 0.9)',
+  letterSpacing: '0.02em',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  paddingLeft: '14px',
+  borderLeft: '3px solid rgba(244, 63, 94, 0.6)',
+  lineHeight: '1',
+};
+
+const protocolBoxBaseStyle: React.CSSProperties = {
+  padding: '14px 16px',
+  borderRadius: '14px',
+  display: 'flex',
+  gap: '12px',
+  alignItems: 'flex-start',
+  transition: 'all 0.3s ease',
+};
+
+const protocolBoxPurpleStyle: React.CSSProperties = {
+  ...protocolBoxBaseStyle,
+  background: 'rgba(255, 255, 255, 0.03)',
+  backdropFilter: 'blur(12px)',
+  border: '1px solid rgba(168, 85, 247, 0.12)',
+};
+
+const protocolIconWrapperStyle = (color: string): React.CSSProperties => ({
+  width: '28px',
+  height: '28px',
+  borderRadius: '8px',
+  background: color === 'sky' ? 'rgba(14, 165, 233, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  marginTop: '1px',
+});
+
+const protocolTextStyle: React.CSSProperties = {
+  fontSize: '13px',
+  lineHeight: '1.65',
+  color: 'rgba(200, 210, 225, 0.75)',
+};
+
+const channelRowStyle = (isActive: boolean, accentColor: string): React.CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  height: '48px',
+  padding: '0 14px',
+  borderRadius: '12px',
+  cursor: 'pointer',
+  transition: 'all 0.25s ease',
+  border: `1px solid ${isActive ? (accentColor === 'emerald' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(14, 165, 233, 0.25)') : 'rgba(255,255,255,0.04)'}`,
+  background: isActive
+    ? (accentColor === 'emerald' ? 'rgba(16, 185, 129, 0.06)' : 'rgba(14, 165, 233, 0.06)')
+    : 'rgba(255,255,255,0.01)',
+});
+
+const toggleTrackStyle = (isActive: boolean, accentColor: string): React.CSSProperties => ({
+  width: '36px',
+  height: '20px',
+  borderRadius: '10px',
+  background: isActive
+    ? (accentColor === 'emerald' ? 'rgba(16, 185, 129, 0.7)' : accentColor === 'purple' ? 'rgba(168, 85, 247, 0.7)' : 'rgba(14, 165, 233, 0.7)')
+    : 'rgba(255,255,255,0.08)',
+  position: 'relative' as const,
+  transition: 'background 0.25s ease',
+  flexShrink: 0,
+  cursor: 'pointer',
+});
+
+const toggleThumbStyle = (isActive: boolean): React.CSSProperties => ({
+  width: '16px',
+  height: '16px',
+  borderRadius: '50%',
+  background: '#fff',
+  position: 'absolute' as const,
+  top: '2px',
+  left: isActive ? '18px' : '2px',
+  transition: 'left 0.25s ease',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+});
 
 export default function Step4Emergency({ onNext, onPrev }: Props) {
   const [mode, setMode] = useState<'intro' | 'setup'>('intro');
@@ -272,7 +359,7 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
                   <div className={s.infoBanner} style={{ marginTop: 12, marginBottom: 24 }}>
                     <Info size={18} className={s.infoBannerIcon} />
                     <p className={s.infoBannerText}>
-                      <strong className={s.infoBannerStrong}>How it works:</strong> Hold the Trigger Gesture for <strong>4 seconds</strong> to initiate. The smart bulbs will flash <strong>orange-peach for 1 second</strong> to silently confirm. You then have a <strong>4-second window</strong> to abort the lockdown by holding the Cancel Gesture for <strong>2 seconds</strong>.
+                      <strong className={s.infoBannerStrong}>How it works:</strong> Hold the Trigger Gesture for <strong>4 seconds</strong> to initiate. The smart bulbs will flash <strong>RED for 1 second</strong> to silently confirm. You then have a <strong>4-second window</strong> to abort the lockdown by holding the Cancel Gesture for <strong>2 seconds</strong>.
                     </p>
                   </div>
 
@@ -287,9 +374,9 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
                           value={security.emergency_light_color}
                           onChange={(e) => handleChange("emergency_light_color", e.target.value)}
                         >
-                          <option value="red">Flashing Orange-Peach</option>
-                          <option value="blue">Warm White Glow</option>
-                          <option value="police">Ambient Strobe (Peach/White)</option>
+                          <option value="red">Flashing Red</option>
+                          <option value="blue">Flashing Blue</option>
+                          <option value="police">Police Strobe</option>
                         </select>
                         <ChevronDown size={16} className={s.selectChevron} />
                       </div>
@@ -313,130 +400,85 @@ export default function Step4Emergency({ onNext, onPrev }: Props) {
                     </div>
                   </div>
 
-                  <div className="space-y-3" style={{ marginTop: 16 }}>
-                    <label className={s.label}>Smart Sensors</label>
-                    <label 
-                        className={`flex items-center border cursor-pointer transition-all duration-200 ${
-                        security.use_fall_detection 
-                          ? "bg-[rgba(196,168,224,0.08)] border-[rgba(196,168,224,0.25)] shadow-md" 
-                          : "bg-[rgba(255,255,255,0.02)] border-[var(--border-card)] hover:bg-[rgba(255,255,255,0.04)]"
-                      }`}
-                      style={{ padding: '22px 24px', borderRadius: '16px' }}
-                    >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: 16 }}>
+                  <h4 style={sectionHeadingStyle}>
+                    <Activity style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Smart Sensors
+                  </h4>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    height: '48px',
+                    padding: '0 14px',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.25s ease',
+                    border: `1px solid ${security.use_fall_detection ? 'rgba(168, 85, 247, 0.25)' : 'rgba(255,255,255,0.04)'}`,
+                    background: security.use_fall_detection ? 'rgba(168, 85, 247, 0.06)' : 'rgba(255,255,255,0.01)',
+                  }}>
                       <input 
                         type="checkbox" 
                         className="hidden" 
                         checked={security.use_fall_detection} 
                         onChange={(e) => handleChange("use_fall_detection", e.target.checked)} 
                       />
-                      <Activity 
-                        size={24} 
-                        className={security.use_fall_detection ? "text-[var(--accent-peach)]" : "text-[var(--text-muted)]"} 
-                        style={{ marginRight: '18px', flexShrink: 0 }}
-                      />
-                      <span 
-                        className={security.use_fall_detection ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}
-                        style={{ fontSize: '16px', fontWeight: 600 }}
-                      >
-                        Enable AI Fall Detection
-                      </span>
-                    </label>
-                    
-                    {security.use_fall_detection && (
-                      <div className={s.infoBanner} style={{ marginTop: 12, marginBottom: 24 }}>
-                        <Info size={18} className={s.infoBannerIcon} />
-                        <p className={s.infoBannerText}>
-                          <strong className={s.infoBannerStrong}>Protocol Flow:</strong> Upon detecting a fall, the AI will ask if you are okay and activate the microphone for <strong>10 seconds</strong>. You can abort the emergency alert by saying keywords like <strong>"I&apos;m fine", "Okay", or "Cancel"</strong>, or by showing the <strong>Cancel Gesture</strong> to the camera.
-                        </p>
+                      <Activity style={{ width: '16px', height: '16px', color: security.use_fall_detection ? 'rgba(192, 132, 252, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                      <span style={{ fontSize: '16px', fontWeight: 500, color: security.use_fall_detection ? 'rgba(233, 213, 255, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Enable AI Fall Detection</span>
+                      <div style={toggleTrackStyle(security.use_fall_detection, 'purple')}>
+                        <div style={toggleThumbStyle(security.use_fall_detection)} />
                       </div>
-                    )}
-                  </div>
+                  </label>
+                  
+                  {security.use_fall_detection && (
+                      <div style={protocolBoxPurpleStyle} className="animate-in fade-in slide-in-from-top-1">
+                          <div style={protocolIconWrapperStyle('purple')}>
+                            <Zap style={{ width: '14px', height: '14px', color: 'rgba(192, 132, 252, 0.9)' }} />
+                          </div>
+                          <div>
+                            <p style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(233, 213, 255, 0.85)', marginBottom: '4px' }}>Protocol Flow</p>
+                            <p style={protocolTextStyle}>
+                                Upon detecting a fall, the AI will ask if you are okay and activate the microphone for <strong>10 seconds</strong>. You can abort the emergency alert by saying keywords like <strong>&quot;I&apos;m fine&quot;, &quot;Okay&quot;, or &quot;Cancel&quot;</strong>, or by showing the <strong>Cancel Gesture</strong> to the camera.
+                            </p>
+                          </div>
+                      </div>
+                  )}
+                </div>
 
-                  <div className="space-y-3" style={{ marginTop: 16 }}>
-                    <label className={s.label}>Omnichannel Alerts</label>
-                    <div className="grid grid-cols-1 gap-3">
-                      <label 
-                        className={`flex items-center border cursor-pointer transition-all duration-200 ${
-                          security.use_sms 
-                            ? "bg-[rgba(196,168,224,0.08)] border-[rgba(196,168,224,0.25)] shadow-md" 
-                            : "bg-[rgba(255,255,255,0.02)] border-[var(--border-card)] hover:bg-[rgba(255,255,255,0.04)]"
-                        }`}
-                        style={{ padding: '22px 24px', borderRadius: '16px' }}
-                      >
-                        <input 
-                          type="checkbox" 
-                          className="hidden" 
-                          checked={security.use_sms} 
-                          onChange={(e) => handleChange("use_sms", e.target.checked)} 
-                        />
-                        <MessageSquare 
-                          size={24} 
-                          className={security.use_sms ? "text-[var(--accent-peach)]" : "text-[var(--text-muted)]"} 
-                          style={{ marginRight: '18px', flexShrink: 0 }}
-                        />
-                        <span 
-                          className={security.use_sms ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}
-                          style={{ fontSize: '16px', fontWeight: 600 }}
-                        >
-                          Send SMS Alert
-                        </span>
-                      </label>
-
-                      <label 
-                        className={`flex items-center border cursor-pointer transition-all duration-200 ${
-                          security.use_voice_call 
-                            ? "bg-[rgba(196,168,224,0.08)] border-[rgba(196,168,224,0.25)] shadow-md" 
-                            : "bg-[rgba(255,255,255,0.02)] border-[var(--border-card)] hover:bg-[rgba(255,255,255,0.04)]"
-                        }`}
-                        style={{ padding: '22px 24px', borderRadius: '16px' }}
-                      >
-                        <input 
-                          type="checkbox" 
-                          className="hidden" 
-                          checked={security.use_voice_call} 
-                          onChange={(e) => handleChange("use_voice_call", e.target.checked)} 
-                        />
-                        <PhoneCall 
-                          size={24} 
-                          className={security.use_voice_call ? "text-[var(--accent-peach)]" : "text-[var(--text-muted)]"} 
-                          style={{ marginRight: '18px', flexShrink: 0 }}
-                        />
-                        <span 
-                          className={security.use_voice_call ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}
-                          style={{ fontSize: '16px', fontWeight: 600 }}
-                        >
-                          Make Voice Call (AI TTS)
-                        </span>
-                      </label>
-
-                      <label 
-                        className={`flex items-center border cursor-pointer transition-all duration-200 ${
-                          security.use_telegram 
-                            ? "bg-[rgba(196,168,224,0.08)] border-[rgba(196,168,224,0.25)] shadow-md" 
-                            : "bg-[rgba(255,255,255,0.02)] border-[var(--border-card)] hover:bg-[rgba(255,255,255,0.04)]"
-                        }`}
-                        style={{ padding: '22px 24px', borderRadius: '16px' }}
-                      >
-                        <input 
-                          type="checkbox" 
-                          className="hidden" 
-                          checked={security.use_telegram} 
-                          onChange={(e) => handleChange("use_telegram", e.target.checked)} 
-                        />
-                        <Send 
-                          size={24} 
-                          className={security.use_telegram ? "text-[var(--accent-peach)]" : "text-[var(--text-muted)]"} 
-                          style={{ marginRight: '18px', flexShrink: 0 }}
-                        />
-                        <span 
-                          className={security.use_telegram ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}
-                          style={{ fontSize: '16px', fontWeight: 600 }}
-                        >
-                          Send Telegram Push
-                        </span>
-                      </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 16 }}>
+                  <h4 style={sectionHeadingStyle}>
+                    <PhoneCall style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Alert Channels
+                  </h4>
+                  
+                  {/* SMS */}
+                  <label style={channelRowStyle(security.use_sms, 'emerald')}>
+                    <input type="checkbox" className="hidden" checked={security.use_sms} onChange={(e) => handleChange("use_sms", e.target.checked)} />
+                    <MessageSquare style={{ width: '16px', height: '16px', color: security.use_sms ? 'rgba(52, 211, 153, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '16px', fontWeight: 500, color: security.use_sms ? 'rgba(209, 250, 229, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Send SMS Alert</span>
+                    <div style={toggleTrackStyle(security.use_sms, 'emerald')}>
+                      <div style={toggleThumbStyle(security.use_sms)} />
                     </div>
-                  </div>
+                  </label>
+
+                  {/* Voice Call */}
+                  <label style={channelRowStyle(security.use_voice_call, 'emerald')}>
+                    <input type="checkbox" className="hidden" checked={security.use_voice_call} onChange={(e) => handleChange("use_voice_call", e.target.checked)} />
+                    <PhoneCall style={{ width: '16px', height: '16px', color: security.use_voice_call ? 'rgba(52, 211, 153, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '16px', fontWeight: 500, color: security.use_voice_call ? 'rgba(209, 250, 229, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Make Voice Call (Robot TTS)</span>
+                    <div style={toggleTrackStyle(security.use_voice_call, 'emerald')}>
+                      <div style={toggleThumbStyle(security.use_voice_call)} />
+                    </div>
+                  </label>
+
+                  {/* Telegram */}
+                  <label style={channelRowStyle(security.use_telegram, 'sky')}>
+                    <input type="checkbox" className="hidden" checked={security.use_telegram} onChange={(e) => handleChange("use_telegram", e.target.checked)} />
+                    <Send style={{ width: '16px', height: '16px', color: security.use_telegram ? 'rgba(56, 189, 248, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '16px', fontWeight: 500, color: security.use_telegram ? 'rgba(186, 230, 253, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Send Telegram Push</span>
+                    <div style={toggleTrackStyle(security.use_telegram, 'sky')}>
+                      <div style={toggleThumbStyle(security.use_telegram)} />
+                    </div>
+                  </label>
+                </div>
 
                   <div className="flex flex-col pt-1" style={{ marginTop: 16 }}>
                     <label className={s.label}>

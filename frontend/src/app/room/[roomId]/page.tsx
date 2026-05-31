@@ -13,7 +13,7 @@ import { AddDeviceModal } from "@/components/AddDeviceModal";
 import { useChat } from "@/context/ChatContext";
 
 import {
-  Thermometer, Droplets, Gauge, Eye, Sun, Home, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap, Plus, Cpu, LogOut, Sparkles
+  Thermometer, Droplets, Gauge, Eye, Sun, Activity, WifiOff, ArrowLeft, Cctv, Zap, Lightbulb, PlugZap, Plus, Cpu, LogOut, Sparkles
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -56,7 +56,7 @@ const EmptyModuleState = ({ icon: Icon, title, description, onAdd }: { icon: any
     <div className="p-3 bg-muted rounded-full mb-3 text-muted-foreground/50">
       <Icon className="h-8 w-8" />
     </div>
-    <h3 className="text-sm font-bold text-foreground mb-1">{title}</h3>
+    <h3 className="text-sm font-bold text-white mb-1">{title}</h3>
     <p className="text-xs text-muted-foreground max-w-[250px] mb-4">{description}</p>
     <button onClick={onAdd} className="flex items-center gap-1.5 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-xs font-medium transition-colors">
       <Plus className="w-3.5 h-3.5" /> Configure Device
@@ -256,7 +256,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   const roomPlugs = Object.entries(devices).filter(([_, dev]) => dev.type === "outlet");
 
   return (
-    <div className="min-h-screen bg-background pb-12">
+    <div className="min-h-screen pb-12" style={{ backgroundColor: '#1a1d24' }}>
       <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-30 mb-6">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           
@@ -266,15 +266,15 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
             </Link>
             <div className="h-6 w-[1px] bg-border mx-2"></div>
             <div>
-              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <Home className="h-5 w-5 text-primary" /> {formatTitle(roomId)} Control
+              <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                <svg viewBox="0 0 32 32" fill="none" className="h-5 w-5"><circle cx="8" cy="8" r="3.2" fill="white" /><circle cx="16" cy="5" r="2.8" fill="white" /><circle cx="23" cy="8" r="3.2" fill="white" /><circle cx="6" cy="16" r="2.8" fill="white" /><circle cx="25" cy="16" r="2.8" fill="white" /><circle cx="8" cy="23" r="3.2" fill="white" /><circle cx="16" cy="26" r="2.8" fill="white" /></svg> {formatTitle(roomId)} Control
               </h1>
             </div>
           </div>
 
           <button 
             onClick={handleLogout} 
-            className="flex items-center gap-2 p-2 sm:px-4 sm:py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-bold transition-all border border-red-100"
+            className="flex items-center gap-2 p-2 sm:px-4 sm:py-2.5 rounded-xl text-sm font-bold transition-all" style={{ background: 'rgba(244, 63, 94, 0.08)', border: '1px solid rgba(244, 63, 94, 0.15)', color: '#fb7185' }}
           >
             <LogOut className="w-4 h-4" /> 
             <span className="hidden sm:inline">Logout</span>
@@ -292,7 +292,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
               <Sparkles className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-foreground">Homiee Insight</h3>
+              <h3 className="text-sm font-bold text-white">Homiee Insight</h3>
               <p className="text-sm text-muted-foreground mt-0.5">{aiInsightText}</p>
             </div>
           </div>
@@ -302,7 +302,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Environment Status</h2>
+              <h2 className="text-lg font-semibold text-white">Environment Status</h2>
             </div>
             {!inventory.hasSensor && (
                <button onClick={() => openAddModal("sensor_node")} className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors">
@@ -360,7 +360,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Cctv className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">Live Feed</h2>
+                <h2 className="text-lg font-semibold text-white">Live Feed</h2>
               </div>
               <button onClick={() => openAddModal("camera")} className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors">
                 <Plus className="w-4 h-4" />
@@ -377,7 +377,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">Smart Lighting</h2>
+                <h2 className="text-lg font-semibold text-white">Smart Lighting</h2>
               </div>
               <button onClick={() => openAddModal("bulb")} className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors">
                 <Plus className="w-4 h-4" />
@@ -408,7 +408,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Other Devices</h2>
+              <h2 className="text-lg font-semibold text-white">Other Devices</h2>
             </div>
             <button onClick={() => openAddModal("outlet")} className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors">
               <Plus className="w-4 h-4" />

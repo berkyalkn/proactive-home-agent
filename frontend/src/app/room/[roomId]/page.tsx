@@ -93,7 +93,7 @@ const analyzePressure = (val: number | null) => {
 };
 
 const generateRoomInsight = (sensorData: RoomSensorData | null, roomName: string) => {
-  if (!sensorData) return `Homify is analyzing the ${roomName} environment...`;
+  if (!sensorData) return `Homiee is analyzing the ${roomName} environment...`;
 
   const t = analyzeTemperature(sensorData.temperature);
   const l = analyzeLight(sensorData.light_level);
@@ -292,7 +292,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
               <Sparkles className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-foreground">Homify Insight</h3>
+              <h3 className="text-sm font-bold text-foreground">Homiee Insight</h3>
               <p className="text-sm text-muted-foreground mt-0.5">{aiInsightText}</p>
             </div>
           </div>

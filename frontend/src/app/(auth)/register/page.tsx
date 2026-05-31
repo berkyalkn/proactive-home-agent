@@ -88,7 +88,7 @@ export default function RegisterPage() {
                   <div className={s.headerIcon}>
                     <UserPlus size={28} />
                   </div>
-                  <h1 className={s.title}>Join Homify</h1>
+                  <h1 className={s.title}>Join Homiee</h1>
                   <p className={s.subtitle}>Start your journey with your AI assistant.</p>
                 </div>
 

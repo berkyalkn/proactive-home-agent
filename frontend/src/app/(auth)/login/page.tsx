@@ -409,7 +409,7 @@ export default function LoginPage() {
                       <input
                         type="email"
                         autoFocus
-                        placeholder="alex@homify.com"
+                        placeholder="alex@homiee.com"
                         className={s.input}
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}

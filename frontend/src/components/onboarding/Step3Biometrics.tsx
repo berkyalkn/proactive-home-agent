@@ -311,7 +311,7 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
                   {isRecording ? <><Loader2 className="w-3 h-3 animate-spin text-indigo-400" /> Recording Now...</> : "Read Aloud:"}
                 </p>
                 <p className="text-indigo-200 font-semibold leading-relaxed text-lg text-center italic">
-                  &ldquo;Hey Homify, it&apos;s me. I&apos;m setting up my voice so you can recognize me and help manage our home.&rdquo;
+                  &ldquo;Hey Homiee, it&apos;s me. I&apos;m setting up my voice so you can recognize me and help manage our home.&rdquo;
                 </p>
               </div>
             </div>

@@ -71,7 +71,7 @@ async def add_guest(
         if not existing_user:
             import uuid
             safe_name = guest_name.lower().replace(" ", "")
-            dummy_email = f"guest_{safe_name}_{str(uuid.uuid4())[:6]}@homify.local"
+            dummy_email = f"guest_{safe_name}_{str(uuid.uuid4())[:6]}@homiee.local"
 
             new_guest = User(
                 username=guest_name,

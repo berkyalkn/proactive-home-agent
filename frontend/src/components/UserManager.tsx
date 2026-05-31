@@ -387,7 +387,7 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
                                           <div className="bg-black/40 border border-white/[0.04] p-3 rounded-lg w-full relative overflow-hidden">
                                               {isRecording && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
                                               <p className="text-sm text-indigo-300 font-medium italic relative z-10 leading-relaxed">
-                                                  &quot;Hello Homify, this is my voice signature. Please authorize my access to the secure home network.&quot;
+                                                  &quot;Hello Homiee, this is my voice signature. Please authorize my access to the secure home network.&quot;
                                               </p>
                                           </div>
                                       </div>

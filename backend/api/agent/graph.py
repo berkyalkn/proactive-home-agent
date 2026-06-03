@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain.chat_models import init_chat_model
 from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -15,13 +16,19 @@ from typing import AsyncIterator
 
 load_dotenv()
 
-llm = ChatOllama(
-    model="llama3.1",
-    base_url="http://100.119.128.11:11434",
+llm = ChatOpenAI(
+    base_url="http://100.98.54.6:8080/v1",
+    api_key="not-needed",
+    model="mlx-community/Qwen3.6-35B-A3B-8bit",
     temperature=0.0,
+    max_tokens=4096,     
+    timeout=300        
 )
-
-
+#llm = ChatOllama(
+#    model="llama3.1",
+#    base_url="http://100.119.128.11:11434",
+#    temperature=0.0,
+#)
 #llm = init_chat_model(
 #    "gemini-3-flash-preview", 
 #    model_provider="google_vertexai", 

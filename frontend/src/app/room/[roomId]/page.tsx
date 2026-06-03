@@ -256,6 +256,8 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   const roomBulbs = Object.entries(devices).filter(([_, dev]) => dev.type === "bulb");
   const roomPlugs = Object.entries(devices).filter(([_, dev]) => dev.type === "outlet");
 
+  const cameraDeviceId = Object.keys(inventory.devices).find(key => inventory.devices[key].type === "camera");
+
   return (
     <div className="min-h-screen pb-12" style={{ backgroundColor: '#1a1d24' }}>
       <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-30 mb-6">
@@ -368,7 +370,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
               </button>
             </div>
             {inventory.hasCamera ? (
-              <CameraFeed roomId={roomId} />
+              <CameraFeed roomId={roomId} deviceId={cameraDeviceId} />
             ) : (
               <EmptyModuleState icon={Cctv} title="Camera Feed Offline" description="No RTSP cameras are assigned to this space. Add one via settings to enable live monitoring." onAdd={() => openAddModal("camera")} />
             )}

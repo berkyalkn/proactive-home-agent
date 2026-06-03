@@ -16,11 +16,11 @@ interface SensorCardProps {
 }
 
 const colorStyles = {
-  normal: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
-  warning: "text-amber-500 bg-amber-500/10 border-amber-500/20",
-  critical: "text-rose-500 bg-rose-500/10 border-rose-500/20",
-  info: "text-blue-500 bg-blue-500/10 border-blue-500/20",
-  neutral: "text-muted-foreground bg-muted border-border/50"
+  normal: "text-white bg-emerald-500/10 border-emerald-500/20",
+  warning: "text-white bg-amber-500/10 border-amber-500/20",
+  critical: "text-white bg-rose-500/10 border-rose-500/20",
+  info: "text-white bg-blue-500/10 border-blue-500/20",
+  neutral: "text-white bg-muted border-border/50"
 };
 
 const iconColors = {
@@ -40,7 +40,7 @@ export function SensorCard({
       onClick={onClick}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+        <CardTitle className="text-sm font-medium text-white flex items-center gap-1.5">
           {title}
           
           {tooltipContent && (

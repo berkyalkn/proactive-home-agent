@@ -16,7 +16,11 @@ backend/.env
 
 backend/Vertex_credentials.json
 
+*.tflite
 *.onnx
+
+# Agent data and skills
+.agent/
 backend/data/models/**/*.json
 backend/data/models/**/*.pt
 backend/data/models/**/*.tflite

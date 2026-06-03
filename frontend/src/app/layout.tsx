@@ -7,8 +7,8 @@ import { ChatWidget } from "@/components/ChatWidget";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Homify - AI Smart Home",
-  description: "Proactive Smart Home Agent",
+  title: "HOMIEE - Proactive Smart Home Agent",
+  description: "A home that finally looks out for you. Proactive intelligence, life-saving safety, and absolute privacy.",
 };
 
 export default function RootLayout({
@@ -17,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={`${inter.className} bg-background text-foreground antialiased`}>
         <ChatProvider>
           {children}

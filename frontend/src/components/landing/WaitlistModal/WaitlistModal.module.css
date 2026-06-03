@@ -1,0 +1,114 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal {
+  background: linear-gradient(180deg, #282c35 0%, #2a2a38 50%, #282835 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 48px;
+  width: 90%;
+  max-width: 520px;
+  position: relative;
+  text-align: center;
+  transform: translateY(20px);
+  transition: transform 0.3s ease;
+}
+
+.active .modal {
+  transform: translateY(0);
+}
+
+.closeBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.closeBtn svg {
+  width: 20px;
+  height: 20px;
+  stroke: rgba(255, 255, 255, 0.4);
+  transition: stroke 0.2s;
+}
+
+.closeBtn:hover svg {
+  stroke: #fff;
+}
+
+.modal h3 {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.modal p {
+  font-size: 15px;
+  color: #a0a4ae;
+  margin-bottom: 28px;
+}
+
+.form {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+  padding: 14px 20px;
+  font-size: 15px;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.input:focus {
+  border-color: rgba(196, 168, 224, 0.5);
+}
+
+.submit {
+  background: #fff;
+  color: #000;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, background 0.3s, color 0.3s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.submit:hover {
+  opacity: 0.9;
+}

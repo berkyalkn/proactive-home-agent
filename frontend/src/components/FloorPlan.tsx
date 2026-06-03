@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { MapPin, Thermometer, Eye, Lightbulb, Sofa, BedDouble, Coffee, Activity, Loader2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { MapPin, Sofa, BedDouble, Coffee, Loader2, ArrowRight } from "lucide-react";
+import s from "./dashboard/dashboard.module.css";
 
 const IconMap: Record<string, any> = {
   "Sofa": Sofa,
@@ -36,23 +36,42 @@ export function FloorPlan() {
     fetchRooms();
   }, []);
 
-  if (isLoading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div>;
+  if (isLoading) {
+    return (
+      <div className={s.loadingContainer}>
+        <Loader2 size={28} className={s.loadingSpinner} />
+      </div>
+    );
+  }
+
+  if (rooms.length === 0) {
+    return (
+      <div className={s.emptyState}>
+        <MapPin size={40} className={s.emptyIcon} />
+        <p className={s.emptyTitle}>No Rooms Configured</p>
+        <p className={s.emptyText}>Complete the onboarding process to set up your home topology.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6">
-      <h3 className="text-xl font-bold flex items-center gap-2"><MapPin className="text-indigo-500" /> Home Topology</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+    <div className="w-full max-w-[716px] mx-auto">
+      <div className="flex items-center gap-2 mt-8 px-1">
+        <MapPin size={18} className="text-indigo-400" />
+        <h2 className="text-lg font-bold text-zinc-200">Home Topology</h2>
+      </div>
+
+      <div className={s.roomGrid}>
         {rooms.map((room) => {
           const IconComponent = IconMap[room.icon] || MapPin;
           return (
-            <Link key={room.id} href={`/room/${room.id}`}>
-              <Card className="p-6 hover:border-indigo-500 transition-all cursor-pointer">
-                <div className="p-3 bg-muted rounded-xl w-fit mb-4 text-indigo-400">
-                  <IconComponent className="w-6 h-6" />
-                </div>
-                <h4 className="text-lg font-bold">{room.name}</h4>
-                <p className="text-xs text-muted-foreground mt-2">Access room controls</p>
-              </Card>
+            <Link key={room.id} href={`/room/${room.id}`} className={s.roomCard}>
+              <div className={s.roomCardIcon}>
+                <IconComponent size={22} />
+              </div>
+              <h3 className={s.roomCardName}>{room.name}</h3>
+              <p className={s.roomCardDesc}>Access room controls</p>
+              <ArrowRight size={16} className={s.roomCardArrow} />
             </Link>
           );
         })}

@@ -12,6 +12,7 @@ interface DeviceCardProps {
   power?: number;
   onToggle: (deviceId: string, newStatus: boolean) => void;
   isLoading: boolean;
+  isOnline?: boolean;
 }
 
 export function DeviceCard({
@@ -22,6 +23,7 @@ export function DeviceCard({
   power = 0,
   onToggle,
   isLoading,
+  isOnline = true,
 }: DeviceCardProps) {
 
   const Icon = Plug;
@@ -35,7 +37,7 @@ export function DeviceCard({
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="flex items-center gap-2 text-base font-medium">
-            <div className={`p-2 rounded-lg transition-colors ${isOn ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+            <div className={`p-2 rounded-lg transition-colors ${isOn && isOnline ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
               <Icon className="h-5 w-5" />
             </div>
             {name}
@@ -50,15 +52,18 @@ export function DeviceCard({
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between mt-2">
-          <span className={`text-sm font-medium ${isOn ? "text-foreground" : "text-muted-foreground"}`}>
-            {isOn ? "Active" : "Inactive"}
-          </span>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={`w-1.5 h-1.5 rounded-full ${!isOnline ? "bg-gray-400" : isOn ? "bg-green-500" : "bg-red-400"}`} />
+            <span className={`text-sm font-medium ${isOn && isOnline ? "text-foreground" : "text-muted-foreground"}`}>
+              {!isOnline ? "Offline" : isOn ? "On" : "Off"}
+            </span>
+          </div>
           <Button
-            variant={isOn ? "default" : "outline"}
+            variant={isOn && isOnline ? "default" : "outline"}
             size="sm"
             onClick={() => onToggle(deviceId, !isOn)}
-            disabled={isLoading}
-            className={`min-w-[80px] transition-all ${isOn ? 'shadow-md shadow-primary/20' : ''}`}
+            disabled={isLoading || !isOnline}
+            className={`min-w-[80px] transition-all ${isOn && isOnline ? 'shadow-md shadow-primary/20' : ''}`}
           >
             <Power className="h-3.5 w-3.5 mr-1.5" />
             {isOn ? "Turn Off" : "Turn On"}

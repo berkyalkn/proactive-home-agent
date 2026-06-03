@@ -26,11 +26,11 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
     updateTime();
     const timer = setInterval(updateTime, 1000);
 
-    setStreamUrl(`http://127.0.0.1:5001/video_feed?t=${Date.now()}`);
+    setStreamUrl(`http://127.0.0.1:5002/video_feed?t=${Date.now()}`);
 
     return () => {
       clearInterval(timer);
-      setStreamUrl(""); 
+      setStreamUrl("");
     };
   }, []);
 
@@ -55,7 +55,7 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
 
   return (
     <Card className="overflow-hidden border border-border/50 bg-card/40 shadow-sm transition-all duration-300">
-      
+
       <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 border-b border-border/50">
         <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
           <Cctv className="h-4 w-4 text-primary" />
@@ -108,7 +108,7 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
           </div>
 
           <div className="absolute bottom-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <button 
+            <button
               onClick={toggleFullscreen}
               className="p-1.5 bg-black/50 text-white rounded hover:bg-primary hover:text-primary-foreground transition-colors backdrop-blur-sm"
               title={isFullscreen ? "Küçült" : "Tam Ekran"}

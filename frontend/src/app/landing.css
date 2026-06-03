@@ -1,0 +1,101 @@
+/* DESING landing page — scoped global styles */
+/* Uses high-specificity selectors to survive Tailwind's base layer reset */
+
+.landing-scope {
+  --bg-primary: #1a1d24;
+  --bg-secondary: #22262e;
+  --bg-card: #282c35;
+  --bg-card-hover: #2e323c;
+  --text-primary: #f0f0f2;
+  --text-secondary: #a0a4ae;
+  --text-muted: #6b6f7a;
+  --accent-lavender: #c4a8e0;
+  --accent-pink: #d4a0c0;
+  --accent-blue: #7eb8d8;
+  --accent-orange: #e8956a;
+  --accent-peach: #f0c8a0;
+  --accent-warm: #e8c078;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-card: rgba(255, 255, 255, 0.08);
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-pill: 100px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-brand: 'Inter', sans-serif;
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --max-width: 1200px;
+
+  font-family: var(--font) !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  line-height: 1.6;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+:where(.landing-scope) *,
+:where(.landing-scope) *::before,
+:where(.landing-scope) *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:where(.landing-scope) a {
+  text-decoration: none !important;
+  color: inherit;
+  transition: var(--transition);
+}
+
+:where(.landing-scope) img {
+  max-width: 100%;
+  display: block;
+}
+
+:where(.landing-scope) button {
+  font-family: var(--font);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.landing-scope::-webkit-scrollbar {
+  width: 6px;
+}
+
+.landing-scope::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.landing-scope::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+/* Global utility classes — must be defined with .landing-scope prefix */
+.landing-scope .container {
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+  padding: 0 24px !important;
+  width: 100% !important;
+}
+
+.landing-scope .fadeIn {
+  opacity: 0 !important;
+  transform: translateY(30px) !important;
+  transition: opacity 0.8s ease, transform 0.8s ease !important;
+}
+
+.landing-scope .fadeIn.visible {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
+/* SplashScreen body override */
+body.splashActive {
+  overflow: hidden !important;
+}

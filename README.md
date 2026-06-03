@@ -21,6 +21,8 @@
 
 ![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-A22846?style=for-the-badge&logo=raspberry-pi&logoColor=white)
 ![MicroPython](https://img.shields.io/badge/MicroPython-2B3A42?style=for-the-badge&logo=micropython&logoColor=white)
+![WebRTC](https://img.shields.io/badge/WebRTC-333333?style=for-the-badge&logo=webrtc&logoColor=white)
+![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=socketdotio&logoColor=white)
 ![MQTT](https://img.shields.io/badge/MQTT-3C5280?style=for-the-badge&logo=mqtt&logoColor=white)
 ![Espressif](https://img.shields.io/badge/Espressif-E7352C?style=for-the-badge&logo=espressif&logoColor=white)
 ![Twilio](https://img.shields.io/badge/Twilio-F22F46?style=for-the-badge&logo=twilio&logoColor=white)
@@ -51,7 +53,7 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 | **L5** | **Presentation** | Next.js Dashboard, **5-Step Autonomous Onboarding Engine**, an independent Omnichannel **Security Hub**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with event-driven auto-microphone triggering. |
 | **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision (YOLOv8-Face Alignment + GhostFaceNet Biometrics + Asynchronous MediaPipe Gestures), and Predictive Models. It filters intents through a 3-stage logic (Edge -> Local RAG -> Cloud LLM) and utilizes Zero-Latency Omniscient Context Injection and Graceful Degradation. |
 | **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, **dynamic relational data persistence (PostgreSQL/SQLModel)** replacing static registries, omnichannel notifications (Twilio/Telegram), presence ledgers, and real-time System Integrity Diagnostics. |
-| **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST(Edge Node Image Transmission/External APIs) ensuring <50ms local latency. |
+| **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST for external APIs. Video streaming is completely decoupled via **go2rtc**, ensuring <100ms ultra-low latency WebRTC/MSE tunneling across local networks and VPNs (Tailscale). |
 | **L1** | **Physical** | Distributed hardware layer consisting of the Pi 5 Hub, ESP32 Sensor Nodes, Tapo Actuators, and Edge Camera Nodes running a 4-Layer Quality Gate. |
 
 ---
@@ -149,6 +151,7 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 | **ORM**| **SQLModel** | Modern ORM bridging SQL tables with Pydantic models, enabling the dynamic, registry-free hardware architecture. |
 | **Server** | **Uvicorn** | Lightning-fast ASGI server implementation to run the FastAPI application. |
 | **IoT Broker** | **Eclipse Mosquitto** | Lightweight MQTT broker handling pub/sub messaging between ESP32 nodes and the Pi.|
+| **Media Server** | **go2rtc** | Ultra-lightweight (Zero-Copy) media server running on the Raspberry Pi, converting RTSP feeds into WebRTC/MSE on-the-fly with <1% CPU overhead. |
 | **External API**| **Twilio SDK** | Facilitates automated SMS and Voice Call dispatching during emergency protocols.|
 | **External API**| **Telegram API** | Handled via asynchronous HTTP requests (`httpx`) for markdown-rich security push notifications. |
 
@@ -160,6 +163,7 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 | **Styling** | **Tailwind CSS** | Utility-first styling with a glassmorphism design language. |
 | **Realtime** | **Websockets** | Bi-directional communication for audio streaming and sensor updates. |
 | **Visualization**| **Recharts** |Rendering historical sensor data charts.|
+| **Video Streaming** | **WebRTC / MSE** | Replaces heavy MJPEG endpoints. Utilizes Media Source Extensions (TCP-based WebSocket streaming) to bypass UDP packet loss over VPNs, rendering zero-latency native iframe feeds. |
 | **Icons** | **Lucide React** | Consistent and modern UI iconography.|
 
 ### Hardware & IoT Drivers
@@ -192,8 +196,9 @@ The ecosystem has successfully evolved from a cloud-dependent architecture (Open
 - **Instant Voice Recognition (STT):** Replaces cloud APIs with **Faster-Whisper**, transcribing spoken commands in under a second directly on the edge, bypassing internet delays completely.
 - **Natural Voice Responses (TTS):** Employs **Piper TTS** for high-fidelity speech synthesis. Engineered for ultimate stability, it delivers crash-proof, instant voice responses without ever sending your voice data to the cloud.
 
-### Extreme CPU Optimization via Edge Computing
-- By shifting the burden of frame processing, **Quality Gating, and MJPEG encoding** to the edge nodes (cameras) and utilizing **KCF Object Tracking**, the central Raspberry Pi 5 Hub is relieved from analyzing continuous video feeds. The Pi only runs the heavy GhostFaceNet model once during initial entry. Subsequent presence updates are handled via lightweight JSON payloads, keeping the Hub's CPU usage minimal and preventing Thermal Throttling.
+### Extreme CPU Optimization & Zero-Copy Streaming
+- **Media Server Decoupling:** By shifting the video streaming burden entirely to **go2rtc**, the central Raspberry Pi 5 Hub is relieved from analyzing or transcoding continuous video feeds. Instead of melting the CPU with OpenCV MJPEG encoding, the system routes the raw RTSP packets directly to the browser via **WebRTC/MSE**, reducing streaming CPU load from ~70% to `<1%`.
+- **Edge Vision Bypassing:** The Pi only runs the heavy GhostFaceNet model once during initial entry. Subsequent presence updates are handled via lightweight JSON payloads (KCF Tracking), preventing Thermal Throttling completely.
 
 ### Spatial & Temporal Context Awareness
 - The system doesn't just know who is home; it knows where they are and when they moved. Edge nodes inject room-specific spatial data, and the Presence Service maintains a timezone-aware history ledger. Combined with an event-driven last_seen database update mechanism, the AI agent possesses a persistent, true sense of time and location across reboots.
@@ -233,9 +238,11 @@ The system completely redefines the traditional login/register flow by treating 
 
 - **5-Point Identity Enrollment:** A sophisticated UI guides users to register their face from 5 different angles (Front, Left, Right, Up, Down) while simultaneously capturing voice signatures, ensuring bulletproof identity verification across all lighting and positional conditions.
 
-- **Real-Time Edge Video Streaming:** Integrates MJPEG streams with aggressive frontend cache-busting mechanisms and dynamic skeleton loaders, eliminating browser ghost-connections and ensuring zero-refresh, instant live camera feeds.
+### Zero-Latency WebRTC Video Streaming
 
----
+- **Native MSE Iframe Integration:** Replaced legacy, bandwidth-heavy HTTP MJPEG streams with a direct `go2rtc` iframe component. This natively bypasses React 18 Strict Mode double-mounting issues and Chrome's Autoplay restrictions.
+
+- **VPN & Network Resiliency:** Automatically switches from standard WebRTC (UDP) to **MSE (Media Source Extensions - TCP)** to prevent packet loss and MTU bottlenecks when routing high-res video traffic through Tailscale VPN tunnels, guaranteeing a butter-smooth, uninterrupted feed.
 
 ## Future Roadmap
 

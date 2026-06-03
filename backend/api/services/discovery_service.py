@@ -100,75 +100,90 @@ class DiscoveryService:
         esp_scan_task = asyncio.create_task(self.scan_for_esp_nodes(duration=4.0))
 
         subnet = self.detect_local_subnet()
-        logger.info(f"[Discovery] Scanning Tapo devices on subnet: {subnet}")
+        logger.info(f"[Discovery] Scanning Tapo devices and Cameras on subnet: {subnet}")
+        
+        sem = asyncio.Semaphore(8)
         
         async def check_tapo_ip(ip_end):
             if ip_end == 1: 
                 return 
 
             ip = f"{subnet}{ip_end}"
-
-            try:
-                reader, writer = await asyncio.wait_for(
-                    asyncio.open_connection(ip, 80), timeout=0.5
-                )
-                writer.close()
-                await writer.wait_closed()
-                
-                device_type = "unknown"
-                model_name = "Unknown Tapo"
-
-                if not self.tapo_user or not self.tapo_pass:
-                    device_type = "outlet"
-                    model_name = "Generic Tapo (No Auth)"
-                else:
-                    fetched_model = ""
-                    try:
-                        fetched_model = await asyncio.wait_for(
-                            get_device_model(ip, self.tapo_user, self.tapo_pass),
-                            timeout=8.0
-                        )
-                    except Exception:
-                        pass
+            
+            async with sem: 
+                try:
+                    reader, writer = await asyncio.wait_for(
+                        asyncio.open_connection(ip, 2020), timeout=0.5
+                    )
+                    writer.close()
+                    await writer.wait_closed()
                     
-                    if fetched_model:
-                        model_name = fetched_model
-                        
-                        if any(x in fetched_model for x in ["L5", "BULB", "L6"]):
-                            device_type = "bulb"
-                        elif any(x in fetched_model for x in ["P1", "PLUG", "T100"]):
-                            device_type = "outlet"
-                        else:
-                            device_type = "outlet" 
-                    else:
+                    discovered_devices.append({
+                        "id": f"camera-{ip}",
+                        "display_name": f"Tapo Camera ({ip})",
+                        "ip": ip,
+                        "model": "Tapo C-Series Camera",
+                        "type": "camera"
+                    })
+                    logger.info(f"[Discovery] Identified {ip} as Tapo Camera (camera)")
+                    return 
+                except Exception:
+                    pass 
+
+                try:
+                    reader, writer = await asyncio.wait_for(
+                        asyncio.open_connection(ip, 80), timeout=1.5
+                    )
+                    writer.close()
+                    await writer.wait_closed()
+                    
+                    device_type = "unknown"
+                    model_name = "Unknown Tapo"
+
+                    if not self.tapo_user or not self.tapo_pass:
                         device_type = "outlet"
-                        model_name = "Tapo (Unverified)"
-                
-                discovered_devices.append({
-                    "id": f"tapo-{ip}",
-                    "display_name": f"Tapo {model_name} ({ip})",
-                    "ip": ip,
-                    "model": model_name,
-                    "type": device_type
-                })
-                logger.info(f"[Discovery] Identified {ip} as {model_name} ({device_type})")
-                
-            except Exception:
-                pass
+                        model_name = "Generic Tapo (No Auth)"
+                    else:
+                        fetched_model = ""
+                        try:
+                            await asyncio.sleep(0.2) 
+                            fetched_model = await asyncio.wait_for(
+                                get_device_model(ip, self.tapo_user, self.tapo_pass),
+                                timeout=8.0
+                            )
+                        except Exception:
+                            pass
+                        
+                        if fetched_model:
+                            model_name = fetched_model
+                            
+                            if any(x in fetched_model for x in ["L5", "BULB", "L6"]):
+                                device_type = "bulb"
+                            elif any(x in fetched_model for x in ["P1", "PLUG", "T100"]):
+                                device_type = "outlet"
+                            else:
+                                device_type = "outlet" 
+                        else:
+                            device_type = "outlet"
+                            model_name = "Tapo (Unverified)"
+                    
+                    discovered_devices.append({
+                        "id": f"tapo-{ip}",
+                        "display_name": f"Tapo {model_name} ({ip})",
+                        "ip": ip,
+                        "model": model_name,
+                        "type": device_type
+                    })
+                    logger.info(f"[Discovery] Identified {ip} as {model_name} ({device_type})")
+                    
+                except Exception:
+                    pass
 
         tasks = [check_tapo_ip(i) for i in range(2, 50)]
         await asyncio.gather(*tasks)
 
         esp_devices = await esp_scan_task
         discovered_devices.extend(esp_devices)
-
-        discovered_devices.append({
-            "id": "mac-cam-internal", 
-            "model": "MacBook-Facetime", 
-            "ip": "127.0.0.1", 
-            "type": "camera", 
-            "display_name": "Local RTSP Camera"
-        })
 
         return discovered_devices
 

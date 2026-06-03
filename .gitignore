@@ -24,3 +24,7 @@ backend/Vertex_credentials.json
 backend/data/models/**/*.json
 backend/data/models/**/*.pt
 backend/data/models/**/*.tflite
+
+# Media Server (Local binaries and secrets)
+go2rtc
+go2rtc.yaml

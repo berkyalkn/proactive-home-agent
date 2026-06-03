@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from contextlib import asynccontextmanager
 
-from api.routers import sensors_router, devices_router, chat_router, user_router, vision_router, auth_router, onboarding_router, rooms_router, discovery_router, gesture_router
+from api.routers import sensors_router, devices_router, chat_router, user_router, vision_router, auth_router, onboarding_router, rooms_router, discovery_router, gesture_router, camera_router
 from api.drivers import mqtt_service
 from api.services import tapo_poller
 
@@ -57,6 +57,7 @@ app.include_router(onboarding_router.router)
 app.include_router(rooms_router.router)
 app.include_router(discovery_router.router)
 app.include_router(gesture_router.router)
+app.include_router(camera_router.router)
 
 @app.get("/")
 def read_root():

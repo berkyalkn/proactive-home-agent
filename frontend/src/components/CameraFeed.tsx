@@ -1,20 +1,20 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Cctv, Circle, AlertCircle, Maximize, Minimize } from "lucide-react";
+import { Cctv, Circle, Maximize, Minimize } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface CameraFeedProps {
   roomId: string;
+  deviceId?: string; 
 }
 
-export function CameraFeed({ roomId }: CameraFeedProps) {
-  const [isOnline, setIsOnline] = useState(true);
+export function CameraFeed({ roomId, deviceId }: CameraFeedProps) {
+  const [isOnline, setIsOnline] = useState(false);
   const [timeString, setTimeString] = useState("");
   const [dateString, setDateString] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [streamUrl, setStreamUrl] = useState("");
-
+  
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -25,13 +25,7 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
     };
     updateTime();
     const timer = setInterval(updateTime, 1000);
-
-    setStreamUrl(`http://127.0.0.1:5002/video_feed?t=${Date.now()}`);
-
-    return () => {
-      clearInterval(timer);
-      setStreamUrl("");
-    };
+    return () => clearInterval(timer);
   }, []);
 
   const toggleFullscreen = async () => {
@@ -55,46 +49,35 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
 
   return (
     <Card className="overflow-hidden border border-border/50 bg-card/40 shadow-sm transition-all duration-300">
-
       <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 border-b border-border/50">
         <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
           <Cctv className="h-4 w-4 text-primary" />
-          CAM-{roomId.substring(0, 3).toUpperCase()}01
+          CAM-{roomId.substring(0, 3).toUpperCase()}-{(deviceId || "01").substring(0, 4)}
         </CardTitle>
 
         <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${isOnline ? "bg-red-500/10 text-red-500" : "bg-muted text-muted-foreground"}`}>
           <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-red-500 animate-pulse" : "bg-muted-foreground"}`} />
-          {isOnline ? "LIVE" : "NO SIGNAL"}
+          {isOnline ? "LIVE" : "CONNECTING..."}
         </div>
       </CardHeader>
 
       <CardContent className="p-0 relative group">
         <div ref={containerRef} className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
 
-          {streamUrl && (
-            <img
-              src={streamUrl}
-              alt="Live Camera Stream"
-              className={`w-full h-full object-cover transition-opacity duration-700 ease-out ${isOnline ? 'opacity-100' : 'opacity-0'}`}
-              onError={() => setIsOnline(false)}
-              onLoad={() => setIsOnline(true)}
-            />
-          )}
-
-          {!isOnline && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-900/80 backdrop-blur-sm z-10">
-              <AlertCircle className="h-10 w-10 text-red-500/50" />
-              <span className="text-xs tracking-widest uppercase font-semibold text-zinc-300">Connection Lost</span>
-              <span className="text-[10px] text-zinc-500">Checking edge node telemetry...</span>
-            </div>
-          )}
+          <iframe
+            src="http://100.105.136.5:1984/stream.html?src=living_room_cam&mode=mse"
+            className="w-full h-full object-cover"
+            style={{ border: 'none', pointerEvents: 'none' }} 
+            allow="autoplay; fullscreen"
+            onLoad={() => setIsOnline(true)}
+          />
 
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] pointer-events-none z-10"></div>
 
           <div className="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/60 to-transparent flex flex-col z-20 pointer-events-none select-none">
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-white font-mono tracking-widest uppercase bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-[2px]">
-                CAM: {roomId.toUpperCase()}
+                ROOM: {roomId.toUpperCase()}
               </span>
               {isOnline && (
                 <span className="text-[10px] text-red-500 font-bold tracking-wider animate-pulse flex items-center gap-1 bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-[2px]">
@@ -125,8 +108,8 @@ export function CameraFeed({ roomId }: CameraFeedProps) {
             {isOnline ? "System Active" : "Stream Offline"}
           </span>
           <span className="font-mono opacity-60 flex items-center gap-2">
-            {isOnline && <span>30 FPS</span>}
-            <span>MJPEG Stream</span>
+            {isOnline && <span className="text-blue-400 font-bold">WebRTC / Native</span>}
+            <span>Ultra-Low Latency</span>
           </span>
         </div>
       </CardContent>

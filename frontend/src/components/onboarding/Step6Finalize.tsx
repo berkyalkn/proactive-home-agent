@@ -84,7 +84,7 @@ export default function Step6Finalize({ formData, onPrev }: Props) {
               />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {BUILD_STEPS.map((step, index) => {
                 const isCompleted = currentStepIndex > index;
                 const isCurrent = currentStepIndex === index;
@@ -113,7 +113,7 @@ export default function Step6Finalize({ formData, onPrev }: Props) {
                         <step.icon size={18} />
                       </div>
                       <span 
-                        className="text-sm font-semibold"
+                        className="text-base font-semibold"
                         style={{ color: isCurrent || isCompleted ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.4)' }}
                       >
                         {step.label}
@@ -168,7 +168,7 @@ export default function Step6Finalize({ formData, onPrev }: Props) {
                 >
                   Setup Summary
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: '16px', columnGap: '16px', marginTop: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: '16px', columnGap: '16px', marginTop: '16px', marginLeft: '12px', marginBottom: '12px' }}>
                   <div>
                     <span className="block text-[11px] uppercase font-semibold" style={{ color: 'rgba(255, 255, 255, 0.8)', opacity: 0.65 }}>Home Name</span>
                     <span className="text-sm font-bold" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>{formData.homeName || 'My Home'}</span>
@@ -204,7 +204,7 @@ export default function Step6Finalize({ formData, onPrev }: Props) {
                 >
                   Activated Features
                 </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px', marginLeft: '12px', marginBottom: '12px' }}>
                   <div className="flex items-center gap-3 text-sm" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                     <CheckCircle2 size={16} className="text-[var(--accent-orange)] shrink-0" />
                     <span>Biometric Identity Verification (Face & Voice ID) active</span>

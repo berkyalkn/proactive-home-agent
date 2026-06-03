@@ -107,7 +107,7 @@ async def get_home_status():
                 for plug in plugs:
                     dev_info = cached_devices.get(plug.name)
                     disp_name = plug.display_name or plug.name
-                    if dev_info:
+                    if dev_info and dev_info.get("online", True):
                         state = "ON" if dev_info.get("on") else "OFF"
                         power = dev_info.get("power", 0)
                         plug_reports.append(f"{disp_name}: {state} ({power}W)")
@@ -120,7 +120,7 @@ async def get_home_status():
                 for bulb in bulbs:
                     dev_info = cached_devices.get(bulb.name)
                     disp_name = bulb.display_name or bulb.name
-                    if dev_info:
+                    if dev_info and dev_info.get("online", True):
                         state = "ON" if dev_info.get("on") else "OFF"
                         bright = dev_info.get("brightness", 0)
                         bulb_reports.append(f"{disp_name}: {state} ({bright}%)")

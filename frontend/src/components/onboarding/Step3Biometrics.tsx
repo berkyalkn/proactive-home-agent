@@ -213,8 +213,8 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
           <motion.div key="intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full relative z-10 flex flex-col h-full">
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="flex justify-center gap-4 mb-6">
-                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-indigo-400 shadow-sm"><ScanFace className="w-8 h-8" /></div>
-                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-indigo-400 shadow-sm"><Mic className="w-8 h-8" /></div>
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-white shadow-sm"><ScanFace className="w-8 h-8" fill="#FFFFFF" /></div>
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-white shadow-sm"><Mic className="w-8 h-8" fill="#FFFFFF" /></div>
               </div>
 
               <h2 className={s.title}>Personalize Your Assistant</h2>
@@ -306,11 +306,11 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
               <h3 className={s.title}>Voice Recognition</h3>
               <p className={s.subtitle} style={{ marginBottom: 24 }}>Read the phrase below in your normal voice. Press finish when you&apos;re done.</p>
               
-              <div className={`p-6 rounded-2xl mb-8 w-full max-w-md transition-all border ${isRecording ? 'border-indigo-500/30 bg-indigo-500/5 shadow-[0_0_20px_rgba(99,102,241,0.08)]' : 'bg-white/5 border-white/10'}`}>
+              <div className={`p-10 rounded-2xl my-10 mx-8 w-full max-w-[540px] transition-all border ${isRecording ? 'border-indigo-500/30 bg-indigo-500/5 shadow-[0_0_20px_rgba(99,102,241,0.08)]' : 'bg-white/5 border-white/10'}`}>
                 <p className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-widest flex items-center justify-center gap-1">
                   {isRecording ? <><Loader2 className="w-3 h-3 animate-spin text-indigo-400" /> Recording Now...</> : "Read Aloud:"}
                 </p>
-                <p className="text-indigo-200 font-semibold leading-relaxed text-lg text-center italic">
+                <p className="text-indigo-200 font-semibold leading-relaxed text-lg text-center italic" style={{ fontFamily: 'var(--font), sans-serif' }}>
                   &ldquo;Hey Homiee, it&apos;s me. I&apos;m setting up my voice so you can recognize me and help manage our home.&rdquo;
                 </p>
               </div>

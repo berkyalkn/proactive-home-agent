@@ -1,5 +1,8 @@
 from fastapi import WebSocket
 from typing import List
+import logging
+
+logger = logging.getLogger(__name__)
 
 class WebSocketManager:
     def __init__(self):
@@ -32,11 +35,15 @@ class WebSocketManager:
 
     async def broadcast_json(self, data: dict):
         """It sends JSON data to all connected users (for sensors)."""
+        stale_connections = []
         for connection in list(self.active_connections):
             try:
                 await connection.send_json(data)
-            except Exception as e:
-                print(f"Broadcast Error: {e}")
-                self.disconnect(connection)
+            except (RuntimeError, Exception):
+                stale_connections.append(connection)
+
+        for conn in stale_connections:
+            self.disconnect(conn)
+            logger.debug(f"Removed stale WebSocket connection during broadcast.")
 
 manager = WebSocketManager()

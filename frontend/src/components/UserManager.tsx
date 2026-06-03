@@ -157,7 +157,7 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
       form1.append("image_file", faces.front as Blob, "front.jpg");
       if (audioBlob) form1.append("audio_file", audioBlob, "voice_sample.webm");
       
-      let res = await fetch(`${API_URL}/users/add-guest`, { 
+      const res = await fetch(`${API_URL}/users/add-guest`, { 
           method: "POST", 
           body: form1,
           headers: { 'Authorization': `Bearer ${token}` }
@@ -380,13 +380,13 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
                                           <Mic className={`w-6 h-6 ${isRecording ? "text-red-500 animate-pulse" : "text-zinc-500"}`}/>
                                       </div>
                                       
-                                      <div className="text-center space-y-2 w-full">
+                                      <div className="text-center space-y-2 w-full flex flex-col items-center">
                                           <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
                                               {isRecording ? "Reading in progress..." : "Please read the text below"}
                                           </p>
-                                          <div className="bg-black/40 border border-white/[0.04] p-3 rounded-lg w-full relative overflow-hidden">
-                                              {isRecording && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
-                                              <p className="text-sm text-indigo-300 font-medium italic relative z-10 leading-relaxed">
+                                          <div className={`p-10 rounded-2xl my-10 mx-8 w-full max-w-[540px] transition-all border relative overflow-hidden ${isRecording ? 'border-indigo-500/30 bg-indigo-500/5 shadow-[0_0_20px_rgba(99,102,241,0.08)]' : 'bg-white/5 border-white/10'}`}>
+                                              {isRecording && <div className="absolute inset-0 bg-indigo-500/5 animate-pulse" />}
+                                              <p className="text-indigo-200 font-semibold leading-relaxed text-lg text-center italic relative z-10" style={{ fontFamily: 'var(--font), sans-serif' }}>
                                                   &quot;Hello Homiee, this is my voice signature. Please authorize my access to the secure home network.&quot;
                                               </p>
                                           </div>

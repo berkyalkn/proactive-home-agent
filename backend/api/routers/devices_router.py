@@ -125,12 +125,12 @@ async def get_all_devices() -> Dict[str, dict]:
                 current_power = 0.0
 
         if is_online:
-            device_response = {"name": human_name, "on": is_on, "type": device_type, "power": round(current_power, 2)}
+            device_response = {"name": human_name, "on": is_on, "type": device_type, "power": round(current_power, 2), "online": True}
             if device_type == "bulb":
                 device_response.update({"brightness": bulb_brightness, "hue": bulb_hue, "saturation": bulb_saturation})
             response_state[device_id] = device_response
         else:
-            device_response = {"name": f"{human_name} (Offline)", "on": False, "type": device_type, "power": 0.0}
+            device_response = {"name": human_name, "on": False, "type": device_type, "power": 0.0, "online": False}
             if device_type == "bulb":
                 device_response.update({"brightness": 0, "hue": 0, "saturation": 0})
             response_state[device_id] = device_response

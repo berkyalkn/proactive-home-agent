@@ -582,23 +582,20 @@
 
 /* ─── Room Cards Grid ─── */
 .roomGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 32px;
   width: 100%;
   margin-top: 16px;
-}
-
-@media (max-width: 768px) {
-  .roomGrid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .roomCard {
   position: relative;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
   padding: 24px;
   background: rgba(40, 44, 53, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -871,9 +868,7 @@
     padding: 14px 16px;
   }
 
-  .roomGrid {
-    grid-template-columns: 1fr;
-  }
+  /* roomGrid column collapse removed to keep cards side-by-side on all screens */
 
   .flyoutPanel {
     width: 100%;

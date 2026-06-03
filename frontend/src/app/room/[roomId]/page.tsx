@@ -35,6 +35,7 @@ interface Device {
   brightness?: number;
   hue?: number;
   saturation?: number;
+  online?: boolean;
 }
 type DeviceState = Record<string, Device>;
 
@@ -100,7 +101,7 @@ const generateRoomInsight = (sensorData: RoomSensorData | null, roomName: string
 
   let insight = "Environmental conditions are currently optimal.";
   let needsAction = false;
-  let actions = [];
+  const actions: string[] = [];
 
   if (t.color === "critical") { needsAction = true; actions.push("turn on the AC"); }
   else if (t.color === "info") { needsAction = true; actions.push("turn on the heating"); }
@@ -287,7 +288,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
         <VoiceCommandCenter />
 
         {inventory.hasSensor && sensorData && (
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-4 !mt-12">
             <div className="p-2 bg-primary/10 rounded-full mt-0.5">
               <Sparkles className="w-5 h-5 text-primary" />
             </div>
@@ -419,7 +420,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
             roomPlugs.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {roomPlugs.map(([id, dev]) => (
-                  <DeviceCard key={id} deviceId={id} name={dev.name} type={dev.type as "outlet"} isOn={dev.on} power={dev.power} onToggle={handleToggleDevice} isLoading={isLoading} />
+                  <DeviceCard key={id} deviceId={id} name={dev.name} type={dev.type as "outlet"} isOn={dev.on} power={dev.power} onToggle={handleToggleDevice} isLoading={isLoading} isOnline={dev.online} />
                 ))}
               </div>
             ) : (

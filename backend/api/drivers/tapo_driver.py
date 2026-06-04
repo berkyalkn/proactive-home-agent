@@ -1,24 +1,21 @@
 from tapo import ApiClient
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 logging.getLogger("tapo.api.protocol.klap_protocol").setLevel(logging.CRITICAL)
 
 async def connect_tapo_device(ip: str, username: str, password: str) -> ApiClient | None:
-    """Tries to connect to a Tapo device at a specific IP address."""
-
     try:
         client = ApiClient(username, password)
-        device = await client.p110(ip)
+        device = await asyncio.wait_for(client.p110(ip), timeout=4.0)
         logger.info(f"'{ip}' connected successfully.")
         return device
     except Exception as e:
         logger.error(f"'{ip}' connection failed: {e}")
         return None
 
-async def get_tapo_status(device: ApiClient) -> dict:
-    """Gets the status of a connected Tapo device."""
-
+async def get_tapo_status(device) -> dict:
     try:
         info = await device.get_device_info()
         is_on = info.to_dict().get("device_on", False)
@@ -27,9 +24,7 @@ async def get_tapo_status(device: ApiClient) -> dict:
         logger.error(f"Tapo device status reading failed: {e}")
         return {"on": False, "error": "Offline"}
 
-async def set_tapo_status(device: ApiClient, set_on: bool):
-    """Sets the status of a connected Tapo device (turns it on/off)."""
-
+async def set_tapo_status(device, set_on: bool):
     try:
         if set_on:
             await device.on()
@@ -39,23 +34,17 @@ async def set_tapo_status(device: ApiClient, set_on: bool):
         logger.error(f"Tapo device control failed: {e}")
         raise e
 
-
 async def connect_tapo_bulb(ip: str, username: str, password: str):
-    """Connects to a Tapo L530 smart bulb at the specified IP address."""
-
     try:
         client = ApiClient(username, password)
-        device = await client.l530(ip)
+        device = await asyncio.wait_for(client.l530(ip), timeout=4.0)
         logger.info(f"Tapo L530 Bulb '{ip}' connected successfully.")
         return device
     except Exception as e:
         logger.error(f"Tapo L530 Bulb '{ip}' connection failed: {e}")
         return None
 
-
 async def get_bulb_status(device) -> dict:
-    """Gets the current status of a Tapo L530 bulb (on/off, brightness, hue, saturation)."""
-
     try:
         info = await device.get_device_info()
         data = info.to_dict()
@@ -78,18 +67,11 @@ async def get_bulb_status(device) -> dict:
     except Exception as e:
         logger.error(f"Tapo L530 Bulb status reading failed: {e}")
         return {
-            "on": False,
-            "brightness": 0,
-            "hue": 0,
-            "saturation": 0,
-            "color_temp": 0,
-            "error": "Offline"
+            "on": False, "brightness": 0, "hue": 0, "saturation": 0,
+            "color_temp": 0, "error": "Offline"
         }
 
-
 async def set_bulb_status(device, set_on: bool):
-    """Turns a Tapo L530 bulb on or off."""
-
     try:
         if set_on:
             await device.on()
@@ -99,56 +81,28 @@ async def set_bulb_status(device, set_on: bool):
         logger.error(f"Tapo L530 Bulb power control failed: {e}")
         raise e
 
-
 async def set_bulb_brightness(device, brightness: int):
-    """Sets the brightness of a Tapo L530 bulb (1-100)."""
-
     try:
         clamped = max(1, min(100, brightness))
         await device.set_brightness(clamped)
-        logger.info(f"Tapo L530 Bulb brightness set to {clamped}%")
     except Exception as e:
         logger.error(f"Tapo L530 Bulb brightness control failed: {e}")
         raise e
 
-
 async def set_bulb_color(device, hue: int, saturation: int):
-    """Sets the color of a Tapo L530 bulb (hue: 0-360, saturation: 0-100).
-    If saturation is 0 (white/daylight), uses color temperature instead.
-    """
-
     try:
         hue_clamped = max(0, min(360, hue))
         sat_clamped = max(0, min(100, saturation))
         
         if sat_clamped == 0:
             await device.set_color_temperature(6500)
-            logger.info(f"Tapo L530 Bulb set to daylight mode (6500K)")
         else:
             await device.set_hue_saturation(hue_clamped, sat_clamped)
-            logger.info(f"Tapo L530 Bulb color set to hue={hue_clamped}, saturation={sat_clamped}")
     except Exception as e:
         logger.error(f"Tapo L530 Bulb color control failed: {e}")
         raise e
 
-
-async def set_bulb_color_temperature(device, color_temp: int):
-    """Sets the color temperature of a Tapo L530 bulb (2500-6500K)."""
-    
-    try:
-        temp_clamped = max(2500, min(6500, color_temp))
-        await device.set_color_temperature(temp_clamped)
-        logger.info(f"Tapo L530 Bulb color temperature set to {temp_clamped}K")
-    except Exception as e:
-        logger.error(f"Tapo L530 Bulb color temperature control failed: {e}")
-        raise e
-
-
 async def get_device_model(ip: str, username: str, password: str, retries: int = 3) -> str:
-    """
-    Rust tolerates hardware fatigue and IoT connection issues, and finds the true model of the device with 100% accuracy.
-    (Memory Leak & Ghost Connection koruması eklendi)
-    """
     import asyncio 
     client = ApiClient(username, password)
     
@@ -156,7 +110,7 @@ async def get_device_model(ip: str, username: str, password: str, retries: int =
         device = None
         try:
             device = await asyncio.wait_for(client.l530(ip), timeout=2.0)
-            info = await asyncio.wait_for(device.get_device_info(), timeout=2.0)
+            info = await device.get_device_info()
             return str(info.to_dict().get("model", "")).upper()
         except Exception:
             pass
@@ -172,7 +126,7 @@ async def get_device_model(ip: str, username: str, password: str, retries: int =
         device_plug = None
         try:
             device_plug = await asyncio.wait_for(client.p110(ip), timeout=2.0)
-            info = await asyncio.wait_for(device_plug.get_device_info(), timeout=2.0)
+            info = await device_plug.get_device_info()
             return str(info.to_dict().get("model", "")).upper()
         except Exception:
             pass

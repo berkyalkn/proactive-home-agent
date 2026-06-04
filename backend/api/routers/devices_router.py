@@ -33,7 +33,7 @@ class ColorControl(BaseModel):
     saturation: int  
 
 async def ensure_connection(device_id: str) -> bool:
-    """It retrieves the device's IP address from the database and attempts to connect."""
+    """It retrieves the device's IP address from the database and attempts to connect, cleaning up old sessions."""
 
     with Session(engine) as session:
         db_device = session.exec(select(Device).where(Device.name == device_id)).first()
@@ -43,10 +43,18 @@ async def ensure_connection(device_id: str) -> bool:
         ip = db_device.ip_address
         protocol = db_device.protocol
 
+    if device_id in CONNECTED_DEVICES:
+        old_conn = CONNECTED_DEVICES[device_id].get("object")
+        if old_conn:
+            try:
+                if hasattr(old_conn, 'logout'):
+                    await asyncio.wait_for(old_conn.logout(), timeout=1.0)
+            except Exception:
+                pass
+        del CONNECTED_DEVICES[device_id]
+
     if protocol == "tapo":
         try:
-            if device_id in CONNECTED_DEVICES:
-                del CONNECTED_DEVICES[device_id]
             logger.info(f"'{device_id}' ({ip}) is connecting...")
             device_obj = await tapo_driver.connect_tapo_device(ip, TAPO_USERNAME, TAPO_PASSWORD)
             if device_obj:
@@ -57,8 +65,6 @@ async def ensure_connection(device_id: str) -> bool:
             
     elif protocol == "tapo_bulb":
         try:
-            if device_id in CONNECTED_DEVICES:
-                del CONNECTED_DEVICES[device_id]
             logger.info(f"Bulb '{device_id}' ({ip}) is connecting...")
             device_obj = await tapo_driver.connect_tapo_bulb(ip, TAPO_USERNAME, TAPO_PASSWORD)
             if device_obj:

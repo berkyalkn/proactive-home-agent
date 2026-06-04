@@ -190,7 +190,7 @@ class DiscoveryService:
     async def ping_device_for_identification(self, device_id: str) -> bool:
         """
         A 'Blink' or relay sound is triggered to allow the user to physically recognize the device.
-        The original state is preserved to avoid disrupting it.
+        Ghost session (memory leak) protection enabled for Tapo devices.
         """
         try:
             if device_id.startswith("tapo-"):
@@ -203,6 +203,7 @@ class DiscoveryService:
                 device = None
                 is_bulb = False
                 
+                b_device = None
                 try:
                     b_device = await asyncio.wait_for(connect_tapo_bulb(ip, self.tapo_user, self.tapo_pass), timeout=3.0)
                     if b_device:
@@ -210,8 +211,12 @@ class DiscoveryService:
                         device = b_device
                         is_bulb = True
                 except Exception:
-                    pass
+                    if b_device:
+                        try:
+                            if hasattr(b_device, 'logout'): await b_device.logout()
+                        except: pass
                 
+                p_device = None
                 if not device:
                     try:
                         p_device = await asyncio.wait_for(connect_tapo_device(ip, self.tapo_user, self.tapo_pass), timeout=3.0)
@@ -220,7 +225,10 @@ class DiscoveryService:
                             device = p_device
                             is_bulb = False
                     except Exception:
-                        pass
+                        if p_device:
+                            try:
+                                if hasattr(p_device, 'logout'): await p_device.logout()
+                            except: pass
                 
                 if not device:
                     logger.error(f"Could not connect to Tapo device at {ip} for identification.")
@@ -253,7 +261,7 @@ class DiscoveryService:
                     
                 return True
 
-            elif device_id != "mac-cam-internal":
+            elif not device_id.startswith("camera-"):
                 try:
                     try:
                         mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)

@@ -18,6 +18,9 @@ from api.services.speaker_service import speaker_service
 from openai import AsyncOpenAI 
 from dotenv import load_dotenv
 
+from api.routers.reflex_router import local_reflex_router
+from api.routers.devices_router import control_device, DeviceControl
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -51,6 +54,29 @@ async def websocket_endpoint(websocket: WebSocket):
                         user_text = raw_text
                         logger.info(f"Chat (Text): {user_text}")
 
+                        reflex_decision = local_reflex_router.route_command(user_text)
+                        
+                        if reflex_decision["destination"] == "REFLEX":
+                            logger.info(f"⚡ TEXT REFLEX TRIGGERED: {reflex_decision}")
+                            try:
+                                await control_device(
+                                    device_id=reflex_decision["device_id"], 
+                                    control=DeviceControl(on=reflex_decision["is_on"])
+                                )
+                                action_str = "turned on" if reflex_decision["is_on"] else "turned off"
+                                reflex_msg = f"Done! I've {action_str} the device instantly."
+                                
+                                await manager.send_json({
+                                    "status": "text_chunk",
+                                    "chunk": reflex_msg
+                                }, websocket)
+                                await asyncio.sleep(0.05)
+                                await manager.send_json({"status": "stream_finished"}, websocket)
+                                continue 
+                            except Exception as e:
+                                logger.error(f"Text Reflex execution failed: {e}")
+
+                        logger.info("Passing command to Brain (LLM)...")
                         stream_generator = chat_with_ai(user_text, thread_id=session_thread_id)
                         
                         async for chunk in stream_generator:
@@ -92,11 +118,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         audio_stream = io.BytesIO(audio_bytes) 
 
                         task_stt = speech_to_text(audio_stream)
-
                         task_id = asyncio.to_thread(speaker_service.identify_speaker, audio_bytes)
                         
                         results = await asyncio.gather(task_id, task_stt)
-                        
                         (identified_user, score), user_text = results
 
                         logger.info(f"Speaker: {identified_user} ({score:.2f}) | Text: {user_text}")
@@ -110,8 +134,40 @@ async def websocket_endpoint(websocket: WebSocket):
                             "text": f"({identified_user}) {user_text}"
                         }, websocket)
 
-                        context_aware_input = f"[User: {identified_user}] {user_text}"
+                        if "guest" not in identified_user.lower():
+                            reflex_decision = local_reflex_router.route_command(user_text)
+                            
+                            if reflex_decision["destination"] == "REFLEX":
+                                logger.info(f"⚡ VOICE REFLEX TRIGGERED: {reflex_decision}")
+                                try:
+                                    await control_device(
+                                        device_id=reflex_decision["device_id"], 
+                                        control=DeviceControl(on=reflex_decision["is_on"])
+                                    )
+                                    action_str = "turned on" if reflex_decision["is_on"] else "turned off"
+                                    reflex_msg = f"Done! I've {action_str} the device instantly."
+                                    
+                                    await manager.send_json({
+                                        "status": "text_chunk",
+                                        "chunk": reflex_msg
+                                    }, websocket)
+                                    
+                                    audio_res_bytes = await text_to_speech(reflex_msg)
+                                    if audio_res_bytes:
+                                        audio_base64 = base64.b64encode(audio_res_bytes).decode('utf-8')
+                                        await manager.send_json({
+                                            "status": "audio_chunk", 
+                                            "audio": audio_base64
+                                        }, websocket)
 
+                                    await asyncio.sleep(0.05)
+                                    await manager.send_json({"status": "stream_finished"}, websocket)
+                                    continue 
+                                except Exception as e:
+                                    logger.error(f"Voice Reflex execution failed: {e}")
+
+                        logger.info("Passing voice command to Brain (LLM)...")
+                        context_aware_input = f"[User: {identified_user}] {user_text}"
                         stream_generator = chat_with_ai(context_aware_input, thread_id="1")
                         sentence_buffer = ""
 
@@ -129,9 +185,9 @@ async def websocket_endpoint(websocket: WebSocket):
                             if any(p in sentence_buffer for p in [".", "?", "!"]):
                                 if len(sentence_buffer.strip()) > 5:
                                     logger.info(f"Synthesized Sentence:{sentence_buffer.strip()}")
-                                    audio_bytes = await text_to_speech(sentence_buffer.strip())
-                                    if audio_bytes:
-                                        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+                                    audio_bytes_synth = await text_to_speech(sentence_buffer.strip())
+                                    if audio_bytes_synth:
+                                        audio_base64 = base64.b64encode(audio_bytes_synth).decode('utf-8')
                                         await manager.send_json({
                                             "status": "audio_chunk", 
                                             "audio": audio_base64
@@ -140,9 +196,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         
                         if sentence_buffer.strip():
                             logger.info(f"The Last Remaining Piece is Being Synthesized (Flush): {sentence_buffer.strip()}")
-                            audio_bytes = await text_to_speech(sentence_buffer.strip())
-                            if audio_bytes:
-                                audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+                            audio_bytes_synth = await text_to_speech(sentence_buffer.strip())
+                            if audio_bytes_synth:
+                                audio_base64 = base64.b64encode(audio_bytes_synth).decode('utf-8')
                                 await manager.send_json({
                                     "status": "audio_chunk", 
                                     "audio": audio_base64

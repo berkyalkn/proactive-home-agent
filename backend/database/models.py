@@ -57,12 +57,14 @@ class AgentDecision(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
-    target_device_id: uuid.UUID = Field(foreign_key="devices.id")
-    target_device: Device = Relationship(back_populates="decisions")
+    target_device_id: Optional[uuid.UUID] = Field(default=None, foreign_key="devices.id")
+    target_device: Optional[Device] = Relationship(back_populates="decisions")
     
     action: str
     reasoning: str
     confidence: float
+    
+    execution_layer: str = Field(default="LOCAL_BRAIN") 
     
     feedback: Optional["UserFeedback"] = Relationship(
         back_populates="decision",

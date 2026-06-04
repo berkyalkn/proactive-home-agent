@@ -224,13 +224,27 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
   }, [latestDeviceData]);
 
   const handleToggleDevice = async (deviceId: string, newStatus: boolean) => {
-    setIsLoading(true);
+    const previousDevices = { ...devices };
+    
+    setDevices((prev) => ({ 
+      ...prev, 
+      [deviceId]: { ...prev[deviceId], on: newStatus } 
+    }));
+
+    setIsLoading(true); 
+
     try {
-      await fetch(`${API_BASE_URL}/api/devices/${deviceId}`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+      const res = await fetch(`${API_BASE_URL}/api/devices/${deviceId}`, {
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ on: newStatus }),
       });
-      setDevices((prev) => ({ ...prev, [deviceId]: { ...prev[deviceId], on: newStatus } }));
+      
+      if (!res.ok) throw new Error("Device offline or unresponsive");
+      
+    } catch (error) {
+      console.error("Action failed, rolling back UI state:", error);
+      setDevices(previousDevices);
     } finally {
       setIsLoading(false);
     }

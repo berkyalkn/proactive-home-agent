@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Tuple, Optional, Any
 from sqlmodel import Session, select
 from database.settings import engine
-from database.models import Device, Room
+from database.models import Device, Room, AgentDecision
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +127,22 @@ class ReflexRouter:
             device_type = "bulb" if "bulb" in str(best_device_id).lower() or "l5" in str(best_device_id).lower() else "outlet"
             
             logger.info(f"⚡ [SpinalCord] DECISION: INTERCEPT AND EXECUTE ({intent} -> {best_device_id})")
+
+            with Session(engine) as session:
+                from database.models import AgentDecision
+                db_dev = session.exec(select(Device).where(Device.name == best_device_id)).first()
+                real_id = db_dev.id if db_dev else None
+                
+                new_decision = AgentDecision(
+                    action=intent,
+                    reasoning=f"Reflex Router (Spinal Cord) instantly intercepted and executed command for '{matched_word.title()}'.",
+                    confidence=round(best_score, 2),
+                    execution_layer="SPINAL_CORD", 
+                    target_device_id=real_id
+                )
+                session.add(new_decision)
+                session.commit()
+
             return {
                 "destination": "REFLEX",
                 "action": intent,

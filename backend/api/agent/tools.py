@@ -8,7 +8,7 @@ from api.routers.devices_router import (
 from api.agent.cache import get_cached, set_cache, invalidate_cache
 from sqlmodel import Session, select
 from database.settings import engine
-from database.models import Room, Device
+from database.models import Room, Device, AgentDecision, SystemLog
 import asyncio
 import time
 import logging
@@ -167,6 +167,7 @@ async def control_smart_device(target: str, action: str):
     """
 
     target_device_id = None
+    real_db_id = None
     disp_name = target
     
     with Session(engine) as session:
@@ -176,6 +177,7 @@ async def control_smart_device(target: str, action: str):
             name_to_check = (plug.display_name or plug.name).lower()
             if target.lower() in name_to_check:
                 target_device_id = plug.name
+                real_db_id = plug.id
                 disp_name = plug.display_name or plug.name
                 break
 
@@ -191,6 +193,18 @@ async def control_smart_device(target: str, action: str):
         if target_device_id in cached_devices:
             cached_devices[target_device_id]["on"] = is_on
             set_cache("all_devices", cached_devices)
+
+        with Session(engine) as session:
+            from database.models import AgentDecision
+            new_decision = AgentDecision(
+                action=f"TURN_{action.upper()}",
+                reasoning=f"AI actively turned {action.lower()} the {disp_name} upon user request or context.",
+                confidence=1.0,
+                execution_layer="LOCAL_BRAIN",
+                target_device_id=real_db_id
+            )
+            session.add(new_decision)
+            session.commit()
             
         return f"Success: {disp_name} is {action.upper()}."
     except Exception as e: 
@@ -210,6 +224,7 @@ async def control_bulb(location: str, action: str, brightness: int = None, hue: 
     """
     
     target_bulb_id = None
+    real_db_id = None
     disp_name = None
     
     with Session(engine) as session:
@@ -219,6 +234,7 @@ async def control_bulb(location: str, action: str, brightness: int = None, hue: 
                 for dev in room.devices:
                     if dev.device_type == "bulb":
                         target_bulb_id = dev.name
+                        real_db_id = dev.id
                         disp_name = dev.display_name or dev.name
                         break
             if target_bulb_id: break
@@ -237,11 +253,36 @@ async def control_bulb(location: str, action: str, brightness: int = None, hue: 
             if target_bulb_id in cached_devices:
                 cached_devices[target_bulb_id]["on"] = is_on
                 set_cache("all_devices", cached_devices)
+
+            with Session(engine) as db_session:
+                from database.models import AgentDecision
+                new_decision = AgentDecision(
+                    action=f"TURN_{action_lower.upper()}",
+                    reasoning=f"AI turned {action_lower} the {disp_name}.",
+                    confidence=1.0,
+                    execution_layer="LOCAL_BRAIN",
+                    target_device_id=real_db_id
+                )
+                db_session.add(new_decision)
+                db_session.commit()
                 
             return f"Success: {disp_name} is {action_lower.upper()}."
             
         elif action_lower == "set_brightness":
             await safe_control(set_brightness(device_id=target_bulb_id, control=BrightnessControl(brightness=brightness)))
+
+            with Session(engine) as db_session:
+                from database.models import AgentDecision
+                new_decision = AgentDecision(
+                    action="SET_BRIGHTNESS",
+                    reasoning=f"AI adjusted {disp_name} brightness to {brightness}%.",
+                    confidence=1.0,
+                    execution_layer="LOCAL_BRAIN",
+                    target_device_id=real_db_id
+                )
+                db_session.add(new_decision)
+                db_session.commit()
+
             return f"Success: {disp_name} brightness set to {brightness}%."
             
         return "Action completed."
@@ -260,6 +301,16 @@ async def trigger_emergency_alert(reason: str):
     """
     
     logger.critical(f"AGENT INITIATED EMERGENCY ALERT! Reason: {reason}")
+
+    with Session(engine) as session:
+        from database.models import SystemLog
+        new_log = SystemLog(
+            level="CRITICAL",
+            source="LLM_Agent",
+            message=f"Agent proactively initiated emergency protocol. Reason: {reason}"
+        )
+        session.add(new_log)
+        session.commit()
     
     alert_msg = f"AI AGENT ALERT: Smart home assistant reported an emergency. Reason: {reason}"
     tts_voice = f"Emergency alert. The smart home assistant has detected a problem. The stated reason is: {reason}. Please intervene."

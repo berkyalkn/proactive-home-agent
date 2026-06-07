@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from api.services.speaker_service import speaker_service
 from api.services.vision_service import vision_service
 from api.routers.auth_router import get_current_user
-from database.models import User
+from database.models import User, SystemLog
 from database.settings import engine 
 import logging
 
@@ -81,6 +81,13 @@ async def add_guest(
                 hashed_password="not-a-real-password-guest-account" 
             )
             session.add(new_guest)
+
+            new_log = SystemLog(
+                level="WARNING",
+                source="Security_Hub",
+                message=f"Homeowner '{current_user.username}' added a new guest identity: '{guest_name}'."
+            )
+            session.add(new_log)
             session.commit()
 
     results = []
@@ -120,6 +127,13 @@ def delete_user(username: str, current_user: User = Depends(get_current_user)):
             user_to_delete = session.exec(select(User).where(User.username == username)).first()
             if user_to_delete:
                 session.delete(user_to_delete)
+
+                new_log = SystemLog(
+                    level="WARNING",
+                    source="Security_Hub",
+                    message=f"Biometric identity for user '{username}' was permanently deleted from the system by '{current_user.username}'."
+                )
+                session.add(new_log)
                 session.commit()
 
         return {"status": "success", "message": f"User {username} deleted."}

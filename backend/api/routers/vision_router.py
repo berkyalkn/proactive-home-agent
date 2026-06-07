@@ -16,7 +16,7 @@ from api.routers.devices_router import (
 )
 from sqlmodel import Session, select
 from database.settings import engine
-from database.models import Room, Device, User, GestureMapping, SecuritySettings
+from database.models import Room, Device, User, GestureMapping, SecuritySettings, AgentDecision, SystemLog
 
 import logging
 import cv2
@@ -208,6 +208,17 @@ async def cancel_fall_alarm(event: VoiceCancelEvent):
         if ActionState.active_sos_tasks.get("system_fall") == "PENDING":
             logger.info(f"VOICE INTERCEPT: Heard '{text}'. Cancelling Fall Alarm!")
             ActionState.active_sos_tasks["system_fall"] = "CANCELLED"
+
+            with Session(engine) as session:
+                from database.models import SystemLog
+                new_log = SystemLog(
+                    level="WARNING",
+                    source="Voice_Intercept",
+                    message=f"FALSE ALARM: The system detected a fall, but the user verbally confirmed they are safe by saying '{text}'."
+                )
+                session.add(new_log)
+                session.commit()
+
             return {"status": "cancelled", "message": "Fall alarm aborted via voice."}
     
     return {"status": "ignored", "message": "No cancellation keywords detected or no active alarm."}
@@ -282,6 +293,16 @@ async def execute_fall_emergency_lockdown(confidence: float, screenshot_bytes: O
     """Function that sends an SMS/Call if no response is received within 10 seconds."""
 
     ActionState.last_emergency_time = time.time()
+
+    with Session(engine) as session:
+        from database.models import SystemLog
+        new_log = SystemLog(
+            level="CRITICAL",
+            source="ComputerVision_Hub",
+            message=f"FALL EMERGENCY EXECUTED: User fell (Confidence {confidence:.0%}) and failed to respond within grace period. Lockdown initiated."
+        )
+        session.add(new_log)
+        session.commit()
 
     target_phone = settings.emergency_phone
     target_name = settings.emergency_contact_name
@@ -400,6 +421,16 @@ async def delayed_emergency_lockdown(person_name: str, settings: SecuritySetting
 async def execute_emergency_lockdown(person_name: str, settings: SecuritySettings):
     logger.warning(f"EMERGENCY LOCKDOWN INITIATED BY {person_name}")
     ActionState.last_emergency_time = time.time()  
+
+    with Session(engine) as session:
+        from database.models import SystemLog
+        new_log = SystemLog(
+            level="CRITICAL",
+            source="Gesture_Engine",
+            message=f"MANUAL SOS EXECUTED: User '{person_name}' triggered the emergency gesture protocol. Lockdown initiated."
+        )
+        session.add(new_log)
+        session.commit()
     
     async def flash_lights_dynamic():
         try:

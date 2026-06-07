@@ -51,7 +51,7 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 | Layer | Component | Description |
 | :--- | :--- | :--- |
 | **L5** | **Presentation** | Next.js Dashboard, **5-Step Autonomous Onboarding Engine**, an independent Omnichannel **Security Hub**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with event-driven auto-microphone triggering. |
-| **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision (YOLOv8-Face Alignment + GhostFaceNet Biometrics + Asynchronous MediaPipe Gestures), and Predictive Models. It filters intents through a 3-stage logic (Edge -> Local RAG -> Cloud LLM) and utilizes Zero-Latency Omniscient Context Injection and Graceful Degradation. |
+| **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision, and Predictive Models. It filters intents through a bespoke **3-Stage Logic Funnel (In-Memory Reflex -> Local RAG -> Cloud Escalation)** and utilizes Zero-Latency Omniscient Context Injection. |
 | **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, **dynamic relational data persistence (PostgreSQL/SQLModel)** replacing static registries, omnichannel notifications (Twilio/Telegram), presence ledgers, and real-time System Integrity Diagnostics. |
 | **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST for external APIs. Video streaming is completely decoupled via **go2rtc**, ensuring <100ms ultra-low latency WebRTC/MSE tunneling across local networks and VPNs (Tailscale). |
 | **L1** | **Physical** | Distributed hardware layer consisting of the Pi 5 Hub, ESP32 Sensor Nodes, Tapo Actuators, and Edge Camera Nodes running a 4-Layer Quality Gate. |
@@ -63,11 +63,14 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 At the core of this project lies a **LangGraph-based State Machine**, transforming the system from a passive listener into an active decision-maker. Unlike linear chatbots, this utilizes a **cyclic graph architecture**, allowing the agent to reason, execute tools, observe outputs, and re-evaluate its next step in a continuous loop until the user's goal is met.
 
 ### 1. Hierarchical Reasoning & 100% Local Autonomy
-To optimize for Privacy-First Latency, the system processes user intents through a cascading 3-stage logic. It has successfully evolved from a cloud-dependent architecture (OpenAI/Gemini) to a completely independent, zero-latency smart home that survives without the internet.
 
-- **Filter 1: Edge NLU (Deterministic):** Handles high-frequency commands (e.g., "Lights on") via Rhino NLU for <100ms ultra-low latency execution.
-- **Filter 2: Local AI Brain (Contextual & Autonomous):** Integrates **Ollama** to run **Meta Llama 3.1**, querying the local PostgreSQL database (RAG) to manage device history and execute standard workflows entirely on local hardware.
-- **Filter 3: Masked Cloud LLM (Generative Escalation):** Escalates highly complex, multi-step generative tasks to Google Gemini 3.0 Flash via Vertex AI. *Safety enforcement guarantees only strictly anonymized, structure-only state snapshots are transmitted.*
+To optimize for Privacy-First Latency, the system processes user intents through a custom-built, cascading 3-stage intelligence logic. It has successfully evolved from a cloud-dependent architecture to a completely independent, zero-latency smart home that survives without the internet.
+
+- **Filter 1: The Spinal Cord (Custom Reflex Router):** External NLU dependencies (like Rhino) have been entirely removed. We engineered a zero-dependency, in-memory fuzzy matching engine utilizing a **Weighted Intersection Algorithm** and **Core Noun Filtering**. It acts as the system's "spinal cord," intercepting deterministic binary commands (ON/OFF) and executing hardware triggers in **sub-10ms** latency without ever waking the LLM.
+
+- **Filter 2: The Local Brain (Ollama + RAG):** Integrates **Meta Llama 3.1** via Ollama. When a command bypasses the Reflex Router (e.g., status queries, abstract commands), it falls to this local brain. It queries the local PostgreSQL database using Vector RAG to manage device history, episodic memory, and execute complex workflows entirely on local hardware.
+
+- **Filter 3: Masked Cloud LLM (Generative Escalation):** Escalates highly complex, generative tasks to Google Gemini 3.0 Flash. Strict **Zero-Trust Safety Enforcement** guarantees that only highly anonymized, structure-only metadata (with all IPs and personal names scrubbed) is transmitted outside the local network.
 
 *(Complementing this local-first approach, the system replaces cloud audio APIs with **Faster-Whisper (STT)** for sub-second edge transcription, and employs a standalone **Piper TTS C++ Binary** to synthesize high-fidelity WAV responses instantaneously—eliminating Python GIL bottlenecks and ARM64 crashes.)*
 
@@ -188,6 +191,11 @@ Instead of passively waiting for explicit commands, the LangGraph agent actively
 - **Soft Failure (Fault Tolerance):** If an ESP32 or a smart plug loses power (e.g., `No route to host`), the system silently marks it as "Offline/Unreachable" and continues its agentic duties gracefully without crashing or hallucinating.
 
 - **Temporal & Environmental Awareness:** The AI synthesizes the injected data to make logical deductions without hardcoded rules. For example, if a user enters the room at 6:30 PM, the AI can independently deduce that it is around sunset and proactively offer to turn on the study lamp or adjust the room's ambiance.
+
+### The Custom NLU (Sub-10ms Latency)
+Instead of relying on third-party cloud NLP APIs or heavy local models for simple hardware tasks, the ecosystem features a bespoke **Reflex Router**. 
+- **Weighted Intersection Matching:** It dissects natural language into 'Core Nouns' (e.g., bulb, lamp) and 'Context Words' (e.g., living room, desk) to mathematically eliminate false-positive hardware triggers.
+- **Bypass Mechanism:** If a user simply says "Turn off the Desk Lamp", the Reflex Router executes the command in under 10 milliseconds and bypasses the LLM entirely. If the user asks an abstract question ("Is the oven on?"), the router instantly recognizes its own limits and gracefully delegates the task to the Local Brain (Llama 3.1).
 
 ### 100% Local Autonomy
 The ecosystem has successfully evolved from a cloud-dependent architecture (OpenAI/Gemini) to a completely independent, zero-latency smart home. It operates flawlessly without an internet connection, guaranteeing absolute privacy and data sovereignty.

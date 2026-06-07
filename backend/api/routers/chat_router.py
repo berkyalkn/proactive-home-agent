@@ -63,12 +63,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                     device_id=reflex_decision["device_id"], 
                                     control=DeviceControl(on=reflex_decision["is_on"])
                                 )
-                                action_str = "turned on" if reflex_decision["is_on"] else "turned off"
-                                reflex_msg = f"Done! I've {action_str} the device instantly."
+                                action_text = "on" if reflex_decision["is_on"] else "off"
+                                device_name = reflex_decision.get("device_name", "device")
+                                tts_text = f"Done! I've turned {action_text} the {device_name}."
                                 
                                 await manager.send_json({
                                     "status": "text_chunk",
-                                    "chunk": reflex_msg
+                                    "chunk": tts_text
                                 }, websocket)
                                 await asyncio.sleep(0.05)
                                 await manager.send_json({"status": "stream_finished"}, websocket)
@@ -144,15 +145,16 @@ async def websocket_endpoint(websocket: WebSocket):
                                         device_id=reflex_decision["device_id"], 
                                         control=DeviceControl(on=reflex_decision["is_on"])
                                     )
-                                    action_str = "turned on" if reflex_decision["is_on"] else "turned off"
-                                    reflex_msg = f"Done! I've {action_str} the device instantly."
+                                    action_text = "on" if reflex_decision["is_on"] else "off"
+                                    device_name = reflex_decision.get("device_name", "device")
+                                    tts_text = f"Done! I've turned {action_text} the {device_name}."
                                     
                                     await manager.send_json({
                                         "status": "text_chunk",
-                                        "chunk": reflex_msg
+                                        "chunk": tts_text
                                     }, websocket)
                                     
-                                    audio_res_bytes = await text_to_speech(reflex_msg)
+                                    audio_res_bytes = await text_to_speech(tts_text)
                                     if audio_res_bytes:
                                         audio_base64 = base64.b64encode(audio_res_bytes).decode('utf-8')
                                         await manager.send_json({

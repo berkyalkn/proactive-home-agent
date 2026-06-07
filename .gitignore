@@ -28,3 +28,6 @@ backend/data/models/**/*.tflite
 # Media Server (Local binaries and secrets)
 go2rtc
 go2rtc.yaml
+
+# Vector Database (Local Memory)
+chroma_data/

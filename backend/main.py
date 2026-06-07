@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from api.routers import sensors_router, devices_router, chat_router, user_router, vision_router, auth_router, onboarding_router, rooms_router, discovery_router, gesture_router, camera_router
 from api.drivers import mqtt_service
 from api.services import tapo_poller
+import api.services.memory_hooks
 
 import asyncio
 

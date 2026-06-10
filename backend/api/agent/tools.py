@@ -8,12 +8,15 @@ from api.routers.devices_router import (
 from api.agent.cache import get_cached, set_cache, invalidate_cache
 from sqlmodel import Session, select
 from database.settings import engine
+from api.services.vector_db import vector_db
 from database.models import Room, Device, AgentDecision, SystemLog
 import asyncio
 import time
 import logging
 import httpx
 import os
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +287,28 @@ async def control_bulb(location: str, action: str, brightness: int = None, hue: 
                 db_session.commit()
 
             return f"Success: {disp_name} brightness set to {brightness}%."
+
+        elif action_lower == "set_color":
+            from api.routers.devices_router import set_color, ColorControl
+            
+            if hue is None or saturation is None:
+                return "Failed: hue and saturation must be provided for set_color action."
+                
+            await safe_control(set_color(device_id=target_bulb_id, control=ColorControl(hue=hue, saturation=saturation)))
+
+            with Session(engine) as db_session:
+                from database.models import AgentDecision
+                new_decision = AgentDecision(
+                    action="SET_COLOR",
+                    reasoning=f"AI adjusted {disp_name} color to hue:{hue}, sat:{saturation}.",
+                    confidence=1.0,
+                    execution_layer="LOCAL_BRAIN",
+                    target_device_id=real_db_id
+                )
+                db_session.add(new_decision)
+                db_session.commit()
+
+            return f"Success: {disp_name} color set to hue {hue}, saturation {saturation}."
             
         return "Action completed."
     except Exception as e: return f"Failed: {e}"
@@ -323,4 +348,54 @@ async def trigger_emergency_alert(reason: str):
     
     return f"EMERGENCY PROTOCOL ACTIVATED. The emergency contact has been called and messaged regarding: {reason}."
 
-tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert]
+
+@tool
+def search_home_memory(query: str) -> str:
+    """
+    CRITICAL MEMORY TOOL (RAG): Use this tool when the user asks about PAST events, 
+    previous actions, security logs, or asks "what happened yesterday/last week?".
+    """
+    logger.info(f"[Agent Brain] Querying Episodic Memory for: '{query}'")
+    
+    try:
+        results = vector_db.search_memory(query=query, n_results=10)
+        
+        if not results or not results.get('documents') or len(results['documents'][0]) == 0:
+            return "I couldn't find any relevant past events in the memory."
+            
+        memory_reports = []
+        documents = results['documents'][0]
+        metadatas = results['metadatas'][0]
+        ids = results['ids'][0] 
+        
+        with Session(engine) as session:
+            for doc_id, doc, meta in zip(ids, documents, metadatas):
+                event_type = meta.get("type", "unknown")
+                timestamp_str = "Recent" 
+                
+                try:
+                    if event_type == "system_log":
+                        log_entry = session.exec(select(SystemLog).where(SystemLog.id == int(doc_id))).first()
+                        if log_entry and hasattr(log_entry, "timestamp"):
+                            timestamp_str = log_entry.timestamp.strftime("%Y-%m-%d %H:%M")
+                    elif event_type == "agent_decision":
+                        decision_entry = session.exec(select(AgentDecision).where(AgentDecision.id == int(doc_id))).first()
+                        if decision_entry and hasattr(decision_entry, "timestamp"):
+                            timestamp_str = decision_entry.timestamp.strftime("%Y-%m-%d %H:%M")
+                except Exception:
+                    pass
+                
+                memory_reports.append(f"[{timestamp_str}] {doc}")
+                
+        final_memory = "Here are the relevant past events retrieved from memory:\n" + "\n".join(memory_reports)
+        
+        logger.info(f"[Memory Output to LLM]:\n{final_memory}")
+        
+        return final_memory
+        
+    except Exception as e:
+        logger.error(f"Memory Search Tool failed: {e}", exc_info=True)
+        return f"System error during memory search: {str(e)}"
+
+
+tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert, search_home_memory]

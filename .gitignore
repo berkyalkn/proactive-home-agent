@@ -31,3 +31,9 @@ go2rtc.yaml
 
 # Vector Database (Local Memory)
 chroma_data/
+
+# Agent Skills
+.agent/skills/ui-ux-pro-max/
+
+.DS_Store
+**/.DS_Store

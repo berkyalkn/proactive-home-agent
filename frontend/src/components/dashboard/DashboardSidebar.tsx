@@ -128,23 +128,23 @@ export default function DashboardSidebar({
               )}
             </div>
           </button>
-          
+
           <button
             className={`${s.hubCard} ${
               activeHub === "knowledge" ? s.hubCardActive : ""
             }`}
             onClick={() => onHubClick("knowledge")}
-            aria-label="Semantic Brain"
+            aria-label="Home Knowledge"
           >
-            <div className={`${s.hubIcon}`}>
+            <div className={s.hubIcon} style={{ color: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)' }}>
               <Brain size={20} />
             </div>
             <div className={s.hubInfo}>
-              <div className={s.hubName}>Semantic Brain</div>
+              <div className={s.hubName}>Home Knowledge</div>
               <div className={s.hubSubtitle}>Rules & Manuals</div>
             </div>
             {knowledgeCount > 0 && (
-              <span className={`${s.hubBadge}`}>
+              <span className={s.hubBadge} style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)', color: '#d8b4fe' }}>
                 {knowledgeCount}
               </span>
             )}

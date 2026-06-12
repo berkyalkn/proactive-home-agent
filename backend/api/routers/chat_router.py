@@ -10,6 +10,7 @@ import uuid
 import traceback
 import io
 import asyncio
+import re
 
 from api.services.tts_service import text_to_speech
 from api.services.stt_service import speech_to_text
@@ -26,6 +27,11 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["AI Agent"])
+
+def clean_for_tts(text: str) -> str:
+    """It removes markdown symbols (*, _, #, `, ~) before converting it to speech."""
+
+    return re.sub(r'[*_#`~]', '', text)
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -154,7 +160,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                         "chunk": tts_text
                                     }, websocket)
                                     
-                                    audio_res_bytes = await text_to_speech(tts_text)
+                                    audio_res_bytes = await text_to_speech(clean_for_tts(tts_text))
                                     if audio_res_bytes:
                                         audio_base64 = base64.b64encode(audio_res_bytes).decode('utf-8')
                                         await manager.send_json({
@@ -187,7 +193,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             if any(p in sentence_buffer for p in [".", "?", "!"]):
                                 if len(sentence_buffer.strip()) > 5:
                                     logger.info(f"Synthesized Sentence:{sentence_buffer.strip()}")
-                                    audio_bytes_synth = await text_to_speech(sentence_buffer.strip())
+                                    audio_bytes_synth = await text_to_speech(clean_for_tts(sentence_buffer.strip()))
                                     if audio_bytes_synth:
                                         audio_base64 = base64.b64encode(audio_bytes_synth).decode('utf-8')
                                         await manager.send_json({
@@ -198,7 +204,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         
                         if sentence_buffer.strip():
                             logger.info(f"The Last Remaining Piece is Being Synthesized (Flush): {sentence_buffer.strip()}")
-                            audio_bytes_synth = await text_to_speech(sentence_buffer.strip())
+                            audio_bytes_synth = await text_to_speech(clean_for_tts(sentence_buffer.strip()))
                             if audio_bytes_synth:
                                 audio_base64 = base64.b64encode(audio_bytes_synth).decode('utf-8')
                                 await manager.send_json({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShieldCheck, Hand, ShieldAlert, PanelLeftClose } from "lucide-react";
+import { ShieldCheck, Hand, ShieldAlert, PanelLeftClose, Brain } from "lucide-react";
 import s from "./dashboard.module.css";
 
 interface DashboardSidebarProps {
@@ -12,6 +12,7 @@ interface DashboardSidebarProps {
   userCount: number;
   gestureHasChanges: boolean;
   securityIsActive: boolean;
+  knowledgeCount: number; 
   isMobileOpen: boolean;
   onMobileClose: () => void;
 }
@@ -24,13 +25,13 @@ export default function DashboardSidebar({
   userCount,
   gestureHasChanges,
   securityIsActive,
+  knowledgeCount, 
   isMobileOpen,
   onMobileClose,
 }: DashboardSidebarProps) {
 
   return (
     <>
-      {/* Mobile overlay */}
       {isMobileOpen && (
         <div className={s.mobileOverlay} onClick={onMobileClose} />
       )}
@@ -40,7 +41,6 @@ export default function DashboardSidebar({
           isCollapsed ? s.sidebarCollapsed : s.sidebarExpanded
         } ${isMobileOpen ? s.sidebarMobileOpen : ""}`}
       >
-        {/* Logo */}
         <div className={s.sidebarLogo}>
           <div className={s.sidebarLogoIcon}>
             <svg viewBox="0 0 32 32" fill="none">
@@ -56,14 +56,11 @@ export default function DashboardSidebar({
           <span className={s.sidebarLogoText}>HOMIEE</span>
         </div>
 
-        {/* Section label */}
         <div className={s.sidebarSection}>
           <span className={s.sidebarSectionLabel}>Control Hubs</span>
         </div>
 
-        {/* Hub Cards */}
         <div className={s.hubList}>
-          {/* Access Control */}
           <button
             className={`${s.hubCard} ${s.hubAccess} ${
               activeHub === "access" ? s.hubCardActive : ""
@@ -85,7 +82,6 @@ export default function DashboardSidebar({
             )}
           </button>
 
-          {/* Hand Control */}
           <button
             className={`${s.hubCard} ${s.hubGesture} ${
               activeHub === "gesture" ? s.hubCardActive : ""
@@ -105,7 +101,6 @@ export default function DashboardSidebar({
             )}
           </button>
 
-          {/* Security Hub */}
           <button
             className={`${s.hubCard} ${s.hubSecurity} ${
               activeHub === "security" ? s.hubCardActive : ""
@@ -133,9 +128,30 @@ export default function DashboardSidebar({
               )}
             </div>
           </button>
+          
+          <button
+            className={`${s.hubCard} ${
+              activeHub === "knowledge" ? s.hubCardActive : ""
+            }`}
+            onClick={() => onHubClick("knowledge")}
+            aria-label="Semantic Brain"
+          >
+            <div className={`${s.hubIcon}`}>
+              <Brain size={20} />
+            </div>
+            <div className={s.hubInfo}>
+              <div className={s.hubName}>Semantic Brain</div>
+              <div className={s.hubSubtitle}>Rules & Manuals</div>
+            </div>
+            {knowledgeCount > 0 && (
+              <span className={`${s.hubBadge}`}>
+                {knowledgeCount}
+              </span>
+            )}
+          </button>
+
         </div>
 
-        {/* Toggle */}
         <div className={s.sidebarToggle}>
           <button className={s.toggleBtn} onClick={onToggleCollapse}>
             <PanelLeftClose

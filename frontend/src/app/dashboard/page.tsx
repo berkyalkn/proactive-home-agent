@@ -12,6 +12,7 @@ import { VoiceCommandCenter } from "@/components/VoiceCommandCenter";
 import { UserManager } from "@/components/UserManager";
 import { GestureManager } from "@/components/GestureManager";
 import { EmergencyManager } from "@/components/EmergencyManager";
+import { KnowledgeManager } from "@/components/KnowledgeManager";
 
 const SIDEBAR_KEY = "homiie_sidebar_collapsed";
 
@@ -19,19 +20,16 @@ export default function DashboardPage() {
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 
-  // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // Hub panel state
   const [activeHub, setActiveHub] = useState<string | null>(null);
 
-  // Hub status data (lifted up from child components)
   const [userCount, setUserCount] = useState(0);
   const [gestureHasChanges, setGestureHasChanges] = useState(false);
   const [securityIsActive, setSecurityIsActive] = useState(true);
+  const [knowledgeCount, setKnowledgeCount] = useState(0);
 
-  // Auth check
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -41,7 +39,6 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // Load sidebar state from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(SIDEBAR_KEY);
     if (saved === "true") setSidebarCollapsed(true);
@@ -57,7 +54,6 @@ export default function DashboardPage() {
 
   const handleHubClick = useCallback((hubId: string) => {
     setActiveHub(prev => (prev === hubId ? null : hubId));
-    // Close mobile sidebar when opening a hub
     setIsMobileOpen(false);
   }, []);
 
@@ -70,11 +66,9 @@ export default function DashboardPage() {
   return (
     <div className="landing-scope">
       <div className={s.layout}>
-        {/* Background orbs */}
         <div className={s.orbWarm} style={{ top: '-15%', left: '-5%' }} />
         <div className={s.orbCool} style={{ bottom: '-15%', right: '-5%' }} />
 
-        {/* Sidebar */}
         <DashboardSidebar
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleCollapse}
@@ -83,11 +77,11 @@ export default function DashboardPage() {
           userCount={userCount}
           gestureHasChanges={gestureHasChanges}
           securityIsActive={securityIsActive}
+          knowledgeCount={knowledgeCount}
           isMobileOpen={isMobileOpen}
           onMobileClose={() => setIsMobileOpen(false)}
         />
 
-        {/* Main area */}
         <div className={`${s.mainArea} ${sidebarCollapsed ? s.mainAreaCollapsed : s.mainAreaExpanded}`}>
           <DashboardHeader
             onMobileMenuToggle={() => setIsMobileOpen(prev => !prev)}
@@ -105,7 +99,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Hub flyout panels */}
         <UserManager
           isOpen={activeHub === "access"}
           onClose={handleCloseHub}
@@ -120,6 +113,11 @@ export default function DashboardPage() {
           isOpen={activeHub === "security"}
           onClose={handleCloseHub}
           onActiveStatusChange={setSecurityIsActive}
+        />
+        <KnowledgeManager
+          isOpen={activeHub === "knowledge"}
+          onClose={handleCloseHub}
+          onKnowledgeCountChange={setKnowledgeCount}
         />
       </div>
     </div>

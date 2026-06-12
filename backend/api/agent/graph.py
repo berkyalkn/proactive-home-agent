@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -24,21 +25,30 @@ llm = ChatOpenAI(
     max_tokens=4096,     
     timeout=300        
 )
+
+llm_with_tools = llm.bind_tools(tools_list)
+
+cloud_llm = init_chat_model(
+    "gemini-3-flash-preview", 
+    model_provider="google_vertexai", 
+    location="global",
+    temperature=0.7 
+)
+
+
 #llm = ChatOllama(
 #    model="llama3.1",
 #    base_url="http://100.119.128.11:11434",
 #    temperature=0.0,
 #)
-#llm = init_chat_model(
-#    "gemini-3-flash-preview", 
-#    model_provider="google_vertexai", 
-#    location="global",
-#    temperature=0
-#)
 
+def zero_trust_scrubber(text: str) -> str:
+    """It cleans personal data, IP and MAC addresses before sending them to the cloud."""
 
-
-llm_with_tools = llm.bind_tools(tools_list)
+    text = re.sub(r'\[User:.*?\]\s*', '', text)
+    text = re.sub(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', '[MASKED_IP]', text)
+    text = re.sub(r'(?:[0-9A-Fa-f]{2}[:-]){5}(?:[0-9A-Fa-f]{2})', '[MASKED_MAC]', text)
+    return text.strip()
 
 
 SYSTEM_TEMPLATE = """
@@ -57,93 +67,107 @@ You MUST check this tag before deciding to execute a command.
    - **RESTRICTED MODE**: You can ONLY answer questions about status (Read-Only).
    - **FORBIDDEN**: You MUST NOT execute any command that changes the state of a device (turning on/off, changing color/brightness).
    - **EXCEPTION (EMERGENCY):** If a Guest explicitly cries for help, says they are injured, or asks to trigger an alarm, you MAY use the emergency alert tool.
-   - For normal commands, politely refuse: "I'm sorry, but I can't perform device control actions for guests. Please ask the home owner."
-
---- DOMAIN RESTRICTION (VERY IMPORTANT) ---
-You are ONLY allowed to help with smart home related topics, including:
-- Checking home status (temperature, humidity, light, motion, device states, camera status)
-- Controlling smart plugs (turning on/off)
-- Controlling smart bulbs (on/off, brightness, colors)
-- Executing Emergency and Security Protocols (SOS, calling for help)
-- Answering questions about home automation or this system's capabilities
-
-For ANY question OUTSIDE of smart home topics, you MUST politely decline and remind them you are a smart home assistant.
 
 TOOLS:
 1. 'get_home_status': Use for temperature, humidity, light, motion, device states, AND camera status.
 2. 'control_smart_device': Use ONLY to turn plugs ON/OFF.
 3. 'control_bulb': Use to control smart bulbs (on, off, set_brightness, set_color).
-4. 'trigger_emergency_alert': CRITICAL! Use this IMMEDIATELY if the user explicitly asks for help, says they fell, feels sick, or reports a dangerous/emergency situation. Do not hesitate.
-
-COLOR GUIDE (for set_color):
-- Red: hue=0, saturation=100
-- Orange: hue=30, saturation=100
-- Yellow: hue=60, saturation=100
-- Green: hue=120, saturation=100
-- Cyan: hue=180, saturation=100
-- Blue: hue=240, saturation=100
-- Purple: hue=280, saturation=100
-- Pink: hue=330, saturation=100
-- White/Daylight: hue=0, saturation=0
+4. 'trigger_emergency_alert': CRITICAL! Use this IMMEDIATELY if the user explicitly asks for help.
 
 CRITICAL RULES:
-- NEVER answer questions outside of smart home domain.
-- NEVER change device state unless user EXPLICITLY asks or a system event requires it (like turning off devices when exiting).
+-NEVER answer complex questions outside of the smart home domain. However, you CAN engage in brief, polite chit-chat (e.g., greetings, asking how you are) while maintaining your persona as the home assistant.
 - If it is an EMERGENCY, act immediately and use the 'trigger_emergency_alert' tool.
 - The home has an AI-powered camera system that can detect falls automatically. If you see a FALL DETECTED event in the presence history, acknowledge it proactively.
-- TOOL ENFORCEMENT: If you decide to change a device's state, YOU MUST EXPLICITLY CALL the appropriate tool. DO NOT just say you did it without actually invoking the tool in the system.
+- TOOL ENFORCEMENT: If you decide to change a device's state, YOU MUST EXPLICITLY CALL the appropriate tool. 
 - ALWAYS respond in a natural, conversational tone AFTER using a tool.
-- DO NOT narrate your internal reasoning, rules, or instructions. 
-- Speak DIRECTLY to the user in the first person. Never use phrases like "I will politely decline:" or "I will answer:". Just give the actual answer.
+- Speak DIRECTLY to the user in the first person. Just give the actual answer.
 
 Current Time: {time}
 """
 
 
-async def agent_node(state: MessagesState):
+async def route_query(state: MessagesState):
+    """GATEKEEPER: Decides whether the problem goes to the local system or the cloud."""
+
+    last_message = state["messages"][-1].content
+    
+    prompt = f"""You are a strict Gatekeeper for a Smart Home System.
+    Analyze the following user query and output ONLY one word: "LOCAL" or "CLOUD".
+    
+    - Output "LOCAL" if the query is about controlling lights/plugs, checking home status, security, past events, Wi-Fi passwords, casual greetings (e.g. "hello", "how are you"), chit-chat, or anything related to the physical house or your identity as an assistant.
+    - Output "CLOUD" if the query is a general knowledge question, coding help, recipe, math, or completely unrelated to the house.
+    
+    User Query: "{last_message}"
+    Decision:"""
+    
+    response = await llm.ainvoke([HumanMessage(content=prompt)])
+    decision = response.content.strip().upper()
+    
+    if "CLOUD" in decision:
+        return "cloud_agent"
+    return "local_agent"
+
+
+async def local_agent_node(state: MessagesState):
+    """The Local Brain, which controls the physical structure and memories of the home."""
 
     messages = state["messages"]
-
     turkey_timezone = timezone(timedelta(hours=3))
     current_time = datetime.now(turkey_timezone).strftime("%Y-%m-%d %H:%M:%S")
     
     formatted_prompt = SYSTEM_TEMPLATE.format(time=current_time)
-    
     conversation_messages = [msg for msg in messages if not isinstance(msg, SystemMessage)]
-    
     final_messages = [SystemMessage(content=formatted_prompt)] + conversation_messages
     
     response = await llm_with_tools.ainvoke(final_messages)
+    return {"messages": [response]}
+
+
+async def cloud_agent_node(state: MessagesState):
+    """The External Brain (Gemini) that responds to general knowledge and complex requests."""
+
+    last_message = state["messages"][-1].content
     
+    scrubbed_query = zero_trust_scrubber(last_message)
+    
+    system_msg = SystemMessage(content="You are the Cloud Brain of a Smart Home ecosystem. Your purpose is to help with general knowledge, complex analysis, and creative requests. You do not have access to the home's physical devices. Keep your answers concise, conversational, and helpful.")
+    
+    response = await cloud_llm.ainvoke([system_msg, HumanMessage(content=scrubbed_query)])
     return {"messages": [response]}
 
 
 tool_node = ToolNode(tools_list)
 
-
 workflow = StateGraph(MessagesState)
 
-workflow.add_node("agent", agent_node)
+workflow.add_node("local_agent", local_agent_node)
+workflow.add_node("cloud_agent", cloud_agent_node)
 workflow.add_node("tools", tool_node)
 
-workflow.add_edge(START, "agent")
-
 workflow.add_conditional_edges(
-    "agent",
-    tools_condition,
+    START,
+    route_query,
+    {
+        "local_agent": "local_agent",
+        "cloud_agent": "cloud_agent"
+    }
 )
 
-workflow.add_edge("tools", "agent")
+workflow.add_conditional_edges(
+    "local_agent",
+    tools_condition,
+)
+workflow.add_edge("tools", "local_agent")
+
+workflow.add_edge("cloud_agent", END)
 
 memory = MemorySaver()
-
 app = workflow.compile(checkpointer=memory)
 
 
 async def chat_with_ai(user_input: str, thread_id: str):
-    """
-    Main entry point for the chat API.
-    """
+    """Main entry point for the chat API."""
+
     config = {"configurable": {"thread_id": thread_id}}
     input_message = HumanMessage(content=user_input)
     
@@ -155,6 +179,11 @@ async def chat_with_ai(user_input: str, thread_id: str):
         kind = event["event"]
 
         if kind == "on_chat_model_stream":
+
+            node_name = event.get("metadata", {}).get("langgraph_node")
+            if node_name not in ["local_agent", "cloud_agent"]:
+                continue
+
             data = event["data"]
             
             if "chunk" in data:
@@ -179,3 +208,4 @@ async def chat_with_ai(user_input: str, thread_id: str):
                 
                 elif isinstance(content, str):
                     yield content
+

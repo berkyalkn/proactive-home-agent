@@ -398,4 +398,43 @@ def search_home_memory(query: str) -> str:
         return f"System error during memory search: {str(e)}"
 
 
-tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert, search_home_memory]
+@tool
+def search_home_knowledge(query: str) -> str:
+    """
+    CRITICAL KNOWLEDGE TOOL (RAG): Use this tool when the user asks about STATIC FACTS, 
+    house rules, WiFi passwords, device manuals, troubleshooting, or emergency protocols.
+    Do NOT use this tool for past events or history (use search_home_memory for that).
+    
+    Args:
+        query: A semantic search query (e.g., "What is the Wi-Fi password?", "How to reset the Tapo plug?", "What are the rules for guests?").
+    """
+    logger.info(f"[Agent Brain] Querying Semantic Knowledge for: '{query}'")
+    
+    try:
+        results = vector_db.search_knowledge(query=query, n_results=10)
+        
+        if not results or not results.get('documents') or len(results['documents'][0]) == 0:
+            return "I couldn't find any relevant rules, manuals, or facts in the home knowledge base."
+            
+        knowledge_reports = []
+        documents = results['documents'][0]
+        metadatas = results['metadatas'][0]
+        
+        for doc, meta in zip(documents, metadatas):
+            category = meta.get("category", "General")
+            title = meta.get("title", "Untitled")
+            
+            knowledge_reports.append(f"[{category.upper()} | {title}]: {doc}")
+                
+        final_knowledge = "Here is the relevant information from the home knowledge base:\n" + "\n".join(knowledge_reports)
+        
+        logger.info(f"[Knowledge Output to LLM]:\n{final_knowledge}")
+        
+        return final_knowledge
+        
+    except Exception as e:
+        logger.error(f"Knowledge Search Tool failed: {e}", exc_info=True)
+        return f"System error during knowledge search: {str(e)}"
+
+
+tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert, search_home_memory, search_home_knowledge]

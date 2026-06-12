@@ -6,6 +6,7 @@
 ![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
 ![NumPy](https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white)
 
+
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)
@@ -13,6 +14,7 @@
 ![MediaPipe](https://img.shields.io/badge/MediaPipe-00B2A9?style=for-the-badge&logo=google&logoColor=white)
 ![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6F00?style=for-the-badge&logo=chroma&logoColor=white)
 
 ![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
@@ -50,8 +52,8 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 
 | Layer | Component | Description |
 | :--- | :--- | :--- |
-| **L5** | **Presentation** | Next.js Dashboard, **5-Step Autonomous Onboarding Engine**, an independent Omnichannel **Security Hub**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with event-driven auto-microphone triggering. |
-| **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision, and Predictive Models. It filters intents through a bespoke **3-Stage Logic Funnel (In-Memory Reflex -> Local RAG -> Cloud Escalation)** and utilizes Zero-Latency Omniscient Context Injection. |
+| **L5** | **Presentation** | Next.js Dashboard, **5-Step Autonomous Onboarding Engine**, an independent Omnichannel **Security Hub**, **Semantic Brain Manager**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with event-driven auto-microphone triggering. |
+| **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision, and Predictive Models. It filters intents through a bespoke **3-Stage Logic Funnel (In-Memory Reflex -> Local Dual-Core RAG -> Cloud Escalation)** and utilizes Zero-Latency Omniscient Context Injection. |
 | **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, **dynamic relational data persistence (PostgreSQL/SQLModel)** replacing static registries, omnichannel notifications (Twilio/Telegram), presence ledgers, and real-time System Integrity Diagnostics. |
 | **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST for external APIs. Video streaming is completely decoupled via **go2rtc**, ensuring <100ms ultra-low latency WebRTC/MSE tunneling across local networks and VPNs (Tailscale). |
 | **L1** | **Physical** | Distributed hardware layer consisting of the Pi 5 Hub, ESP32 Sensor Nodes, Tapo Actuators, and Edge Camera Nodes running a 4-Layer Quality Gate. |
@@ -68,9 +70,13 @@ To optimize for Privacy-First Latency, the system processes user intents through
 
 - **Filter 1: The Spinal Cord (Custom Reflex Router):** External NLU dependencies (like Rhino) have been entirely removed. We engineered a zero-dependency, in-memory fuzzy matching engine utilizing a **Weighted Intersection Algorithm** and **Core Noun Filtering**. It acts as the system's "spinal cord," intercepting deterministic binary commands (ON/OFF) and executing hardware triggers in **sub-10ms** latency without ever waking the LLM.
 
-- **Filter 2: The Local Brain (Ollama + RAG):** Integrates **Meta Llama 3.1** via Ollama. When a command bypasses the Reflex Router (e.g., status queries, abstract commands), it falls to this local brain. It queries the local PostgreSQL database using Vector RAG to manage device history, episodic memory, and execute complex workflows entirely on local hardware.
+- **Filter 2: The Local Brain (Ollama + Dual-Core RAG):** Integrates **Meta Llama 3.1** via Ollama. When a command bypasses the Reflex Router, it falls to this local cognitive layer. It utilizes a sophisticated **Dual-Core RAG (Retrieval-Augmented Generation)** architecture powered by ChromaDB to completely separate time-based events from static facts:
 
-- **Filter 3: Masked Cloud LLM (Generative Escalation):** Escalates highly complex, generative tasks to Google Gemini 3.0 Flash. Strict **Zero-Trust Safety Enforcement** guarantees that only highly anonymized, structure-only metadata (with all IPs and personal names scrubbed) is transmitted outside the local network.
+  - **Episodic Memory (The "When & What"):** Automatically ingests system logs, security events, and agent decisions via PostgreSQL hooks. Allows the AI to autonomously answer temporal queries like "Who entered the house recently?" or "What decisions did you make today?"
+
+  - **Semantic Knowledge (The "How & Rules"):** A dynamic, user-managed vector space for static facts. Users can inject Wi-Fi passwords, appliance manuals, or specific house rules (e.g., "Do not use TTS after midnight") via the Semantic Brain dashboard. LangGraph intelligently selects between `search_memory` and `search_knowledge` tools based on user intent, preventing context saturation and hallucination.
+
+- **Filter 3: Masked Cloud LLM (Generative Escalation):** Escalates highly complex, generative tasks to a robust Cloud LLM (e.g., Gemini 3.0). Strict **Zero-Trust Safety Enforcement** guarantees that only highly anonymized, structure-only metadata (with all IPs, exact device IDs, and personal names scrubbed) is transmitted outside the local network.
 
 *(Complementing this local-first approach, the system replaces cloud audio APIs with **Faster-Whisper (STT)** for sub-second edge transcription, and employs a standalone **Piper TTS C++ Binary** to synthesize high-fidelity WAV responses instantaneously—eliminating Python GIL bottlenecks and ARM64 crashes.)*
 
@@ -141,6 +147,7 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 | **Face Recognition**| **DeepFace (GhostFaceNet)**| Extracts high-dimensional facial embeddings for real-time biometric verification. |
 | **Biometrics** | **Resemblyzer** | Generates 256-dimensional voice embeddings for real-time speaker identification. |
 | **Math** | **Numpy** | Performs Cosine Similarity calculations to match live audio vectors against stored user profiles. |
+| **Vector DB** | **ChromaDB** | High-performance vector database hosting the Dual-Core RAG (Episodic Memory & Semantic Knowledge) collections. |
 
 
 ### Backend & Infrastructure
@@ -197,11 +204,16 @@ Instead of relying on third-party cloud NLP APIs or heavy local models for simpl
 - **Weighted Intersection Matching:** It dissects natural language into 'Core Nouns' (e.g., bulb, lamp) and 'Context Words' (e.g., living room, desk) to mathematically eliminate false-positive hardware triggers.
 - **Bypass Mechanism:** If a user simply says "Turn off the Desk Lamp", the Reflex Router executes the command in under 10 milliseconds and bypasses the LLM entirely. If the user asks an abstract question ("Is the oven on?"), the router instantly recognizes its own limits and gracefully delegates the task to the Local Brain (Llama 3.1).
 
-### 100% Local Autonomy
-The ecosystem has successfully evolved from a cloud-dependent architecture (OpenAI/Gemini) to a completely independent, zero-latency smart home. It operates flawlessly without an internet connection, guaranteeing absolute privacy and data sovereignty.
+### 100% Local Autonomy & Persistent RAG
+
+The ecosystem has successfully evolved from a cloud-dependent architecture to a completely independent, zero-latency smart home. It operates flawlessly without an internet connection, guaranteeing absolute privacy and data sovereignty.
 
 - **Local AI Brain (LLM):** Integrates **Ollama** to run **Meta Llama 3.1**, empowering the agent to reason, make decisions, and control devices entirely on local hardware.
+
+- **Dual-Core RAG Implementation:** The local brain is augmented by ChromaDB, which continuously indexes PostgreSQL hooks for both **Episodic Memory** (timestamped security logs, agent actions) and **Semantic Knowledge** (dashboard-injected rules, Wi-Fi credentials). This allows the AI to recall past events or reference rigid house protocols dynamically.
+
 - **Instant Voice Recognition (STT):** Replaces cloud APIs with **Faster-Whisper**, transcribing spoken commands in under a second directly on the edge, bypassing internet delays completely.
+
 - **Natural Voice Responses (TTS):** Employs **Piper TTS** for high-fidelity speech synthesis. Engineered for ultimate stability, it delivers crash-proof, instant voice responses without ever sending your voice data to the cloud.
 
 ### Extreme CPU Optimization & Zero-Copy Streaming
@@ -242,7 +254,7 @@ The system completely redefines the traditional login/register flow by treating 
 
 - **Dynamic Floor Plan & Granular Control:** SVG-based interactive maps for room selection, real-time environmental metrics (Temp, Humidity, Light), and HSL-supported smart lighting control, completely driven by backend database inventories.
 
-- **Modular UI widgets (Separation of Concerns):** A decoupled frontend architecture featuring specialized control hubs (UserManager, GestureManager, EmergencyManager) to handle independent operations without cluttering the primary DOM layout.
+- **Modular UI widgets (Separation of Concerns):** A decoupled frontend architecture featuring specialized control hubs (UserManager, GestureManager, EmergencyManager, KnowledgeManager) to handle independent operations without cluttering the primary DOM layout.
 
 - **5-Point Identity Enrollment:** A sophisticated UI guides users to register their face from 5 different angles (Front, Left, Right, Up, Down) while simultaneously capturing voice signatures, ensuring bulletproof identity verification across all lighting and positional conditions.
 

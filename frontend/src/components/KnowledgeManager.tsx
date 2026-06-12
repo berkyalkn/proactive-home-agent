@@ -20,7 +20,6 @@ interface KnowledgeManagerProps {
   onKnowledgeCountChange?: (count: number) => void;
 }
 
-/* ─── Inline styles for Info Boxes ───────────────────────────── */
 
 const infoBoxStyle: React.CSSProperties = {
   padding: '14px 16px',
@@ -61,7 +60,6 @@ export function KnowledgeManager({ isOpen, onClose, onKnowledgeCountChange }: Kn
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "success">("idle");
 
-  // Form State
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("rule");
   const [content, setContent] = useState("");
@@ -152,7 +150,6 @@ export function KnowledgeManager({ isOpen, onClose, onKnowledgeCountChange }: Kn
       
       <div className="custom-scrollbar" style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 50, width: 480, maxWidth: 'calc(100vw - 20px)', background: 'linear-gradient(135deg, rgba(20, 22, 28, 0.7) 0%, rgba(20, 22, 28, 0.4) 100%)', backdropFilter: 'blur(40px)', borderRight: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 1px 0 0 rgba(255, 255, 255, 0.05), 8px 0 40px rgba(0,0,0,0.5)', overflowY: 'auto' }}>
           
-          {/* ── Header ─────────────────────────────────────────── */}
           <div className="flex items-center justify-between shrink-0" style={{ paddingLeft: '28px', paddingRight: '20px', paddingTop: '20px', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(168, 85, 247, 0.05)' }}>
               <div className="flex items-center gap-3">
                   <div style={{ padding: '8px', background: 'rgba(168, 85, 247, 0.15)', borderRadius: '10px' }}>
@@ -168,7 +165,6 @@ export function KnowledgeManager({ isOpen, onClose, onKnowledgeCountChange }: Kn
               </button>
           </div>
 
-          {/* ── Tabs ─────────────────────────────────────────── */}
           <div className="flex p-1 bg-white/[0.03] rounded-full border border-white/[0.04] backdrop-blur-md" style={{ marginLeft: '28px', marginRight: '20px', marginTop: '20px', marginBottom: '24px' }}>
               <button 
                   onClick={() => setActiveTab("list")}
@@ -186,10 +182,8 @@ export function KnowledgeManager({ isOpen, onClose, onKnowledgeCountChange }: Kn
 
           <div className="py-2 min-h-[300px]" style={{ paddingLeft: '28px', paddingRight: '20px' }}>
               
-              {/* --- LIST TAB --- */}
               {activeTab === "list" && (
                   <div className="animate-in fade-in duration-300">
-                      {/* Info Box for List */}
                       <div style={infoBoxStyle}>
                           <div style={infoIconWrapperStyle}>
                             <Info style={{ width: '14px', height: '14px', color: 'rgba(192, 132, 252, 0.9)' }} />
@@ -241,11 +235,9 @@ export function KnowledgeManager({ isOpen, onClose, onKnowledgeCountChange }: Kn
                   </div>
               )}
 
-              {/* --- ADD TAB --- */}
               {activeTab === "add" && (
                   <div className="animate-in slide-in-from-right-2 duration-300 max-h-[calc(100vh-210px)] overflow-y-auto overflow-x-hidden scrollbar-hide pb-4" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                      
-                      {/* Info Box for Add */}
+
                       <div style={infoBoxStyle}>
                           <div style={infoIconWrapperStyle}>
                             <Lightbulb style={{ width: '14px', height: '14px', color: 'rgba(192, 132, 252, 0.9)' }} />

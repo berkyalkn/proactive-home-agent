@@ -76,7 +76,7 @@ To optimize for Privacy-First Latency, the system processes user intents through
 
   - **Semantic Knowledge (The "How & Rules"):** A dynamic, user-managed vector space for static facts. Users can inject Wi-Fi passwords, appliance manuals, or specific house rules (e.g., "Do not use TTS after midnight") via the Semantic Brain dashboard. LangGraph intelligently selects between `search_memory` and `search_knowledge` tools based on user intent, preventing context saturation and hallucination.
 
-- **Filter 3: Masked Cloud LLM (Generative Escalation):** Escalates highly complex, generative tasks to a robust Cloud LLM (e.g., Gemini 3.0). Strict **Zero-Trust Safety Enforcement** guarantees that only highly anonymized, structure-only metadata (with all IPs, exact device IDs, and personal names scrubbed) is transmitted outside the local network.
+- **Filter 3: Masked Cloud LLM & Zero-Trust Gatekeeper:** A dedicated Local Router dynamically classifies user intents before they ever leave the network. Casual chit-chat, greetings, and physical automation remain strictly LOCAL for zero-latency execution. Highly complex, generative tasks (e.g., "Explain quantum physics") are escalated to a robust Cloud LLM (Gemini 3.0 Flash). Before escalation, a strict Zero-Trust Scrubber intercepts the payload, permanently anonymizing all internal IP addresses, MAC addresses, and personal user tags ([User: Name]) to guarantee absolute data sovereignty.
 
 *(Complementing this local-first approach, the system replaces cloud audio APIs with **Faster-Whisper (STT)** for sub-second edge transcription, and employs a standalone **Piper TTS C++ Binary** to synthesize high-fidelity WAV responses instantaneously—eliminating Python GIL bottlenecks and ARM64 crashes.)*
 
@@ -134,10 +134,10 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 | :--- | :--- | :--- |
 | **Orchestration** | **LangGraph** |Manages the cyclic state of the agent, allowing for reasoning loops, error recovery, and multi-turn conversation memory.|
 | **Framework** | **LangChain** | Used for creating structured Tools (@tool decorators) and managing prompt templates.|
-| **Active Core (LLM)**| **Ollama (Llama 3.1)** | The current air-gapped, privacy-first generative engine for offline automation. |
+| **Active Core (Local LLM)**| **Ollama (Llama 3.1)** | The current air-gapped, privacy-first generative engine for offline automation. |
 | **Active Core (STT)**| **Faster-Whisper (Int8)** | Quantized edge-transcription microservice running locally with zero latency. |
 | **Active Core (TTS)**| **Piper TTS (C++)** | Industrial-grade, fully local neural text-to-speech engine running as an OS subprocess. |
-| **Legacy (Research)**| **Google Gemini 3.0** | *Previous reasoning engine (Vertex AI), kept in architecture for comparative reference.* |
+| **Active Core (Cloud LLM)** | **Google Gemini 3.0** | Acts as the Masked Cloud Brain, processing complex general knowledge and generative tasks securely via the Gatekeeper. |
 | **Legacy (Research)**| **OpenAI TTS & Whisper** | *Previous cloud audio endpoints, successfully deprecated in favor of the local Air-Gapped architecture.* |
 | **Computer Vision**| **OpenCV & KCF** | Lightweight motion detection and high-speed bounding box tracking on edge nodes. |
 | **Edge Vision**| **MediaPipe BlazeFace** | Ultra-lightweight mobile-optimized face detection for extracting ROIs at high FPS on edge devices. |
@@ -204,6 +204,7 @@ Instead of relying on third-party cloud NLP APIs or heavy local models for simpl
 - **Weighted Intersection Matching:** It dissects natural language into 'Core Nouns' (e.g., bulb, lamp) and 'Context Words' (e.g., living room, desk) to mathematically eliminate false-positive hardware triggers.
 - **Bypass Mechanism:** If a user simply says "Turn off the Desk Lamp", the Reflex Router executes the command in under 10 milliseconds and bypasses the LLM entirely. If the user asks an abstract question ("Is the oven on?"), the router instantly recognizes its own limits and gracefully delegates the task to the Local Brain (Llama 3.1).
 
+
 ### 100% Local Autonomy & Persistent RAG
 
 The ecosystem has successfully evolved from a cloud-dependent architecture to a completely independent, zero-latency smart home. It operates flawlessly without an internet connection, guaranteeing absolute privacy and data sovereignty.
@@ -215,6 +216,12 @@ The ecosystem has successfully evolved from a cloud-dependent architecture to a 
 - **Instant Voice Recognition (STT):** Replaces cloud APIs with **Faster-Whisper**, transcribing spoken commands in under a second directly on the edge, bypassing internet delays completely.
 
 - **Natural Voice Responses (TTS):** Employs **Piper TTS** for high-fidelity speech synthesis. Engineered for ultimate stability, it delivers crash-proof, instant voice responses without ever sending your voice data to the cloud.
+
+### Zero-Trust Hybrid Routing (The Gatekeeper)
+The system is not strictly confined to local boundaries, nor does it blindly trust the cloud. It features a dynamically routed **Hybrid Edge-Cloud Intelligence**:
+- **Intent Classification:** A dedicated local LLM acts as the "Gatekeeper," intercepting every prompt. It intelligently distinguishes between physical home automation/chit-chat (routed locally) and complex general knowledge/generative requests (escalated to the cloud).
+- **Zero-Trust Scrubber:** Before any query leaves the local network, the system automatically scrubs and masks personal data (e.g., `[User: Berkay]`), internal IP addresses, and MAC addresses. The Cloud LLM (Gemini) receives a completely sterilized prompt, ensuring zero compromise on home network topography.
+- **Cost & Latency Optimization:** By keeping casual greetings ("How are you?") and home status queries strictly on the edge, the system drastically reduces unnecessary cloud API calls, latency, and operational costs.
 
 ### Extreme CPU Optimization & Zero-Copy Streaming
 - **Media Server Decoupling:** By shifting the video streaming burden entirely to **go2rtc**, the central Raspberry Pi 5 Hub is relieved from analyzing or transcoding continuous video feeds. Instead of melting the CPU with OpenCV MJPEG encoding, the system routes the raw RTSP packets directly to the browser via **WebRTC/MSE**, reducing streaming CPU load from ~70% to `<1%`.

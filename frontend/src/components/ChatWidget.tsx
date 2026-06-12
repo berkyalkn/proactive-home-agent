@@ -76,7 +76,7 @@ export function ChatWidget() {
                 className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] p-3 text-sm rounded-2xl ${
+                  className={`max-w-[85%] h-fit w-fit p-3 text-sm rounded-2xl ${
                     msg.role === "user"
                       ? "text-[#EAEAEA] font-medium rounded-br-sm shadow-sm"
                       : "text-[#EAEAEA] shadow-sm rounded-bl-sm"
@@ -87,7 +87,9 @@ export function ChatWidget() {
                       : { backgroundColor: '#343446' }
                   }
                 >
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    <p className="whitespace-pre-wrap leading-relaxed">
+                        {msg.content.trimStart()}
+                    </p>
                 </div>
               </div>
             ))}

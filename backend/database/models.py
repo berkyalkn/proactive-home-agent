@@ -137,3 +137,12 @@ class SecuritySettings(SQLModel, table=True):
     use_voice_call: bool = Field(default=True)
     use_telegram: bool = Field(default=True)
     is_active: bool = Field(default=True)
+
+class HomeKnowledge(SQLModel, table=True):
+    __tablename__ = "home_knowledge"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str  
+    content: str  
+    category: str = Field(default="general") 
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

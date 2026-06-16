@@ -141,3 +141,11 @@ async def get_device_model(ip: str, username: str, password: str, retries: int =
             await asyncio.sleep(1.0) 
 
     return ""
+
+
+async def is_session_active(device) -> bool:
+    try:
+        await device.get_device_info()
+        return True
+    except Exception:
+        return False

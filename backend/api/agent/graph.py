@@ -94,8 +94,8 @@ async def route_query(state: MessagesState):
     prompt = f"""You are a strict Gatekeeper for a Smart Home System.
     Analyze the following user query and output ONLY one word: "LOCAL" or "CLOUD".
     
-    - Output "LOCAL" if the query is about controlling lights/plugs, checking home status, security, past events, Wi-Fi passwords, casual greetings (e.g. "hello", "how are you"), chit-chat, or anything related to the physical house or your identity as an assistant.
-    - Output "CLOUD" if the query is a general knowledge question, coding help, recipe, math, or completely unrelated to the house.
+    - Output "LOCAL" if the query is about controlling the house, security, memory, casual greetings, or if the user asks for creative writing, recipes, or coding help (which you will politely reject in the local node).
+    - Output "CLOUD" ONLY if the query explicitly demands real-time external world data (e.g., weather, traffic, news, flights) or third-party external facts.
     
     User Query: "{last_message}"
     Decision:"""
@@ -130,7 +130,7 @@ async def cloud_agent_node(state: MessagesState):
     
     scrubbed_query = zero_trust_scrubber(last_message)
     
-    system_msg = SystemMessage(content="You are the Cloud Brain of a Smart Home ecosystem. Your purpose is to help with general knowledge, complex analysis, and creative requests. You do not have access to the home's physical devices. Keep your answers concise, conversational, and helpful.")
+    system_msg = SystemMessage(content="You are the External Data Module of a Smart Home ecosystem. Your SOLE purpose is to retrieve and summarize real-time external world data (like weather, traffic, directions, or factual news) requested by the user. Do NOT engage in open-domain chatting, creative writing, or roleplay. Keep your answers factual, concise, and task-oriented.")
     
     response = await cloud_llm.ainvoke([system_msg, HumanMessage(content=scrubbed_query)])
     return {"messages": [response]}

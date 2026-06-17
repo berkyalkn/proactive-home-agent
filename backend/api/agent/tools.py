@@ -1,6 +1,7 @@
 from langchain_core.tools import tool
 import api.drivers.mqtt_service as mqtt_service
 from api.services.presence_service import presence_service
+from api.services.behavior_service import behavior_service
 from api.routers.devices_router import (
     control_device, DeviceControl, get_all_devices,
     set_brightness, BrightnessControl, set_color, ColorControl
@@ -15,6 +16,8 @@ import time
 import logging
 import httpx
 import os
+
+from datetime import datetime, timezone, timedelta
 
 
 
@@ -437,4 +440,45 @@ def search_home_knowledge(query: str) -> str:
         return f"System error during knowledge search: {str(e)}"
 
 
-tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert, search_home_memory, search_home_knowledge]
+@tool
+def ask_subconscious_routine() -> str:
+    """
+    CRITICAL BEHAVIOR TOOL: Use this tool ONLY when the user asks about their routines, 
+    habits, or asks "Should the lights be on?", "What does the routine say?".
+    This tool queries the predictive XGBoost model (Subconscious Brain).
+    """
+
+    logger.info("[Agent Brain] Querying XGBoost Subconscious Model...")
+    
+    tr_timezone = timezone(timedelta(hours=3))
+    now = datetime.now(tr_timezone)
+    
+    sensor_data_source = mqtt_service.LATEST_SENSOR_DATA
+    current_lux = 150.0  
+    motion = False   
+    
+    for s_id, s_data in sensor_data_source.items():
+        if "light_level" in s_data:
+            current_lux = float(s_data["light_level"])
+        if "motion_detected" in s_data:
+            motion = bool(s_data["motion_detected"])
+        break 
+    
+    prediction = behavior_service.predict_action(
+        day_of_week=now.weekday(),
+        hour=now.hour,
+        minute=now.minute,
+        lux=current_lux,
+        motion=motion
+    )
+    
+    if prediction.get("action") is None:
+        return "The predictive routine model is currently offline."
+        
+    if prediction["action"] is True:
+        return f"Based on live sensor data and historical routines, the model strongly predicts (Confidence: {prediction['confidence']:.0%}) that the Living Room Bulb should be ON right now."
+    else:
+        return f"Based on live sensor data and historical routines, the model predicts (Confidence: {prediction['confidence']:.0%}) that the devices should remain OFF right now."
+
+
+tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert, search_home_memory, search_home_knowledge, ask_subconscious_routine]

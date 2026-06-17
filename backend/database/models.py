@@ -146,3 +146,20 @@ class HomeKnowledge(SQLModel, table=True):
     content: str  
     category: str = Field(default="general") 
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class BehavioralTelemetry(SQLModel, table=True):
+    __tablename__ = "behavioral_telemetry"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    
+    day_of_week: int  
+    hour_of_day: int 
+    minute_of_hour: int
+    lux_level: float  
+    motion_detected: bool 
+    
+    target_device_id: str 
+    device_state: bool 
+    
+    action_source: str = Field(default="USER") 

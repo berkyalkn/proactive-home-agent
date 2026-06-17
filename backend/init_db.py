@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel
 from database.settings import engine
-from database.models import Device, Room, User, SystemLog, SensorReading, AgentDecision, UserFeedback, SecuritySettings, GestureMapping
+from database.models import Device, Room, User, SystemLog, SensorReading, AgentDecision, UserFeedback, SecuritySettings, GestureMapping, BehavioralTelemetry
 
 def init_db():
     print("Dropping old tables and creating new ones...")

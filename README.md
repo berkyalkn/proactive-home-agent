@@ -5,6 +5,8 @@
 ![Google Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
 ![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
 ![NumPy](https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white)
+![XGBoost](https://img.shields.io/badge/XGBoost-179331?style=for-the-badge&logo=xgboost&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)
 
 
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
@@ -40,7 +42,7 @@
 
 ## Introduction
 
-This project is a local-first, privacy-centric smart home ecosystem designed to bridge the gap between traditional reactive IoT systems and true agentic intelligence. While standard hubs wait for explicit commands, this project leverages a Hybrid AI Architecture running on a Raspberry Pi 5 to proactively manage the environment based on context, visual observation, spatial-episodic memory, and physical gestures.
+This project is a local-first, privacy-centric smart home ecosystem designed to bridge the gap between traditional reactive IoT systems and true agentic intelligence. While standard hubs wait for explicit commands, this project leverages a Hybrid AI Architecture running on a Raspberry Pi 5 to proactively manage the environment based on context, visual observation, spatial-episodic memory, predictive behavioral models, and physical gestures.
 
 By orchestrating **Distributed ESP32 Sensor Nodes, Edge Computer Vision, Multi-Modal Presence Management, Omnichannel Security Alerts, and Generative AI (LangGraph)**, the system creates a "conscious" living space. It doesn't just switch lights on; it understands context, visually identifies users upon entry via multi-angle biometrics, comprehends hand gestures, interactively verifies fall emergencies, triggers autonomous lockdown protocols, retains a chronological memory of spatial events, and executes complex natural language goals—while keeping critical data within the home network.
 
@@ -53,7 +55,7 @@ The project follows a **modular 5-Layer Architecture** designed for high scalabi
 | Layer | Component | Description |
 | :--- | :--- | :--- |
 | **L5** | **Presentation** | Next.js Dashboard, **5-Step Autonomous Onboarding Engine**, an independent Omnichannel **Security Hub**, **Semantic Brain Manager**, and Voice Command Center handling multi-modal user inputs (Audio/Touch/Camera Feeds) with event-driven auto-microphone triggering. |
-| **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision, and Predictive Models. It filters intents through a bespoke **3-Stage Logic Funnel (In-Memory Reflex -> Local Dual-Core RAG -> Cloud Escalation)** and utilizes Zero-Latency Omniscient Context Injection. |
+| **L4** | **Intelligence** | Hosts the LangGraph Agent, Dual-Stage Computer Vision, and the **XGBoost** MLOps Subconscious Engine.. It filters intents through a bespoke **3-Stage Logic Funnel (In-Memory Reflex -> Local Dual-Core RAG -> Cloud Escalation)** and utilizes Zero-Latency Omniscient Context Injection. |
 | **L3** | **Backend Services** | FastAPI Microservices managing logic routing, hardware provisioning, **dynamic relational data persistence (PostgreSQL/SQLModel)** replacing static registries, omnichannel notifications (Twilio/Telegram), presence ledgers, and real-time System Integrity Diagnostics. |
 | **L2** | **Communication** | A **Hybrid Event Bus:** MQTT (Hardware-to-Backend), WebSockets (Backend-to-Frontend), and Connection-Pooled HTTP/REST for external APIs. Video streaming is completely decoupled via **go2rtc**, ensuring <100ms ultra-low latency WebRTC/MSE tunneling across local networks and VPNs (Tailscale). |
 | **L1** | **Physical** | Distributed hardware layer consisting of the Pi 5 Hub, ESP32 Sensor Nodes, Tapo Actuators, and Edge Camera Nodes running a 4-Layer Quality Gate. |
@@ -76,16 +78,22 @@ To optimize for Privacy-First Latency, the system processes user intents through
 
   - **Semantic Knowledge (The "How & Rules"):** A dynamic, user-managed vector space for static facts. Users can inject Wi-Fi passwords, appliance manuals, or specific house rules (e.g., "Do not use TTS after midnight") via the Semantic Brain dashboard. LangGraph intelligently selects between `search_memory` and `search_knowledge` tools based on user intent, preventing context saturation and hallucination.
 
+  - **The Subconscious Brain (XGBoost MLOps):** Rather than hardcoding automations, an edge-trained XGBoost Classifier learns user habits from flattened BehavioralTelemetry data. The Local LLM utilizes this predictive model as a strictly defined Tool, dynamically querying it with live sensor data (Time, Day, Lux, Motion) to deduce user intent autonomously.
+
 - **Filter 3: Masked Cloud LLM & Zero-Trust Gatekeeper:** A dedicated Local Router dynamically classifies user intents before they ever leave the network. Casual chit-chat, greetings, and physical automation remain strictly LOCAL for zero-latency execution. Highly complex, generative tasks (e.g., "Explain quantum physics") are escalated to a robust Cloud LLM (Gemini 3.0 Flash). Before escalation, a strict Zero-Trust Scrubber intercepts the payload, permanently anonymizing all internal IP addresses, MAC addresses, and personal user tags ([User: Name]) to guarantee absolute data sovereignty.
 
 *(Complementing this local-first approach, the system replaces cloud audio APIs with **Faster-Whisper (STT)** for sub-second edge transcription, and employs a standalone **Piper TTS C++ Binary** to synthesize high-fidelity WAV responses instantaneously—eliminating Python GIL bottlenecks and ARM64 crashes.)*
 
-### 2. Cognitive Tools & Fault Tolerance
+### 2. Cognitive Tools & Explainable AI (XAI)
 The Agent interacts with the physical world through a set of "Robust Tools" designed to handle the unpredictability of IoT networks.
 
 - **Omniscient Context Injection:** Upon entry, current telemetry (temperature, light, exact local time) is injected directly from RAM into the LLM's system prompt. This eliminates the 3-5 second delay of traditional API tool-calling.
 - **Self-Healing Actuators:** Wraps device drivers (e.g., Tapo API) with a self-healing mechanism. If an ESP32 or smart plug loses power (`No route to host`), the system silently marks it "Offline" and attempts background re-authentication instead of crashing or hallucinating.
 - **Multi-Room Topology Mapping:** The LangGraph agent relies on a fully relational PostgreSQL database rather than static registries, allowing for dynamic spatial awareness and instant adaptation to newly added hardware.
+
+- **Explainable AI (XAI) Routine Analysis:** Using Pandas and SQL, the agent can actively analyze its own predictive database. When asked "What are my routines?", it translates raw statistical data into human-readable insights (e.g., "You have a 100% tendency to turn on lights on Thursdays at 3:00 AM").
+
+- **Hypothetical Reasoning:** The LangGraph agent can query the XGBoost model to make logical deductions about the future. If asked, "What would you do if I came home at 3 AM?", it consults historical probabilities and answers dynamically, completely avoiding LLM hallucination.
 
 ### 3. Dual-Biometric Zero-Trust Security & FaceID Login
 The system redefines traditional login flows, treating authentication as a fluid, biometric-first experience across the home and the Next.js dashboard.
@@ -141,6 +149,8 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 | **Legacy (Research)**| **OpenAI TTS & Whisper** | *Previous cloud audio endpoints, successfully deprecated in favor of the local Air-Gapped architecture.* |
 | **Computer Vision**| **OpenCV & KCF** | Lightweight motion detection and high-speed bounding box tracking on edge nodes. |
 | **Edge Vision**| **MediaPipe BlazeFace** | Ultra-lightweight mobile-optimized face detection for extracting ROIs at high FPS on edge devices. |
+| **Predictive AI** | **XGBoost** | Lightweight decision-tree expert model acting as the "Subconscious Brain" to predict routines on the edge. |
+| **Data Analysis** | **Pandas & Scikit-Learn** | Used for the MLOps pipeline, synthetic telemetry generation, and Explainable AI (XAI) statistical extraction. |
 | **Gesture AI** | **MediaPipe Tasks API** | Asynchronous real-time hand gesture recognition (Victory, Open Palm, Closed Fist) running on non-blocking C++ worker threads. |
 | **Pose Estimation**| **MediaPipe Pose** | Extracts real-time 33-point body landmarks to calculate spatial velocity and asynchronously detect falls. |
 | **Alignment**| **YOLOv8-Face** | Executes 5-point facial landmark detection on the Hub for surgical face alignment before recognition. |
@@ -217,6 +227,11 @@ The ecosystem has successfully evolved from a cloud-dependent architecture to a 
 
 - **Natural Voice Responses (TTS):** Employs **Piper TTS** for high-fidelity speech synthesis. Engineered for ultimate stability, it delivers crash-proof, instant voice responses without ever sending your voice data to the cloud.
 
+### Proactive MLOps & Explainable AI (XAI)
+The system has transitioned from reactive rule-based automation to predictive behavioral modeling.
+- **Subconscious Modeling:** A dedicated MLOps pipeline (`train_behavior.py`) flattens complex relational home data into `BehavioralTelemetry` matrices, training an XGBoost model directly on the Raspberry Pi. 
+- **Explainable Analytics:** The `analyze_routine_patterns` tool allows the AI to act as a Data Scientist, summarizing complex grouping functions into readable active/inactive behavioral reports for the user, answering not just *what* it will do, but *why*.
+
 ### Zero-Trust Hybrid Routing (The Gatekeeper)
 The system is not strictly confined to local boundaries, nor does it blindly trust the cloud. It features a dynamically routed **Hybrid Edge-Cloud Intelligence**:
 - **Intent Classification:** A dedicated local LLM acts as the "Gatekeeper," intercepting every prompt. It intelligently distinguishes between physical home automation/chit-chat (routed locally) and complex general knowledge/generative requests (escalated to the cloud).
@@ -276,6 +291,6 @@ The system completely redefines the traditional login/register flow by treating 
 
 - [ ] **Acoustic Event Detection (SED):** Integrating Audio Intelligence models (e.g., YAMNet) to recognize critical environmental sounds such as *baby crying* or *glass breaking* and trigger emergency protocols.
 
-- [ ] **Predictive Behavior Modeling:** Training **LSTM/Transformer** networks on historical home data to learn user habits and automate routines proactively (e.g., "User usually drinks coffee at 8 AM, pre-heat the machine").
+- [ ] **Holistic Behavioral Pattern Recognition:** Evolving the current XGBoost-based isolated predictions. This will empower the ecosystem to comprehend multi-step, complex daily lifecycles—learning the user's entire behavioral pattern across all devices and rooms simultaneously to achieve true, invisible automation.
 
 - [ ] **Native Mobile Ecosystem:** Developing a **React Native** application to extend control beyond the local network and enable rich push notifications.

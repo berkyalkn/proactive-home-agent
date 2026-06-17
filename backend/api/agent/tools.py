@@ -10,7 +10,7 @@ from api.agent.cache import get_cached, set_cache, invalidate_cache
 from sqlmodel import Session, select
 from database.settings import engine
 from api.services.vector_db import vector_db
-from database.models import Room, Device, AgentDecision, SystemLog
+from database.models import Room, Device, AgentDecision, SystemLog, BehavioralTelemetry
 import asyncio
 import time
 import logging
@@ -18,6 +18,7 @@ import httpx
 import os
 
 from datetime import datetime, timezone, timedelta
+import pandas as pd
 
 
 
@@ -481,4 +482,73 @@ def ask_subconscious_routine() -> str:
         return f"Based on live sensor data and historical routines, the model predicts (Confidence: {prediction['confidence']:.0%}) that the devices should remain OFF right now."
 
 
-tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert, search_home_memory, search_home_knowledge, ask_subconscious_routine]
+
+@tool
+def analyze_routine_patterns() -> str:
+    """
+    CRITICAL ANALYSIS TOOL: Use this tool ONLY when the user explicitly asks to LIST, EXPLAIN, 
+    or SUMMARIZE their habits, routines, or patterns (e.g., "What are my routines?", 
+    "When do I usually turn on the lights?", "Explain my behavior").
+    Do NOT use this for real-time predictions (use ask_subconscious_routine for that).
+    """
+
+    logger.info("[Agent Brain] Analyzing BehavioralTelemetry for explicit routine patterns...")
+
+    try:
+        with Session(engine) as session:
+            statement = select(BehavioralTelemetry)
+            results = session.exec(statement).all()
+
+        if not results:
+            return "I don't have enough behavioral data yet to identify your routines."
+
+        data = [
+            {
+                "day": r.day_of_week,
+                "hour": r.hour_of_day,
+                "state": int(r.device_state)
+            }
+            for r in results
+        ]
+        df = pd.DataFrame(data)
+
+        routine_summary = df.groupby(['day', 'hour']).agg(
+            total_events=('state', 'count'),
+            on_probability=('state', 'mean')
+        ).reset_index()
+
+        days_map = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday", 5: "Saturday", 6: "Sunday"}
+        report_lines = ["Here are the strong routines I discovered from your past behavior:\n"]
+
+        strong_on_patterns = routine_summary[routine_summary['on_probability'] >= 0.8]
+        if not strong_on_patterns.empty:
+            report_lines.append("ACTIVE ROUTINES (Usually ON):")
+            for _, row in strong_on_patterns.iterrows():
+                day_name = days_map.get(int(row['day']), "Unknown Day")
+                hour = int(row['hour'])
+                prob = row['on_probability'] * 100
+                report_lines.append(f"  - On {day_name}s around {hour}:00, you have a {prob:.0f}% tendency to keep the devices ON.")
+
+        strong_off_patterns = routine_summary[routine_summary['on_probability'] <= 0.2]
+        if not strong_off_patterns.empty:
+            report_lines.append("\nINACTIVE ROUTINES (Usually OFF):")
+            for _, row in strong_off_patterns.iterrows():
+                day_name = days_map.get(int(row['day']), "Unknown Day")
+                hour = int(row['hour'])
+                prob = (1 - row['on_probability']) * 100
+                report_lines.append(f"  - On {day_name}s around {hour}:00, you have a {prob:.0f}% tendency to keep the devices OFF.")
+
+        if strong_on_patterns.empty and strong_off_patterns.empty:
+            return "I have analyzed your data, but I couldn't find any strict, recurring routines yet."
+
+        final_report = "\n".join(report_lines)
+        logger.info(f"[Routine Analysis Output]:\n{final_report}")
+
+        return final_report
+
+    except Exception as e:
+        logger.error(f"Routine Analysis Tool failed: {e}", exc_info=True)
+        return f"System error while analyzing routines: {str(e)}"
+
+
+tools_list = [get_home_status, control_smart_device, control_bulb, trigger_emergency_alert, search_home_memory, search_home_knowledge, ask_subconscious_routine, analyze_routine_patterns]

@@ -19,6 +19,7 @@ from database.settings import engine
 from database.models import Room, Device, User, GestureMapping, SecuritySettings, AgentDecision, SystemLog
 
 import logging
+import json
 import cv2
 import numpy as np
 import asyncio
@@ -57,6 +58,7 @@ class FallDiagnostics(BaseModel):
     body_velocity: float = 0.0
     torso_angle_deg: float = 0.0
     inactivity_elapsed_s: float = 0.0
+    fall_probability: float | None = None
 
 class FallMedia(BaseModel):
     snapshot_path: str | None = None
@@ -415,11 +417,18 @@ async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks)
 
     if "multipart" in content_type:
         form = await request.form()
-        confidence = float(form["confidence"])
-        timestamp = float(form["timestamp"])
-        source = form.get("source", "mac_camera")
+        try:
+            event = FallAlertEvent.model_validate(json.loads(form["payload"]))
+        except (KeyError, ValueError, ValidationError) as e:
+            raise HTTPException(status_code=422, detail=f"Invalid fall multipart payload: {e}")
+        confidence = (
+            event.diagnostics.fall_probability
+            if event.diagnostics.fall_probability is not None
+            else 1.0
+        )
+        source = event.source
         screenshot_file = form.get("screenshot")
-        if screenshot_file:
+        if screenshot_file is not None:
             screenshot_bytes = await screenshot_file.read()
     else:
         body = await request.json()
@@ -427,10 +436,11 @@ async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks)
             event = FallAlertEvent.model_validate(body)
         except ValidationError as e:
             raise HTTPException(status_code=422, detail=f"Invalid fall payload: {e}")
-        # New schema carries no confidence: the alert is a confirmed fall
-        # after Mac-side velocity gating and post-fall inactivity checks.
-        confidence = 1.0
-        timestamp = event.ts_monotonic if event.ts_monotonic is not None else time.time()
+        confidence = (
+            event.diagnostics.fall_probability
+            if event.diagnostics.fall_probability is not None
+            else 1.0
+        )
         source = event.source
         # media.snapshot_path is a Mac-local path the Pi cannot read.
         # Until Phase B serves the image, proceed without a screenshot.

@@ -1,6 +1,7 @@
 import time
 import logging
-from typing import Dict, List
+import os
+from typing import Any, Dict, List
 from datetime import datetime, timezone, timedelta
 
 from sqlmodel import Session, select
@@ -20,6 +21,9 @@ class PresenceService:
             cls._instance.history_ledger: List[dict] = []
             
             cls._instance.timeout_seconds = 20
+            cls._instance.identity_present_backstop_s = int(
+                os.getenv("IDENTITY_PRESENT_BACKSTOP_S", "300")
+            )
             cls._instance.unknown_grace_period = 4.0 
             cls._instance.unknown_first_seen = 0.0
             
@@ -81,6 +85,33 @@ class PresenceService:
         except Exception as e:
             logger.error(f"DB Update Error for last_seen: {e}")
 
+    def log_identity_session(self, event: Any):
+        if event.event_type == "person_identified":
+            self._log_event(event.user, "ENTERED", event.zone)
+            self._update_db_last_seen(event.user)
+            logger.info(f"IDENTITY EVENT: {event.user} entered {event.zone} via track {event.track_id}")
+        elif event.event_type == "person_left":
+            self._log_event(event.user, "EXITED", event.zone)
+            self._update_db_last_seen(event.user)
+            logger.info(
+                f"IDENTITY EVENT: {event.user} left {event.zone} via track {event.track_id}; "
+                f"dwell={event.dwell_s}s"
+            )
+
+    def mark_identity_present(self, person_name: str, location: str = "living_room") -> None:
+        current_time = time.time()
+        self.active_people[person_name] = {
+            "last_seen": current_time,
+            "location": location,
+            "identity_sourced": True,
+        }
+        self._update_db_last_seen(person_name)
+
+    def clear_identity_present(self, person_name: str, location: str = "living_room") -> None:
+        if person_name in self.active_people:
+            del self.active_people[person_name]
+        self._update_db_last_seen(person_name)
+
     def handle_detection(self, person_name: str, location: str = "living_room") -> str:
         current_time = time.time()
         
@@ -121,15 +152,21 @@ class PresenceService:
                 self._log_event("A Stranger", "ENTERED", location)
                 return "ENTRY"
 
-    def check_timeouts(self) -> List[str]:
+    def check_timeouts(self, identity_authoritative: bool = False) -> List[str]:
         current_time = time.time()
         exited_people = []
         
         for person_name in list(self.active_people.keys()):
             last_seen = self.active_people[person_name]["last_seen"]
             location = self.active_people[person_name]["location"]
+            is_identity_sourced = bool(self.active_people[person_name].get("identity_sourced"))
+            timeout_seconds = (
+                self.identity_present_backstop_s
+                if identity_authoritative and is_identity_sourced
+                else self.timeout_seconds
+            )
             
-            if (current_time - last_seen) > self.timeout_seconds:
+            if (current_time - last_seen) > timeout_seconds:
                 exited_people.append(person_name)
                 del self.active_people[person_name]
                 logger.info(f"EXIT EVENT: {person_name} left the room (Timeout).")

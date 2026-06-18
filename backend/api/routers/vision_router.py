@@ -43,6 +43,16 @@ class GestureEvent(BaseModel):
     timestamp: float
     duration: float
 
+class IdentityEvent(BaseModel):
+    schema_version: str = "1.0"
+    event_type: str
+    track_id: int
+    user: str
+    zone: str = "living_room"
+    source: str = "mac_studio_living_room"
+    ts_wall: str
+    dwell_s: Optional[float] = None
+
 class VoiceCancelEvent(BaseModel):
     transcript: str
 
@@ -53,8 +63,18 @@ class ActionState:
     last_greeting_times = {} 
 
 ACTION_COOLDOWN = 10.0
+IDENTITY_AUTHORITATIVE = os.getenv("IDENTITY_AUTHORITATIVE", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
-async def trigger_agent_proactively(person_name: str, event_type: str):
+async def trigger_agent_proactively(
+    person_name: str,
+    event_type: str,
+    dwell_s: Optional[float] = None,
+):
 
     if event_type not in ["fall_detected"]:
         if time.time() - getattr(ActionState, 'last_emergency_time', 0) < 120:
@@ -144,13 +164,21 @@ async def trigger_agent_proactively(person_name: str, event_type: str):
                 f"- Ignore 'Offline' or 'Unreachable' devices silently.\n"
                 f"Keep your response natural, conversational, and strict to 2 sentences max."
             )
-    else: 
+    else:
+        dwell_context = ""
+        if dwell_s is not None:
+            dwell_minutes = max(0, int(dwell_s // 60))
+            dwell_context = (
+                f"[Secret Context: {person_name} was in the room for "
+                f"{dwell_minutes} minutes before leaving.] \n"
+            )
         system_prompt = (
             f"[User: {person_name}] [System Event: User {person_name} exited at {current_time}.] \n"
             f"--- CURRENT HOME CONTEXT ---\n"
             f"Sensors: {sensor_context}\n"
             f"Devices: {device_status}\n"
             f"---------------------------\n"
+            f"{dwell_context}"
             f"You are the Proactive Home Agent. RULES:\n"
             f"1. Analyze the 'Devices' list. IF ANY device is 'ON', YOU MUST USE YOUR TOOLS to turn it OFF immediately to save energy.\n"
             f"2. Skip 'Unknown' or 'Offline' devices silently.\n"
@@ -588,6 +616,25 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
         logger.error(f"Gesture Processing Error: {e}")
         raise HTTPException(status_code=500, detail="Gesture Processing Error")
 
+@router.post("/identity_event")
+async def handle_identity_event(event: IdentityEvent, background_tasks: BackgroundTasks):
+    if event.event_type not in {"person_identified", "person_left"}:
+        raise HTTPException(status_code=400, detail="Invalid identity event type")
+
+    presence_service.log_identity_session(event)
+
+    if not IDENTITY_AUTHORITATIVE:
+        return {"status": "logged"}
+
+    if event.event_type == "person_identified":
+        presence_service.mark_identity_present(event.user, event.zone)
+        background_tasks.add_task(trigger_agent_proactively, event.user, "entered")
+    elif event.event_type == "person_left":
+        presence_service.clear_identity_present(event.user, event.zone)
+        background_tasks.add_task(trigger_agent_proactively, event.user, "exited", event.dwell_s)
+
+    return {"status": "ok"}
+
 @router.post("/update_presence")
 async def update_presence(event: PresenceEvent, background_tasks: BackgroundTasks):
     person_name = event.user
@@ -622,7 +669,9 @@ async def continuous_presence_check():
     logger.info("Continuous presence check active.")
     while True:
         try:
-            exited_people = presence_service.check_timeouts()
+            exited_people = presence_service.check_timeouts(
+                identity_authoritative=IDENTITY_AUTHORITATIVE,
+            )
             for person in exited_people:
                 await trigger_agent_proactively(person, "exited")
         except Exception: pass

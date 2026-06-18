@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from api.services.vision_service import vision_service
 from api.services.presence_service import presence_service
 from api.agent.graph import chat_with_ai 
@@ -52,6 +52,29 @@ class IdentityEvent(BaseModel):
     source: str = "mac_studio_living_room"
     ts_wall: str
     dwell_s: Optional[float] = None
+
+class FallDiagnostics(BaseModel):
+    body_velocity: float = 0.0
+    torso_angle_deg: float = 0.0
+    inactivity_elapsed_s: float = 0.0
+
+class FallMedia(BaseModel):
+    snapshot_path: str | None = None
+
+class FallAlertEvent(BaseModel):
+    schema_version: str = "1.0"
+    event_type: str = "fall"
+    track_id: int | None = None
+    fall_state: str | None = None
+    bbox: list[float] | None = None
+    centroid: list[float] | None = None
+    frame_size: list[int] | None = None
+    diagnostics: FallDiagnostics = FallDiagnostics()
+    ts_wall: str | None = None
+    ts_monotonic: float | None = None
+    source: str = "mac_camera"
+    zone: str = "living_room"
+    media: FallMedia | None = None
 
 class VoiceCancelEvent(BaseModel):
     transcript: str
@@ -400,9 +423,20 @@ async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks)
             screenshot_bytes = await screenshot_file.read()
     else:
         body = await request.json()
-        confidence = body["confidence"]
-        timestamp = body["timestamp"]
-        source = body.get("source", "mac_camera")
+        try:
+            event = FallAlertEvent.model_validate(body)
+        except ValidationError as e:
+            raise HTTPException(status_code=422, detail=f"Invalid fall payload: {e}")
+        # New schema carries no confidence: the alert is a confirmed fall
+        # after Mac-side velocity gating and post-fall inactivity checks.
+        confidence = 1.0
+        timestamp = event.ts_monotonic if event.ts_monotonic is not None else time.time()
+        source = event.source
+        # media.snapshot_path is a Mac-local path the Pi cannot read.
+        # Until Phase B serves the image, proceed without a screenshot.
+        screenshot_bytes = None
+        if event.media and event.media.snapshot_path:
+            logger.info(f"Fall snapshot path (not fetchable yet): {event.media.snapshot_path}")
 
     logger.critical(f"FALL ALERT RECEIVED — confidence: {confidence:.0%}, source: {source}")
     presence_service.log_fall_event("living_room", confidence)

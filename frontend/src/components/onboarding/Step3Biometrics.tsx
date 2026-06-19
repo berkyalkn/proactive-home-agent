@@ -1,8 +1,17 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScanFace, Mic, CheckCircle2, Camera, StopCircle, User, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Sparkles, Loader2 } from 'lucide-react';
+import { ScanFace, Mic, CheckCircle2, Camera, StopCircle, User, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ArrowUpLeft, ArrowUpRight, Sparkles, Loader2 } from 'lucide-react';
 import s from '@/components/auth/auth.module.css';
+import {
+  FACE_ENROLLMENT_ANGLES,
+  FaceCaptureMap,
+  createEmptyFaceCaptures,
+  enrollFaceBatch,
+  getCurrentIdentityLabel,
+  isFaceEnrollmentComplete,
+  nextFaceEnrollmentAngle,
+} from '@/lib/vision-api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -22,19 +31,12 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   
-  const [faces, setFaces] = useState<{front: Blob | null, left: Blob | null, right: Blob | null, up: Blob | null, down: Blob | null}>({
-    front: null, left: null, right: null, up: null, down: null
-  });
+  const [faces, setFaces] = useState<FaceCaptureMap>(() => createEmptyFaceCaptures());
 
   const [savingText, setSavingText] = useState("Securing your data...");
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const currentFaceStep = !faces.front ? "front" 
-                        : !faces.left ? "left" 
-                        : !faces.right ? "right" 
-                        : !faces.up ? "up" 
-                        : !faces.down ? "down" 
-                        : "done";
+  const currentFaceStep = nextFaceEnrollmentAngle(faces);
 
   const stopMediaTracks = useCallback(() => {
     if (stream) {
@@ -75,13 +77,11 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
       canvas.toBlob((blob) => {
         if (blob) {
           setFaces(prev => {
-            const newFaces = { ...prev };
-            if (!prev.front) newFaces.front = blob;
-            else if (!prev.left) newFaces.left = blob;
-            else if (!prev.right) newFaces.right = blob;
-            else if (!prev.up) newFaces.up = blob;
-            else if (!prev.down) {
-              newFaces.down = blob;
+            const nextAngle = nextFaceEnrollmentAngle(prev);
+            if (nextAngle === "done") return prev;
+
+            const newFaces = { ...prev, [nextAngle]: blob };
+            if (nextAngle === "upRight") {
               stopMediaTracks(); 
               setTimeout(() => setMode('voice'), 1500); 
             }
@@ -148,40 +148,25 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
     const token = localStorage.getItem('token'); 
 
     try {
-      const form1 = new FormData();
-      form1.append("image_file", faces.front as Blob, "front.jpg");
-      if (recordedAudio) form1.append("audio_file", recordedAudio, "voice_sample.webm");
-      
-      const res = await fetch(`${API_URL}/users/register`, { 
-        method: "POST", 
-        body: form1,
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (!res.ok) throw new Error("Registration failed on primary biometrics");
-
-      const angles = [
-        { file: faces.left, name: "left.jpg" },
-        { file: faces.right, name: "right.jpg" },
-        { file: faces.up, name: "up.jpg" },
-        { file: faces.down, name: "down.jpg" }
-      ];
-
-      for (const angle of angles) {
-        if (angle.file) {
-          try {
-            const form = new FormData();
-            form.append("image_file", angle.file, angle.name);
-            await fetch(`${API_URL}/users/register`, { 
-              method: "POST", 
-              body: form,
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-          } catch (e) {
-            console.warn("Angle sync failed", e);
-          }
-        }
+      const hasFaceBatch = isFaceEnrollmentComplete(faces);
+      const label = getCurrentIdentityLabel();
+      if (hasFaceBatch && !label) {
+        throw new Error("Could not determine the current username for face enrollment.");
       }
+
+      const faceEnrollment = hasFaceBatch
+        ? enrollFaceBatch(label as string, faces)
+        : Promise.resolve(null);
+      const voiceEnrollment = recordedAudio
+        ? uploadVoiceRegistration(recordedAudio, token)
+        : Promise.resolve();
+
+      await Promise.all([
+        faceEnrollment,
+        voiceEnrollment.catch((error) => {
+          console.warn("Voice registration failed; continuing after face enrollment", error);
+        }),
+      ]);
 
       const tFinal = setTimeout(() => { 
         setSavingText("Welcome home! Everything is ready.");
@@ -195,8 +180,24 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
       console.error("Biometrics registration error:", error);
       timeoutsRef.current.forEach(clearTimeout);
       timeoutsRef.current = [];
-      alert("Registration failed. Please make sure the Raspberry Pi is online and try again.");
+      const message = error instanceof Error ? error.message : "Unknown enrollment error";
+      alert(`Registration failed. ${message}`);
       setMode('voice');
+    }
+  };
+
+  const uploadVoiceRegistration = async (recordedAudio: Blob, token: string | null) => {
+    const form = new FormData();
+    form.append("audio_file", recordedAudio, "voice_sample.webm");
+
+    const res = await fetch(`${API_URL}/users/register`, {
+      method: "POST",
+      body: form,
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+    });
+
+    if (!res.ok) {
+      throw new Error("Voice registration failed on the Raspberry Pi.");
     }
   };
 
@@ -269,11 +270,13 @@ export default function Step3Biometrics({ onNext, onPrev }: Props) {
                       : "flex items-center gap-2 text-indigo-300 font-semibold bg-indigo-500/10 px-5 py-2.5 rounded-full border border-indigo-500/20 shadow-sm text-sm"
                     }
                   >
-                    {currentFaceStep === "front" && <><User className="w-4 h-4"/> 1/5: Look straight ahead</>}
-                    {currentFaceStep === "left" && <><ArrowLeft className="w-4 h-4"/> 2/5: Turn slightly left</>}
-                    {currentFaceStep === "right" && <><ArrowRight className="w-4 h-4"/> 3/5: Turn slightly right</>}
-                    {currentFaceStep === "up" && <><ArrowUp className="w-4 h-4"/> 4/5: Tilt head up</>}
-                    {currentFaceStep === "down" && <><ArrowDown className="w-4 h-4"/> 5/5: Tilt head down</>}
+                    {currentFaceStep === "front" && <><User className="w-4 h-4"/> 1/{FACE_ENROLLMENT_ANGLES.length}: Look straight ahead</>}
+                    {currentFaceStep === "left" && <><ArrowLeft className="w-4 h-4"/> 2/{FACE_ENROLLMENT_ANGLES.length}: Turn slightly left</>}
+                    {currentFaceStep === "right" && <><ArrowRight className="w-4 h-4"/> 3/{FACE_ENROLLMENT_ANGLES.length}: Turn slightly right</>}
+                    {currentFaceStep === "up" && <><ArrowUp className="w-4 h-4"/> 4/{FACE_ENROLLMENT_ANGLES.length}: Tilt head up</>}
+                    {currentFaceStep === "down" && <><ArrowDown className="w-4 h-4"/> 5/{FACE_ENROLLMENT_ANGLES.length}: Tilt head down</>}
+                    {currentFaceStep === "upLeft" && <><ArrowUpLeft className="w-4 h-4"/> 6/{FACE_ENROLLMENT_ANGLES.length}: Tilt up-left</>}
+                    {currentFaceStep === "upRight" && <><ArrowUpRight className="w-4 h-4"/> 7/{FACE_ENROLLMENT_ANGLES.length}: Tilt up-right</>}
                     {currentFaceStep === "done" && <><CheckCircle2 className="w-4 h-4 text-emerald-400"/> Perfect! Face saved.</>}
                   </motion.div>
                 </AnimatePresence>

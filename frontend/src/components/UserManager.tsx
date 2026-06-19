@@ -1,12 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Users, UserPlus, Trash2, X, Mic, Loader2, CheckCircle, ShieldCheck, UserCheck, Camera, ArrowRight, ArrowLeft, ArrowUp, ArrowDown, User, Fingerprint } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Trash2, X, Mic, Loader2, CheckCircle, ShieldCheck, UserCheck, Camera, ArrowRight, ArrowLeft, ArrowUp, ArrowDown, ArrowUpLeft, ArrowUpRight, User, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import {
+  FACE_ENROLLMENT_ANGLES,
+  EnrolledUser,
+  createEmptyFaceCaptures,
+  deleteEnrolledUser,
+  enrollFaceBatch,
+  fetchActiveTracking,
+  fetchEnrolledUsers,
+  isFaceEnrollmentComplete,
+  nextFaceEnrollmentAngle,
+  FaceCaptureMap,
+} from "@/lib/vision-api";
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface UserManagerProps {
   isOpen: boolean;
@@ -16,7 +27,8 @@ interface UserManagerProps {
 
 export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerProps) {
   const [activeTab, setActiveTab] = useState<"list" | "add">("list");
-  const [users, setUsers] = useState<string[]>([]);
+  const [users, setUsers] = useState<EnrolledUser[]>([]);
+  const [activeUsers, setActiveUsers] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(false);
 
   const [name, setName] = useState("");
@@ -30,43 +42,55 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const [faces, setFaces] = useState<{front: Blob | null, left: Blob | null, right: Blob | null, up: Blob | null, down: Blob | null}>({
-    front: null, left: null, right: null, up: null, down: null
-  });
+  const [faces, setFaces] = useState<FaceCaptureMap>(() => createEmptyFaceCaptures());
 
-  const currentFaceStep = !faces.front ? "front" 
-                        : !faces.left ? "left" 
-                        : !faces.right ? "right" 
-                        : !faces.up ? "up" 
-                        : !faces.down ? "down" 
-                        : "done";
+  const currentFaceStep = nextFaceEnrollmentAngle(faces);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
-    const token = localStorage.getItem('token'); 
     try {
-      const res = await fetch(`${API_URL}/users/list`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      const userList = data.users || [];
+      const userList = await fetchEnrolledUsers();
       setUsers(userList);
       onUserCountChange?.(userList.length);
     } catch (e) { console.error(e); } 
     finally { setLoading(false); }
-  };
+  }, [onUserCountChange]);
 
-  useEffect(() => { if (isOpen) fetchUsers(); }, [isOpen]);
+  useEffect(() => { if (isOpen) fetchUsers(); }, [isOpen, fetchUsers]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+    const refreshActiveTracks = async () => {
+      try {
+        const snapshot = await fetchActiveTracking();
+        if (cancelled) return;
+        const visible = new Set<string>();
+        for (const track of [...snapshot.faces, ...snapshot.persons]) {
+          if (track.user !== "Unknown" && track.user !== "Identifying...") {
+            visible.add(track.user);
+          }
+        }
+        setActiveUsers(visible);
+      } catch (e) {
+        console.warn("Active tracking refresh failed", e);
+      }
+    };
+
+    refreshActiveTracks();
+    const interval = window.setInterval(refreshActiveTracks, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [isOpen]);
 
   const handleDelete = async (username: string) => {
     // TODO(security): Replace native confirm with a framework modal component
     if(!confirm(`Delete user "${username}"?`)) return;
-    const token = localStorage.getItem('token');
     try {
-      await fetch(`${API_URL}/users/${encodeURIComponent(username)}`, { 
-          method: "DELETE",
-          headers: { 'Authorization': `Bearer ${token}` } 
-      });
+      await deleteEnrolledUser(username);
       fetchUsers(); 
     } catch (e) { console.error("Delete failed", e); }
   };
@@ -96,7 +120,7 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
   };
 
   const startCamera = async () => {
-    setFaces({ front: null, left: null, right: null, up: null, down: null });
+    setFaces(createEmptyFaceCaptures());
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
@@ -117,13 +141,11 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
         canvas.toBlob((blob) => {
             if (blob) {
                 setFaces(prev => {
-                    const newFaces = { ...prev };
-                    if (!prev.front) newFaces.front = blob;
-                    else if (!prev.left) newFaces.left = blob;
-                    else if (!prev.right) newFaces.right = blob;
-                    else if (!prev.up) newFaces.up = blob;
-                    else if (!prev.down) {
-                        newFaces.down = blob;
+                    const nextAngle = nextFaceEnrollmentAngle(prev);
+                    if (nextAngle === "done") return prev;
+
+                    const newFaces = { ...prev, [nextAngle]: blob };
+                    if (nextAngle === "upRight") {
                         stopCamera(); 
                     }
                     return newFaces;
@@ -142,45 +164,24 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
   };
 
   const handleSave = async () => {
-    if (!name || currentFaceStep !== "done") {
+    if (!name || !isFaceEnrollmentComplete(faces)) {
         // TODO(security): Replace native alert with a framework modal component
-        alert("Please enter a name and complete all 5 face angles.");
+        alert("Please enter a name and complete all 7 face angles.");
         return;
     }
     
     setStatus("uploading");
     const token = localStorage.getItem('token'); 
+    const cleanName = name.trim();
 
     try {
-      const form1 = new FormData();
-      form1.append("name", name.trim());
-      form1.append("image_file", faces.front as Blob, "front.jpg");
-      if (audioBlob) form1.append("audio_file", audioBlob, "voice_sample.webm");
-      
-      const res = await fetch(`${API_URL}/users/add-guest`, { 
-          method: "POST", 
-          body: form1,
-          headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Registration failed on front face");
+      await enrollFaceBatch(cleanName, faces);
 
-      const angles = [
-        { file: faces.left, name: "left.jpg" },
-        { file: faces.right, name: "right.jpg" },
-        { file: faces.up, name: "up.jpg" },
-        { file: faces.down, name: "down.jpg" }
-      ];
-
-      for (const angle of angles) {
-        if (angle.file) {
-          const form = new FormData();
-          form.append("name", name.trim());
-          form.append("image_file", angle.file, angle.name);
-          await fetch(`${API_URL}/users/add-guest`, { 
-            method: "POST", 
-            body: form,
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
+      if (audioBlob) {
+        try {
+          await uploadGuestVoice(cleanName, audioBlob, token);
+        } catch (e) {
+          console.warn("Guest voice registration failed; face enrollment succeeded", e);
         }
       }
 
@@ -189,7 +190,7 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
           setStatus("idle");
           setName("");
           setAudioBlob(null);
-          setFaces({ front: null, left: null, right: null, up: null, down: null });
+          setFaces(createEmptyFaceCaptures());
           setActiveTab("list");
           fetchUsers();
       }, 1500);
@@ -199,6 +200,22 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
         // TODO(security): Replace native alert with a framework modal component
         alert("An error occurred during multi-angle registration.");
         setStatus("idle");
+    }
+  };
+
+  const uploadGuestVoice = async (guestName: string, audio: Blob, token: string | null) => {
+    const form = new FormData();
+    form.append("name", guestName);
+    form.append("audio_file", audio, "voice_sample.webm");
+
+    const res = await fetch(`${API_URL}/users/add-guest`, {
+      method: "POST",
+      body: form,
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+    });
+
+    if (!res.ok) {
+      throw new Error("Guest voice registration failed on the Raspberry Pi.");
     }
   };
 
@@ -252,17 +269,22 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
                           </div>
                       ) : (
                           users.map((user) => (
-                              <div key={user} className="flex items-center justify-between p-4 bg-white/[0.01] hover:bg-white/[0.03] rounded-2xl border border-white/[0.03] hover:border-white/[0.06] group transition-all duration-300">
+                              <div key={user.label} className="flex items-center justify-between p-4 bg-white/[0.01] hover:bg-white/[0.03] rounded-2xl border border-white/[0.03] hover:border-white/[0.06] group transition-all duration-300">
                                   <div className="flex items-center gap-4">
                                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center text-sm font-bold text-white uppercase shadow-lg shadow-indigo-900/20">
-                                          {user.substring(0,2)}
+                                          {user.label.substring(0,2)}
                                       </div>
                                       <div>
-                                          <div className="text-base font-semibold text-zinc-200">{user}</div>
-                                          <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase mt-0.5">Multi-Angle FaceID & Voice Auth</div>
+                                          <div className="text-base font-semibold text-zinc-200 flex items-center gap-2">
+                                            {user.label}
+                                            {activeUsers.has(user.label) && (
+                                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase tracking-wider">In Frame</span>
+                                            )}
+                                          </div>
+                                          <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase mt-0.5">{user.num_embeddings} ArcFace embeddings</div>
                                       </div>
                                   </div>
-                                  <Button size="icon" variant="ghost" className="h-9 w-9 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleDelete(user)}>
+                                  <Button size="icon" variant="ghost" className="h-9 w-9 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleDelete(user.label)}>
                                       <Trash2 className="w-5 h-5"/>
                                   </Button>
                               </div>
@@ -297,18 +319,18 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
                           <div className={`border rounded-xl p-4 flex flex-col items-center justify-center gap-4 transition-all duration-300 ${isCameraActive ? "border-blue-500/40 bg-blue-500/5 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : currentFaceStep === "done" ? "border-green-500/40 bg-green-500/5 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-white/[0.05] bg-white/[0.01] hover:bg-white/[0.02] hover:border-white/[0.08]"}`}>
                               {currentFaceStep === "done" ? (
                                   <div className="text-green-400 flex flex-col items-center gap-4 w-full py-2">
-                                      <div className="flex justify-center items-center">
-                                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-green-500 opacity-50 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.left!)} className="w-full h-full object-cover" /></div>
-                                          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-green-500 opacity-80 -ml-4 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.up!)} className="w-full h-full object-cover" /></div>
-                                          <div className="w-20 h-20 rounded-full overflow-hidden border-[3px] border-green-400 z-10 -ml-4 shadow-xl shadow-green-500/20 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.front!)} className="w-full h-full object-cover" /></div>
-                                          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-green-500 opacity-80 -ml-4 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.down!)} className="w-full h-full object-cover" /></div>
-                                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-green-500 opacity-50 -ml-4 transition-transform hover:scale-110"><img src={URL.createObjectURL(faces.right!)} className="w-full h-full object-cover" /></div>
+                                      <div className="flex justify-center items-center flex-wrap gap-1.5 max-w-[260px]">
+                                          {FACE_ENROLLMENT_ANGLES.map((angle) => (
+                                              <div key={angle} className="w-12 h-12 rounded-full overflow-hidden border-2 border-green-500/70 transition-transform hover:scale-110">
+                                                  <img src={URL.createObjectURL(faces[angle]!)} alt={`${angle} face capture`} className="w-full h-full object-cover" />
+                                              </div>
+                                          ))}
                                       </div>
                                       <div className="flex flex-col items-center">
                                           <span className="text-sm font-bold flex items-center gap-1.5"><CheckCircle className="w-4 h-4"/> Face Profile Secured</span>
-                                          <span className="text-xs text-green-500/70 mt-1">5 unique angles captured</span>
+                                          <span className="text-xs text-green-500/70 mt-1">7 unique angles captured</span>
                                       </div>
-                                      <Button variant="outline" size="sm" onClick={() => setFaces({front: null, left: null, right: null, up: null, down: null})} className="h-8 text-xs bg-transparent border-white/[0.08] text-zinc-400 hover:text-white hover:bg-white/5 transition-all">Retake Photos</Button>
+                                      <Button variant="outline" size="sm" onClick={() => setFaces(createEmptyFaceCaptures())} className="h-8 text-xs bg-transparent border-white/[0.08] text-zinc-400 hover:text-white hover:bg-white/5 transition-all">Retake Photos</Button>
                                   </div>
                               ) : (
                                   <>
@@ -336,17 +358,17 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
                                                       {currentFaceStep === "right" && <><ArrowRight className="w-4 h-4 text-blue-400 animate-pulse"/> 3. Turn Head Right</>}
                                                       {currentFaceStep === "up" && <><ArrowUp className="w-4 h-4 text-blue-400 animate-pulse"/> 4. Tilt Head Up</>}
                                                       {currentFaceStep === "down" && <><ArrowDown className="w-4 h-4 text-blue-400 animate-pulse"/> 5. Tilt Head Down</>}
+                                                      {currentFaceStep === "upLeft" && <><ArrowUpLeft className="w-4 h-4 text-blue-400 animate-pulse"/> 6. Tilt Up-Left</>}
+                                                      {currentFaceStep === "upRight" && <><ArrowUpRight className="w-4 h-4 text-blue-400 animate-pulse"/> 7. Tilt Up-Right</>}
                                                   </span>
                                               </div>
                                           )}
                                       </div>
  
                                       <div className="flex gap-1.5 w-full px-1">
-                                          <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.front ? "bg-green-500" : isCameraActive && currentFaceStep === "front" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-white/[0.04]"}`} />
-                                          <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.left ? "bg-green-500" : isCameraActive && currentFaceStep === "left" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-white/[0.04]"}`} />
-                                          <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.right ? "bg-green-500" : isCameraActive && currentFaceStep === "right" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-white/[0.04]"}`} />
-                                          <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.up ? "bg-green-500" : isCameraActive && currentFaceStep === "up" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-white/[0.04]"}`} />
-                                          <div className={`h-1.5 flex-1 rounded-full transition-colors ${faces.down ? "bg-green-500" : isCameraActive && currentFaceStep === "down" ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-white/[0.04]"}`} />
+                                          {FACE_ENROLLMENT_ANGLES.map((angle) => (
+                                              <div key={angle} className={`h-1.5 flex-1 rounded-full transition-colors ${faces[angle] ? "bg-green-500" : isCameraActive && currentFaceStep === angle ? "bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-white/[0.04]"}`} />
+                                          ))}
                                       </div>
  
                                       <Button 
@@ -406,7 +428,7 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
                       <div className="pt-2">
                           <Button 
                               onClick={handleSave} 
-                              disabled={currentFaceStep !== "done" || !name || status === "uploading"} 
+                              disabled={!isFaceEnrollmentComplete(faces) || !name || status === "uploading"}
                               className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 h-14 text-base font-bold text-white shadow-xl shadow-indigo-600/20 transition-all rounded-xl disabled:opacity-50 disabled:grayscale"
                           >
                               {status === "uploading" ? <Loader2 className="w-5 h-5 animate-spin mr-2"/> : <ShieldCheck className="w-5 h-5 mr-2"/>}

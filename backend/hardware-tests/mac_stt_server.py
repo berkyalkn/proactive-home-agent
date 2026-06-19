@@ -1,14 +1,13 @@
-
 from fastapi import FastAPI, UploadFile, File
 from faster_whisper import WhisperModel
 import io
 import time
 
-app = FastAPI(title="Local STT Engine")
+app = FastAPI(title="Mac Studio STT Engine (Large-v3-Turbo)")
 
-print("Loading the Faster-Whisper Base Model into RAM...")
-model = WhisperModel("base", device="auto", compute_type="int8")
-print("Local STT Engine is ready!")
+print("Loading the Faster-Whisper Large-v3-Turbo Model into Unified Memory...")
+model = WhisperModel("large-v3-turbo", device="auto", compute_type="float16")
+print("Local STT Engine (Turbo) is ready!")
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
@@ -21,7 +20,9 @@ async def transcribe_audio(file: UploadFile = File(...)):
         audio_data, 
         beam_size=5,
         language="en", 
-        condition_on_previous_text=False
+        condition_on_previous_text=False,
+        vad_filter=True,
+        vad_parameters=dict(min_silence_duration_ms=500)
     )
     
     text = " ".join([segment.text for segment in segments])

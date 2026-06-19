@@ -60,6 +60,7 @@ class VisionService:
             logger.error(f"Error loading faces from DB: {e}")
 
     def register_face(self, username: str, image_bytes: bytes) -> bool:
+        logger.warning("DEPRECATED: register_face called — face enrollment has moved to Mac video_Process")
         try:
             nparr = np.frombuffer(image_bytes, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)

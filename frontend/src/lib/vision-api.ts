@@ -89,12 +89,16 @@ export const getCurrentIdentityLabel = (): string | null => {
   }
 };
 
+/** Single source of truth for identity label normalization.
+ *  Must match Mac _clean_label (strip only, preserve case). */
+export const normalizeIdentityLabel = (name: string): string => name.trim();
+
 export const enrollFaceBatch = async (
   label: string,
   faces: FaceCaptureMap,
 ): Promise<EnrollResponse> => {
   const form = new FormData();
-  form.append('label', label);
+  form.append('label', normalizeIdentityLabel(label));
 
   for (const angle of FACE_ENROLLMENT_ANGLES) {
     const file = faces[angle];

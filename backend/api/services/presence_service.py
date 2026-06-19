@@ -82,6 +82,10 @@ class PresenceService:
                     session.add(user)
                     session.commit()
                     logger.info(f"Permanent Memory: {username} last seen -> {user.last_seen.strftime('%H:%M')}")
+                else:
+                    logger.warning(
+                        f"Identity event for unknown user '{username}' — no User row; parity broken?"
+                    )
         except Exception as e:
             logger.error(f"DB Update Error for last_seen: {e}")
 

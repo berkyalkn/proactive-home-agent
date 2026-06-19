@@ -654,6 +654,12 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
 
                                 ActionState.last_executions[f"{event.user}_{event.gesture}"] = current_time
                                 return {"status": "dynamic_gesture_executed", "device": target_device.display_name, "action": mapping.action}
+                    else:
+                        if event.user not in ("Unknown", "Guest", "A Stranger"):
+                            logger.warning(
+                                f"Gesture event for '{event.user}' skipped — no User row; "
+                                "identity parity may be broken"
+                            )
                                 
         return {"status": "gesture_processed", "gesture": event.gesture, "duration": event.duration}
     except Exception as e:
@@ -727,6 +733,7 @@ async def startup_event():
 
 @router.post("/identify")
 async def identify_face(image_file: UploadFile = File(...)):
+    logger.warning("DEPRECATED: /vision/identify called — face recognition now handled by Mac video_Process")
     try:
         image_bytes = await image_file.read()
         nparr = np.frombuffer(image_bytes, np.uint8)
@@ -741,3 +748,4 @@ async def identify_face(image_file: UploadFile = File(...)):
         return {"status": "authorized", "user": person_name, "confidence": result["confidence"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Identify Error")
+

@@ -15,6 +15,7 @@ import {
   isFaceEnrollmentComplete,
   nextFaceEnrollmentAngle,
   FaceCaptureMap,
+  normalizeIdentityLabel,
 } from "@/lib/vision-api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -91,6 +92,16 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
     if(!confirm(`Delete user "${username}"?`)) return;
     try {
       await deleteEnrolledUser(username);
+      // Also remove Pi User row for identity parity
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/users/${encodeURIComponent(username)}`, {
+          method: "DELETE",
+          headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+        });
+      } catch (e) {
+        console.warn("Pi user deletion failed", e);
+      }
       fetchUsers(); 
     } catch (e) { console.error("Delete failed", e); }
   };
@@ -163,6 +174,20 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
     }
   };
 
+  const ensureGuestUserOnPi = async (guestName: string, token: string | null) => {
+    const res = await fetch(`${API_URL}/users/guest`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ name: guestName }),
+    });
+    if (!res.ok) {
+      throw new Error("Failed to create guest user on Pi");
+    }
+  };
+
   const handleSave = async () => {
     if (!name || !isFaceEnrollmentComplete(faces)) {
         // TODO(security): Replace native alert with a framework modal component
@@ -172,10 +197,23 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
     
     setStatus("uploading");
     const token = localStorage.getItem('token'); 
-    const cleanName = name.trim();
+    const cleanName = normalizeIdentityLabel(name);
 
     try {
       await enrollFaceBatch(cleanName, faces);
+
+      // Ensure Pi User row exists for identity parity (idempotent)
+      try {
+        await ensureGuestUserOnPi(cleanName, token);
+      } catch (e) {
+        console.warn("Pi guest user creation failed; face enrolled on Mac", e);
+        // TODO(security): Replace native alert with a framework modal component
+        alert(
+          `Face enrolled successfully, but the home system metadata could not be created for "${cleanName}". ` +
+          "Presence tracking and gestures may not work until this is resolved. " +
+          "You can retry by enrolling the same name again."
+        );
+      }
 
       if (audioBlob) {
         try {

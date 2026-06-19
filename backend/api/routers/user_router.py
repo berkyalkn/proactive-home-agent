@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, Form, File, HTTPException, Depends
+from pydantic import BaseModel
 from typing import Optional
 from sqlmodel import Session, select
 from api.services.speaker_service import speaker_service
@@ -41,6 +42,7 @@ async def register_user(
             raise HTTPException(status_code=500, detail=f"Voice Error: {str(e)}")
 
     if image_file:
+        logger.warning("DEPRECATED: Face registration via Pi is deprecated — use Mac enrollment")
         try:
             image_bytes = await image_file.read()
             if image_bytes:
@@ -115,6 +117,55 @@ async def add_guest(
     return {"status": "success", "message": f"Guest '{guest_name}' added to {current_user.username}'s home."}
 
 
+class GuestCreateRequest(BaseModel):
+    name: str
+
+
+@router.post("/guest")
+async def create_guest(
+    body: GuestCreateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Idempotent guest User row creation.
+    Creates a lightweight User row for a guest whose face is enrolled on Mac.
+    No media processing — purely identity parity.
+    """
+    guest_name = body.name.strip()
+    if not guest_name:
+        raise HTTPException(status_code=400, detail="Name must not be empty.")
+
+    with Session(engine) as session:
+        existing = session.exec(select(User).where(User.username == guest_name)).first()
+        if existing:
+            logger.info(f"Guest '{guest_name}' already exists in Pi DB — no-op.")
+            return {"status": "exists", "username": guest_name, "created": False}
+
+        import uuid
+        safe_name = guest_name.lower().replace(" ", "")
+        dummy_email = f"guest_{safe_name}_{str(uuid.uuid4())[:6]}@homiee.local"
+
+        new_guest = User(
+            username=guest_name,
+            email=dummy_email,
+            role="guest",
+            owner_id=current_user.id,
+            hashed_password="not-a-real-password-guest-account",
+        )
+        session.add(new_guest)
+
+        new_log = SystemLog(
+            level="INFO",
+            source="Identity_Parity",
+            message=f"Guest '{guest_name}' User row auto-created by '{current_user.username}' (face enrolled on Mac, no voice).",
+        )
+        session.add(new_log)
+        session.commit()
+
+    logger.info(f"Guest '{guest_name}' User row created for identity parity.")
+    return {"status": "created", "username": guest_name, "created": True}
+
+
 @router.delete("/{username}")
 def delete_user(username: str, current_user: User = Depends(get_current_user)):
     """Deletes the user from Speaker, Vision memory and Database."""
@@ -149,9 +200,6 @@ def list_users(current_user: User = Depends(get_current_user)):
             select(User)
             .where(
                 (User.id == current_user.id) | (User.owner_id == current_user.id)
-            )
-            .where(
-                (User.face_embedding != None) | (User.voice_embedding != None)
             )
         ).all()
         

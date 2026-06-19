@@ -6,14 +6,13 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-MAC_STT_URL = os.getenv("MAC_STT_URL", "http://100.119.128.11:8000/transcribe")
+MAC_STT_URL = os.getenv("MAC_STT_URL", "http://100.98.54.6:8000/transcribe")
 
 async def speech_to_text(audio_input: Union[str, BytesIO]) -> str:
     """
-    Converts the given audio file to text using the Local Faster-Whisper Engine on Mac.
+    Converts audio to text using the Local Faster-Whisper Turbo Engine on Mac.
     """
     try:
-
         if isinstance(audio_input, str):
             if not os.path.exists(audio_input):
                  logger.error(f"File couldn't be found: {audio_input}")
@@ -28,23 +27,19 @@ async def speech_to_text(audio_input: Union[str, BytesIO]) -> str:
         else:
             raise ValueError("Invalid audio input. Expected BytesIO or file path.")
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             files = {'file': (filename, file_data, 'audio/webm')}
             response = await client.post(MAC_STT_URL, files=files)
             
             if response.status_code == 200:
                 transcribed_text = response.json().get("text", "")
-                
-                if transcribed_text.strip():
-                    return transcribed_text
-                else:
-                    return ""
+                return transcribed_text if transcribed_text.strip() else ""
             else:
                 logger.error(f"Local STT Engine Error: {response.status_code} - {response.text}")
                 return ""
             
     except httpx.ConnectError:
-        logger.error(f"Connection failed to Local STT at {MAC_STT_URL}. Is the Mac server running?")
+        logger.error(f"Connection failed to Local STT at {MAC_STT_URL}.")
         return ""
     except Exception as e:
         logger.error(f"STT Process Error: {str(e)}")

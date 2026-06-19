@@ -74,7 +74,7 @@ class SpeakerService:
             logger.error(f"Registration failed: {e}")
             raise e
 
-    def identify_speaker(self, audio_bytes: bytes, threshold=0.65):
+    def identify_speaker(self, audio_bytes: bytes, threshold=0.55):
         """Voice Recognition: (Name, Similarity Score) returns"""
         
         if not self.known_users:

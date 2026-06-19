@@ -8,6 +8,8 @@ from api.drivers import mqtt_service
 from api.services import tapo_poller
 import api.services.memory_hooks
 
+from api.services.acoustic_service import acoustic_engine
+
 import asyncio
 
 logging.basicConfig(level=logging.INFO)
@@ -16,10 +18,16 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Application is starting... ")
+    
     await devices_router.initialize_devices()
     mqtt_service.start_mqtt_service()
+    
     poller_task = asyncio.create_task(tapo_poller.poll_tapo_devices())
-    yield
+    
+    acoustic_task = asyncio.create_task(acoustic_engine.run())
+    
+    yield  
+    
     logger.info("Application is closing...")
 
     mqtt_service.stop_mqtt_service()
@@ -27,6 +35,16 @@ async def lifespan(app: FastAPI):
     poller_task.cancel()
     try:
         await poller_task
+    except asyncio.CancelledError:
+        pass
+        
+    acoustic_engine.is_running = False
+    if acoustic_engine.ffmpeg_process:
+        acoustic_engine.ffmpeg_process.kill()
+        
+    acoustic_task.cancel()
+    try:
+        await acoustic_task
     except asyncio.CancelledError:
         pass
 

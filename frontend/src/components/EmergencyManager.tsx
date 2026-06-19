@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer, Activity, Info, Zap } from "lucide-react";
+import { ShieldAlert, X, Phone, User, Settings2, CheckCircle, Loader2, MessageSquare, PhoneCall, Send, Bot, Palette, Timer, Activity, Info, Zap, Volume2, Baby } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -18,6 +18,8 @@ interface SecuritySettings {
   use_voice_call: boolean;
   use_telegram: boolean;
   use_fall_detection: boolean;
+  detect_glass_break: boolean;  
+  detect_baby_cry: boolean;    
   is_active: boolean;
 }
 
@@ -37,7 +39,6 @@ interface EmergencyManagerProps {
   onActiveStatusChange?: (isActive: boolean) => void;
 }
 
-/* ─── Inline styles as typed objects ───────────────────────────── */
 
 const sectionHeadingStyle: React.CSSProperties = {
   fontSize: '13px',
@@ -126,18 +127,24 @@ const channelRowStyle = (isActive: boolean, accentColor: string): React.CSSPrope
     : 'rgba(255,255,255,0.01)',
 });
 
-const toggleTrackStyle = (isActive: boolean, accentColor: string): React.CSSProperties => ({
-  width: '36px',
-  height: '20px',
-  borderRadius: '10px',
-  background: isActive
-    ? (accentColor === 'emerald' ? 'rgba(16, 185, 129, 0.7)' : accentColor === 'purple' ? 'rgba(168, 85, 247, 0.7)' : 'rgba(14, 165, 233, 0.7)')
-    : 'rgba(255,255,255,0.08)',
-  position: 'relative' as const,
-  transition: 'background 0.25s ease',
-  flexShrink: 0,
-  cursor: 'pointer',
-});
+const toggleTrackStyle = (isActive: boolean, accentColor: string): React.CSSProperties => {
+  let bg = 'rgba(14, 165, 233, 0.7)'; 
+  if (accentColor === 'emerald') bg = 'rgba(16, 185, 129, 0.7)';
+  if (accentColor === 'purple') bg = 'rgba(168, 85, 247, 0.7)';
+  if (accentColor === 'amber') bg = 'rgba(245, 158, 11, 0.7)';
+  if (accentColor === 'indigo') bg = 'rgba(99, 102, 241, 0.7)';
+
+  return {
+    width: '36px',
+    height: '20px',
+    borderRadius: '10px',
+    background: isActive ? bg : 'rgba(255,255,255,0.08)',
+    position: 'relative' as const,
+    transition: 'background 0.25s ease',
+    flexShrink: 0,
+    cursor: 'pointer',
+  };
+};
 
 const toggleThumbStyle = (isActive: boolean): React.CSSProperties => ({
   width: '16px',
@@ -170,6 +177,8 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
     use_voice_call: true,
     use_telegram: true,
     use_fall_detection: true,
+    detect_glass_break: true, 
+    detect_baby_cry: false,   
     is_active: true
   });
 
@@ -198,6 +207,8 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
           use_voice_call: data.use_voice_call ?? true,
           use_telegram: data.use_telegram ?? true,
           use_fall_detection: data.use_fall_detection ?? true,
+          detect_glass_break: data.detect_glass_break ?? true, 
+          detect_baby_cry: data.detect_baby_cry ?? false,      
           is_active: data.is_active ?? true
         };
         setSecurity(newSettings);
@@ -254,7 +265,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
       
       <div style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 50, width: 460, maxWidth: 'calc(100vw - 20px)', background: 'linear-gradient(135deg, rgba(20, 22, 28, 0.7) 0%, rgba(20, 22, 28, 0.4) 100%)', backdropFilter: 'blur(40px)', borderRight: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 1px 0 0 rgba(255, 255, 255, 0.05), 8px 0 40px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' as const }}>
           
-          {/* ── Header ─────────────────────────────────────────── */}
           <div className="flex items-center justify-between shrink-0" style={{ paddingLeft: '28px', paddingRight: '20px', paddingTop: '20px', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(159, 18, 57, 0.06)' }}>
               <div className="flex items-center gap-3">
                   <div style={{ padding: '8px', background: 'rgba(244, 63, 94, 0.15)', borderRadius: '10px' }}>
@@ -270,13 +280,11 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
               </button>
           </div>
 
-          {/* ── Scrollable Content ──────────────────────────────── */}
           <div className="overflow-y-auto overflow-x-hidden scrollbar-hide flex-1" style={{ display: 'flex', flexDirection: 'column', gap: '32px', paddingLeft: '28px', paddingRight: '20px', paddingTop: '28px', paddingBottom: '28px' }}>
             {loading ? (
               <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-zinc-600"/></div>
             ) : (
               <>
-                {/* ─── Emergency Contact ────────────────────────── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <h4 style={sectionHeadingStyle}>
                     <User style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Emergency Contact
@@ -307,7 +315,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
                   </div>
                 </div>
 
-                {/* ─── SOS Gestures ─────────────────────────────── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <h4 style={sectionHeadingStyle}>
                     <Settings2 style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> SOS Gestures
@@ -355,7 +362,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
                       </div>
                   </div>
 
-                  {/* Protocol Flow — SOS */}
                   <div style={protocolBoxSkyStyle}>
                       <div style={protocolIconWrapperStyle('sky')}>
                         <Zap style={{ width: '14px', height: '14px', color: 'rgba(56, 189, 248, 0.9)' }} />
@@ -369,7 +375,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
                   </div>
                 </div>
 
-                {/* ─── Alert Customization ──────────────────────── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <h4 style={sectionHeadingStyle}>
                     <Palette style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Alert Customization
@@ -404,7 +409,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
                   </div>
                 </div>
 
-                {/* ─── Smart Sensors ────────────────────────────── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <h4 style={sectionHeadingStyle}>
                     <Activity style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Smart Sensors
@@ -449,13 +453,55 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
                   )}
                 </div>
 
-                {/* ─── Alert Channels ───────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h4 style={sectionHeadingStyle}>
+                    <Volume2 style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Acoustic Intelligence
+                  </h4>
+                  
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: '14px', height: '48px', padding: '0 14px',
+                    borderRadius: '12px', cursor: 'pointer', transition: 'all 0.25s ease',
+                    border: `1px solid ${security.detect_glass_break ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255,255,255,0.04)'}`,
+                    background: security.detect_glass_break ? 'rgba(245, 158, 11, 0.06)' : 'rgba(255,255,255,0.01)',
+                  }}>
+                      <input 
+                        type="checkbox" 
+                        className="hidden" 
+                        checked={security.detect_glass_break} 
+                        onChange={(e) => handleChange("detect_glass_break", e.target.checked)} 
+                      />
+                      <ShieldAlert style={{ width: '16px', height: '16px', color: security.detect_glass_break ? 'rgba(251, 191, 36, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                      <span style={{ fontSize: '16px', fontWeight: 500, color: security.detect_glass_break ? 'rgba(253, 230, 138, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Glass Break Detection</span>
+                      <div style={toggleTrackStyle(security.detect_glass_break, 'amber')}>
+                        <div style={toggleThumbStyle(security.detect_glass_break)} />
+                      </div>
+                  </label>
+
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: '14px', height: '48px', padding: '0 14px',
+                    borderRadius: '12px', cursor: 'pointer', transition: 'all 0.25s ease',
+                    border: `1px solid ${security.detect_baby_cry ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255,255,255,0.04)'}`,
+                    background: security.detect_baby_cry ? 'rgba(99, 102, 241, 0.06)' : 'rgba(255,255,255,0.01)',
+                  }}>
+                      <input 
+                        type="checkbox" 
+                        className="hidden" 
+                        checked={security.detect_baby_cry} 
+                        onChange={(e) => handleChange("detect_baby_cry", e.target.checked)} 
+                      />
+                      <Baby style={{ width: '16px', height: '16px', color: security.detect_baby_cry ? 'rgba(129, 140, 248, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
+                      <span style={{ fontSize: '16px', fontWeight: 500, color: security.detect_baby_cry ? 'rgba(199, 210, 254, 0.9)' : 'rgba(161, 161, 170, 0.6)', flex: 1 }}>Baby Cry Recognition</span>
+                      <div style={toggleTrackStyle(security.detect_baby_cry, 'indigo')}>
+                        <div style={toggleThumbStyle(security.detect_baby_cry)} />
+                      </div>
+                  </label>
+                </div>
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <h4 style={sectionHeadingStyle}>
                     <PhoneCall style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> Alert Channels
                   </h4>
                   
-                  {/* SMS */}
                   <label style={channelRowStyle(security.use_sms, 'emerald')}>
                     <input type="checkbox" className="hidden" checked={security.use_sms} onChange={(e) => handleChange("use_sms", e.target.checked)} />
                     <MessageSquare style={{ width: '16px', height: '16px', color: security.use_sms ? 'rgba(52, 211, 153, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
@@ -465,7 +511,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
                     </div>
                   </label>
 
-                  {/* Voice Call */}
                   <label style={channelRowStyle(security.use_voice_call, 'emerald')}>
                     <input type="checkbox" className="hidden" checked={security.use_voice_call} onChange={(e) => handleChange("use_voice_call", e.target.checked)} />
                     <PhoneCall style={{ width: '16px', height: '16px', color: security.use_voice_call ? 'rgba(52, 211, 153, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
@@ -475,7 +520,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
                     </div>
                   </label>
 
-                  {/* Telegram */}
                   <label style={channelRowStyle(security.use_telegram, 'sky')}>
                     <input type="checkbox" className="hidden" checked={security.use_telegram} onChange={(e) => handleChange("use_telegram", e.target.checked)} />
                     <Send style={{ width: '16px', height: '16px', color: security.use_telegram ? 'rgba(56, 189, 248, 0.85)' : 'rgba(113, 113, 122, 0.5)', flexShrink: 0 }} />
@@ -486,7 +530,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
                   </label>
                 </div>
 
-                {/* ─── AI Announcement ──────────────────────────── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                    <h4 style={sectionHeadingStyle}>
                      <Bot style={{ width: '14px', height: '14px', color: 'rgba(161,161,170,0.6)' }} /> AI Voice Announcement
@@ -504,7 +547,6 @@ export function EmergencyManager({ isOpen, onClose, onActiveStatusChange }: Emer
             )}
           </div>
 
-          {/* ── Sticky Bottom Bar ───────────────────────────────── */}
           <div className="shrink-0" style={{ position: 'sticky', bottom: 0, paddingLeft: '28px', paddingRight: '20px', paddingTop: '16px', paddingBottom: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(20px)' }}>
              <Button 
                onClick={handleSave}

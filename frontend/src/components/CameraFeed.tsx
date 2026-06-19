@@ -64,13 +64,13 @@ export function CameraFeed({ roomId, deviceId }: CameraFeedProps) {
       <CardContent className="p-0 relative group">
         <div ref={containerRef} className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
 
-          <iframe
+        <iframe
             src="http://100.105.136.5:1984/stream.html?src=living_room_cam&mode=mse"
             className="w-full h-full object-cover"
-            style={{ border: 'none', pointerEvents: 'none' }} 
+            style={{ border: 'none' }} 
             allow="autoplay; fullscreen"
             onLoad={() => setIsOnline(true)}
-          />
+        />
 
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] pointer-events-none z-10"></div>
 

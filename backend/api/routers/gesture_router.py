@@ -21,7 +21,9 @@ class SecuritySaveRequest(BaseModel):
     use_sms: bool = True           
     use_voice_call: bool = True    
     use_telegram: bool = True
-    use_fall_detection: bool = True 
+    use_fall_detection: bool = True
+    detect_glass_break: bool = True   
+    detect_baby_cry: bool = False
     is_active: bool
 
 class GestureSaveRequest(BaseModel):
@@ -129,6 +131,8 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
                 "use_voice_call": True,    
                 "use_telegram": True,
                 "use_fall_detection": True,
+                "detect_glass_break": True,  
+                "detect_baby_cry": False,    
                 "is_active": False
             }
             
@@ -144,8 +148,11 @@ def get_security_settings(current_user: User = Depends(get_current_user)):
             "use_voice_call": settings.use_voice_call,   
             "use_telegram": settings.use_telegram,
             "use_fall_detection": getattr(settings, 'use_fall_detection', True),
+            "detect_glass_break": getattr(settings, 'detect_glass_break', True),  
+            "detect_baby_cry": getattr(settings, 'detect_baby_cry', False),       
             "is_active": settings.is_active
         }
+
 
 @router.post("/security")
 def save_security_settings(request: SecuritySaveRequest, current_user: User = Depends(get_current_user)):
@@ -164,6 +171,8 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
             settings.use_voice_call = request.use_voice_call   
             settings.use_telegram = request.use_telegram
             settings.use_fall_detection = request.use_fall_detection
+            settings.detect_glass_break = request.detect_glass_break  
+            settings.detect_baby_cry = request.detect_baby_cry        
             settings.is_active = request.is_active
             session.add(settings)
         else:
@@ -180,6 +189,8 @@ def save_security_settings(request: SecuritySaveRequest, current_user: User = De
                 use_voice_call=request.use_voice_call,         
                 use_telegram=request.use_telegram,
                 use_fall_detection=request.use_fall_detection,
+                detect_glass_break=request.detect_glass_break,  
+                detect_baby_cry=request.detect_baby_cry,        
                 is_active=request.is_active
             )
             session.add(new_settings)

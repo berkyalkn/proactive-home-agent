@@ -9,6 +9,7 @@ from database.settings import engine
 from database.models import SecuritySettings
 
 from api.routers.vision_router import execute_emergency_lockdown
+from api.routers.acoustic_router import ask_and_wait_for_glass, announce_baby_cry
 from api.services.notification_service import notifier
 
 try:
@@ -19,7 +20,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 BABY_CRY_CLASSES = [20, 21] 
-GLASS_BREAK_CLASSES = [426, 427, 428, 364, 374]
+
+GLASS_CLASS_IDS = [419, 420, 421, 422, 132]
 
 class AcousticService:
     def __init__(self):
@@ -31,7 +33,7 @@ class AcousticService:
         self.ffmpeg_process = None
         self.is_running = False
         
-        self.rtsp_url = "rtsp://127.0.0.1:8554/living_room_cam"
+        self.rtsp_url = "rtsp://127.0.0.1:8554/living_room_hd"
         
         self.chunk_size = 31200 
         self.last_alert_time = 0
@@ -132,10 +134,10 @@ class AcousticService:
         if scores[max_idx] > 0.15:  
             glass_score = max(scores[426], scores[428])
             baby_score = max(scores[20], scores[21])
-            logger.info(
-                f"[Acoustic] Top Class: {max_idx} ({scores[max_idx]:.0%}) | "
-                f"Glass Hidden Score: {glass_score:.0%} | Baby Hidden Score: {baby_score:.0%}"
-            )
+            #logger.info(
+            #    f"[Acoustic] Top Class: {max_idx} ({scores[max_idx]:.0%}) | "
+            #    f"Glass Hidden Score: {glass_score:.0%} | Baby Hidden Score: {baby_score:.0%}"
+            #)
             
         current_time = time.time()
         
@@ -143,11 +145,11 @@ class AcousticService:
             return
 
         if glass_enabled:
-            for cls in GLASS_BREAK_CLASSES:
+            for cls in GLASS_CLASS_IDS:
                 if scores[cls] > 0.40:  
                     logger.critical(f"[Acoustic] GLASS BREAK DETECTED! (Confidence: {scores[cls]:.2%})")
                     self.last_alert_time = current_time
-                    await execute_emergency_lockdown("System (Audio Sensor)", settings)
+                    asyncio.create_task(ask_and_wait_for_glass(float(scores[cls]), settings))
                     return
 
         if baby_enabled:
@@ -155,10 +157,12 @@ class AcousticService:
                 if scores[cls] > 0.40:  
                     logger.info(f"[Acoustic] BABY CRY DETECTED! (Confidence: {scores[cls]:.2%})")
                     self.last_alert_time = current_time
+                    
+                    asyncio.create_task(announce_baby_cry(float(scores[cls])))
+                    
                     alert_msg = f"*Baby Monitor Alert*\nThe camera picked up crying sounds in the room (Confidence: {scores[cls]:.2%})."
                     if settings.use_telegram:
                         from api.services.notification_service import notifier
-                        import asyncio
                         asyncio.create_task(notifier.send_telegram_alert(alert_msg))
                     return
 

@@ -6,7 +6,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-MAC_STT_URL = os.getenv("MAC_STT_URL", "http://100.98.54.6:8000/transcribe")
+MAC_STT_URL = os.getenv("MAC_STT_URL", "http://192.168.0.25:8000/transcribe")
 
 async def speech_to_text(audio_input: Union[str, BytesIO]) -> str:
     """

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from contextlib import asynccontextmanager
 
-from api.routers import sensors_router, devices_router, chat_router, user_router, vision_router, auth_router, onboarding_router, rooms_router, discovery_router, gesture_router, camera_router, knowledge_router
+from api.routers import sensors_router, devices_router, chat_router, user_router, vision_router, auth_router, onboarding_router, rooms_router, discovery_router, gesture_router, camera_router, knowledge_router, acoustic_router
 from api.drivers import mqtt_service
 from api.services import tapo_poller
 import api.services.memory_hooks
@@ -55,7 +55,9 @@ origins = [
     "http://127.0.0.1:3000",
     "http://100.105.136.5:3000",
     "http://raspberrypi.local:3000",
-    "http://192.168.0.23:3000"
+    "http://192.168.0.23:3000",
+    "http://192.168.0.25:3000"
+
 ]
 
 app.add_middleware(
@@ -78,6 +80,7 @@ app.include_router(discovery_router.router)
 app.include_router(gesture_router.router)
 app.include_router(camera_router.router)
 app.include_router(knowledge_router.router)
+app.include_router(acoustic_router.router)
 
 @app.get("/")
 def read_root():

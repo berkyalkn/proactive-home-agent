@@ -18,12 +18,13 @@ from typing import AsyncIterator
 load_dotenv()
 
 llm = ChatOpenAI(
-    base_url="http://100.98.54.6:8080/v1",
+    base_url="http://192.168.0.25:8080/v1",
     api_key="not-needed",
     model="mlx-community/Qwen3.6-35B-A3B-8bit",
     temperature=0.0,
     max_tokens=4096,     
-    timeout=300        
+    timeout=120,     
+    max_retries=0       
 )
 
 llm_with_tools = llm.bind_tools(tools_list)
@@ -81,6 +82,7 @@ CRITICAL RULES:
 - TOOL ENFORCEMENT: If you decide to change a device's state, YOU MUST EXPLICITLY CALL the appropriate tool. 
 - ALWAYS respond in a natural, conversational tone AFTER using a tool.
 - Speak DIRECTLY to the user in the first person. Just give the actual answer.
+- DATA EFFICIENCY: When asked for a specific data point (like temperature), use the 'get_home_status' tool EXACTLY ONCE. Extract the specific information, answer the user immediately, and DO NOT call the tool again.
 
 Current Time: {time}
 """

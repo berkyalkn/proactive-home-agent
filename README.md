@@ -44,7 +44,7 @@
 
 This project is a local-first, privacy-centric smart home ecosystem designed to bridge the gap between traditional reactive IoT systems and true agentic intelligence. While standard hubs wait for explicit commands, this project leverages a Hybrid AI Architecture running on a Raspberry Pi 5 to proactively manage the environment based on context, visual observation, spatial-episodic memory, predictive behavioral models, and physical gestures.
 
-By orchestrating **Distributed ESP32 Sensor Nodes, Edge Computer Vision, Multi-Modal Presence Management, Omnichannel Security Alerts, and Generative AI (LangGraph)**, the system creates a "conscious" living space. It doesn't just switch lights on; it understands context, visually identifies users upon entry via multi-angle biometrics, comprehends hand gestures, interactively verifies fall emergencies, triggers autonomous lockdown protocols, retains a chronological memory of spatial events, and executes complex natural language goals—while keeping critical data within the home network.
+By orchestrating **Distributed ESP32 Sensor Nodes, Edge Computer Vision, Multi-Modal Presence Management, Omnichannel Security Alerts, and Generative AI (LangGraph)**, the system creates a "conscious" living space. It doesn't just switch lights on; it understands context, visually identifies users upon entry via multi-angle biometrics, comprehends hand gestures, detects critical acoustic anomalies, interactively verifies fall emergencies, triggers autonomous lockdown protocols, retains a chronological memory of spatial events, and executes complex natural language goals—while keeping critical data within the home network.
 
 ---
 
@@ -156,6 +156,8 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 | **Alignment**| **YOLOv8-Face** | Executes 5-point facial landmark detection on the Hub for surgical face alignment before recognition. |
 | **Face Recognition**| **DeepFace (GhostFaceNet)**| Extracts high-dimensional facial embeddings for real-time biometric verification. |
 | **Biometrics** | **Resemblyzer** | Generates 256-dimensional voice embeddings for real-time speaker identification. |
+| **Acoustic AI** | **YAMNet (TFLite)** | Edge-optimized deep learning audio classification model used to identify 521 audio classes (e.g., Glass Break, Baby Cry) in real-time. |
+| **Framework** | **TensorFlow Lite** | Runs the quantized YAMNet acoustic model efficiently on the Raspberry Pi without overloading the CPU. |
 | **Math** | **Numpy** | Performs Cosine Similarity calculations to match live audio vectors against stored user profiles. |
 | **Vector DB** | **ChromaDB** | High-performance vector database hosting the Dual-Core RAG (Episodic Memory & Semantic Knowledge) collections. |
 
@@ -172,6 +174,7 @@ The ecosystem features a bespoke, immersive 5-Step Onboarding Engine that acts a
 | **Server** | **Uvicorn** | Lightning-fast ASGI server implementation to run the FastAPI application. |
 | **IoT Broker** | **Eclipse Mosquitto** | Lightweight MQTT broker handling pub/sub messaging between ESP32 nodes and the Pi.|
 | **Media Server** | **go2rtc** | Ultra-lightweight (Zero-Copy) media server running on the Raspberry Pi, converting RTSP feeds into WebRTC/MSE on-the-fly with <1% CPU overhead. |
+| **Media Pipeline**| **FFmpeg** | Asynchronously extracts and resamples raw PCM audio streams directly from the go2rtc RTSP feed for acoustic analysis. |
 | **External API**| **Twilio SDK** | Facilitates automated SMS and Voice Call dispatching during emergency protocols.|
 | **External API**| **Telegram API** | Handled via asynchronous HTTP requests (`httpx`) for markdown-rich security push notifications. |
 
@@ -238,7 +241,16 @@ The system is not strictly confined to local boundaries, nor does it blindly tru
 - **Zero-Trust Scrubber:** Before any query leaves the local network, the system automatically scrubs and masks personal data (e.g., `[User: Berkay]`), internal IP addresses, and MAC addresses. The Cloud LLM (Gemini) receives a completely sterilized prompt, ensuring zero compromise on home network topography.
 - **Cost & Latency Optimization:** By keeping casual greetings ("How are you?") and home status queries strictly on the edge, the system drastically reduces unnecessary cloud API calls, latency, and operational costs.
 
-### Extreme CPU Optimization & Zero-Copy Streaming
+### 6. Acoustic Event Detection (SED) & Auditory Awareness
+The system now possesses an independent "sense of hearing," running a continuous background pipeline to identify critical environmental sounds without ever recording or storing audio data.
+
+- **Zero-Latency Edge Audio Processing:** Utilizes a quantized **YAMNet** model running via **TensorFlow Lite**. Instead of blocking the physical microphone, it asynchronously pulls raw PCM audio directly from the `go2rtc` RTSP stream using a decoupled **FFmpeg** subprocess.
+- **Context-Aware Triggering:** The `AcousticService` continuously scores audio chunks against 521 classes. It dynamically filters for specific anomalies based on the user's active Security Settings:
+  - **Baby Monitor Protocol:** Maps to specific acoustic classes (20, 21). If a baby cries, the AI executes a gentle TTS announcement in the home and dispatches a silent Telegram push notification to the parents.
+  - **Glass Break Security:** Maps to shatter/glass classes (419-422, 132). Upon detection, the system bypasses standard routines and instantly triggers a `WARNING` level security anomaly, broadcasting a proactive TTS alert to warn residents.
+- **Asynchronous Worker Engine:** The entire acoustic pipeline runs as a non-blocking background worker (`acoustic_engine`). It operates seamlessly alongside the LangGraph Agent and Vision pipelines, ensuring that heavy audio tensor calculations never stall the Home UI or physical reflexes.
+
+### CPU Optimization & Zero-Copy Streaming
 - **Media Server Decoupling:** By shifting the video streaming burden entirely to **go2rtc**, the central Raspberry Pi 5 Hub is relieved from analyzing or transcoding continuous video feeds. Instead of melting the CPU with OpenCV MJPEG encoding, the system routes the raw RTSP packets directly to the browser via **WebRTC/MSE**, reducing streaming CPU load from ~70% to `<1%`.
 - **Edge Vision Bypassing:** The Pi only runs the heavy GhostFaceNet model once during initial entry. Subsequent presence updates are handled via lightweight JSON payloads (KCF Tracking), preventing Thermal Throttling completely.
 
@@ -280,16 +292,16 @@ The system completely redefines the traditional login/register flow by treating 
 
 - **5-Point Identity Enrollment:** A sophisticated UI guides users to register their face from 5 different angles (Front, Left, Right, Up, Down) while simultaneously capturing voice signatures, ensuring bulletproof identity verification across all lighting and positional conditions.
 
-### Zero-Latency WebRTC Video Streaming
+### Zero-Latency WebRTC & Dual-Stream Architecture
 
-- **Native MSE Iframe Integration:** Replaced legacy, bandwidth-heavy HTTP MJPEG streams with a direct `go2rtc` iframe component. This natively bypasses React 18 Strict Mode double-mounting issues and Chrome's Autoplay restrictions.
-
-- **VPN & Network Resiliency:** Automatically switches from standard WebRTC (UDP) to **MSE (Media Source Extensions - TCP)** to prevent packet loss and MTU bottlenecks when routing high-res video traffic through Tailscale VPN tunnels, guaranteeing a butter-smooth, uninterrupted feed.
+- **Smart Dual-Stream Provisioning (go2rtc):** To eliminate CPU bottlenecks and bandwidth saturation, the system natively separates camera feeds into two distinct RTSP pipelines:
+  - **`living_room_sd` (Sub-Stream):** A lightweight feed dedicated exclusively to background Edge Vision pipelines (MediaPipe & GhostFaceNet), ensuring rapid frame extraction without causing thermal throttling on the Hub.
+  - **`living_room_hd` (Main-Stream):** A high-definition feed reserved solely for the Next.js Dashboard, providing crystal-clear live monitoring for the user.
+- **Native WebRTC/MSE Iframe Integration:** Replaced legacy, bandwidth-heavy HTTP MJPEG streams with direct `go2rtc` iframe components. This natively bypasses React 18 Strict Mode double-mounting issues and Chrome's strict Autoplay restrictions.
+- **Tailscale VPN & Network Resiliency:** The WebRTC configuration statically defines internal and Tailscale ICE Candidates (`100.x.x.x`). It automatically falls back from standard WebRTC (UDP) to **MSE (Media Source Extensions - TCP)** to prevent packet loss and MTU bottlenecks when routing high-res video traffic through VPN tunnels, guaranteeing a butter-smooth, uninterrupted feed from anywhere in the world.
 
 ## Future Roadmap
 
-
-- [ ] **Acoustic Event Detection (SED):** Integrating Audio Intelligence models (e.g., YAMNet) to recognize critical environmental sounds such as *baby crying* or *glass breaking* and trigger emergency protocols.
 
 - [ ] **Holistic Behavioral Pattern Recognition:** Evolving the current XGBoost-based isolated predictions. This will empower the ecosystem to comprehend multi-step, complex daily lifecycles—learning the user's entire behavioral pattern across all devices and rooms simultaneously to achieve true, invisible automation.
 

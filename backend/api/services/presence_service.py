@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 from datetime import datetime, timezone, timedelta
 
 from sqlmodel import Session, select
+from sqlalchemy import func
 from database.settings import engine
 from database.models import User
 
@@ -74,7 +75,9 @@ class PresenceService:
             
         try:
             with Session(engine) as session:
-                statement = select(User).where(User.username == username)
+                statement = select(User).where(
+                    func.lower(User.username) == username.lower()
+                )
                 user = session.exec(statement).first()
                 if user:
                     local_time_naive = datetime.utcnow() + timedelta(hours=3)

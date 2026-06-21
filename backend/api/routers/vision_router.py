@@ -15,6 +15,7 @@ from api.routers.devices_router import (
     control_device, DeviceControl, set_brightness, BrightnessControl
 )
 from sqlmodel import Session, select
+from sqlalchemy import func
 from database.settings import engine
 from database.models import Room, Device, User, GestureMapping, SecuritySettings, AgentDecision, SystemLog
 
@@ -27,6 +28,14 @@ from typing import Optional
 import base64
 import time
 import os
+import re
+
+_SENTENCE_END_RE = re.compile(r'(?<!\d)\.\s*$')
+
+def _is_sentence_end(text: str) -> bool:
+    """Return True when *text* ends with a period that looks like a real
+    sentence boundary rather than a decimal point (e.g. 25.71)."""
+    return bool(_SENTENCE_END_RE.search(text))
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +237,7 @@ async def trigger_agent_proactively(
             sentence_buffer += chunk
             await broadcast({"status": "text_chunk", "chunk": chunk})
 
-            if any(punct in chunk for punct in [".", "?", "!", "\n"]):
+            if any(punct in chunk for punct in ["?", "!", "\n"]) or _is_sentence_end(sentence_buffer):
                 if sentence_buffer.strip():
                     audio_bytes = await text_to_speech(sentence_buffer)
                     if audio_bytes:
@@ -316,7 +325,7 @@ async def ask_and_wait_for_fall(confidence: float, screenshot_bytes: Optional[by
     except: pass
 
 
-    for _ in range(15):
+    for _ in range(25): 
         await asyncio.sleep(1.0)
         if ActionState.active_sos_tasks.get("system_fall") == "CANCELLED":
             logger.info("FALL EMERGENCY ABORTED BY USER.")
@@ -442,8 +451,6 @@ async def handle_fall_alert(request: Request, background_tasks: BackgroundTasks)
             else 1.0
         )
         source = event.source
-        # media.snapshot_path is a Mac-local path the Pi cannot read.
-        # Until Phase B serves the image, proceed without a screenshot.
         screenshot_bytes = None
         if event.media and event.media.snapshot_path:
             logger.info(f"Fall snapshot path (not fetchable yet): {event.media.snapshot_path}")
@@ -586,7 +593,9 @@ async def handle_gesture(event: GestureEvent, background_tasks: BackgroundTasks)
             
             if current_time - last_exec > ACTION_COOLDOWN:
                 with Session(engine) as session:
-                    user_obj = session.exec(select(User).where(User.username == event.user)).first()
+                    user_obj = session.exec(select(User).where(
+                        func.lower(User.username) == event.user.lower()
+                    )).first()
                     
                     if user_obj:
                         security_config = session.exec(select(SecuritySettings).where(SecuritySettings.owner_id == user_obj.id)).first()

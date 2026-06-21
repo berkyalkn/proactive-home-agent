@@ -89,8 +89,6 @@ export const getCurrentIdentityLabel = (): string | null => {
   }
 };
 
-/** Single source of truth for identity label normalization.
- *  Must match Mac _clean_label (strip only, preserve case). */
 export const normalizeIdentityLabel = (name: string): string => name.trim();
 
 export const enrollFaceBatch = async (
@@ -120,11 +118,27 @@ export const enrollFaceBatch = async (
   return (await response.json()) as EnrollResponse;
 };
 
-export const fetchEnrolledUsers = async (): Promise<EnrolledUser[]> => {
-  const response = await fetch(`${VISION_API_URL}/enrolled`);
-  if (!response.ok) {
-    throw new Error(await readVisionError(response));
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {},
+  retries = 3,
+  baseDelay = 400,
+): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response;
+    } catch (err) {
+      if (attempt >= retries) throw err;
+      await new Promise((r) => setTimeout(r, baseDelay * (attempt + 1)));
+    }
   }
+}
+
+export const fetchEnrolledUsers = async (): Promise<EnrolledUser[]> => {
+  const response = await fetchWithRetry(`${VISION_API_URL}/enrolled`);
   const data = (await response.json()) as { users?: EnrolledUser[] };
   return data.users || [];
 };

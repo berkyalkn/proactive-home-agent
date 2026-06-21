@@ -88,11 +88,9 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
   }, [isOpen]);
 
   const handleDelete = async (username: string) => {
-    // TODO(security): Replace native confirm with a framework modal component
     if(!confirm(`Delete user "${username}"?`)) return;
     try {
       await deleteEnrolledUser(username);
-      // Also remove Pi User row for identity parity
       try {
         const token = localStorage.getItem('token');
         await fetch(`${API_URL}/users/${encodeURIComponent(username)}`, {
@@ -190,7 +188,6 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
 
   const handleSave = async () => {
     if (!name || !isFaceEnrollmentComplete(faces)) {
-        // TODO(security): Replace native alert with a framework modal component
         alert("Please enter a name and complete all 7 face angles.");
         return;
     }
@@ -202,12 +199,10 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
     try {
       await enrollFaceBatch(cleanName, faces);
 
-      // Ensure Pi User row exists for identity parity (idempotent)
       try {
         await ensureGuestUserOnPi(cleanName, token);
       } catch (e) {
         console.warn("Pi guest user creation failed; face enrolled on Mac", e);
-        // TODO(security): Replace native alert with a framework modal component
         alert(
           `Face enrolled successfully, but the home system metadata could not be created for "${cleanName}". ` +
           "Presence tracking and gestures may not work until this is resolved. " +
@@ -235,7 +230,6 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
 
     } catch (e) { 
         console.error(e); 
-        // TODO(security): Replace native alert with a framework modal component
         alert("An error occurred during multi-angle registration.");
         setStatus("idle");
     }
@@ -319,7 +313,7 @@ export function UserManager({ isOpen, onClose, onUserCountChange }: UserManagerP
                                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase tracking-wider">In Frame</span>
                                             )}
                                           </div>
-                                          <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase mt-0.5">{user.num_embeddings} ArcFace embeddings</div>
+                                          <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase mt-0.5">Multi-Angle FaceID & Voice Auth</div>
                                       </div>
                                   </div>
                                   <Button size="icon" variant="ghost" className="h-9 w-9 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleDelete(user.label)}>

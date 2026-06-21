@@ -55,74 +55,35 @@ async def cancel_acoustic_alarm(event: VoiceCancelEvent):
     return {"status": "ignored", "message": "No active acoustic alarm or keyword match."}
 
 
-async def ask_and_wait_for_glass(confidence: float, settings: SecuritySettings):
-    """Speech-to-listen verification engine for glass breakage."""
+async def announce_glass_break(confidence: float):
+    """Information announcement for glass breakage."""
 
-    logger.critical("GLASS BREAK DETECTED! Initiating verification window...")
+    logger.info("Announcing Glass Break...")
 
     with Session(engine) as session:
         new_log = SystemLog(
-            level="WARNING",
+            level="WARNING", 
             source="Acoustic_Sensor",
-            message=f"GLASS BREAK DETECTED (Confidence {confidence:.0%}). Waiting for user verification."
-            )
+            message=f"Glass break detected (Confidence {confidence:.0%})."
+        )
         session.add(new_log)
         session.commit()
 
-    AcousticState.active_tasks["system_glass"] = "PENDING"
-
-    question = "Warning. I heard a glass breaking sound. Are you okay? Please say 'I am fine' to cancel the security protocol."
+    announcement = "Attention. A glass breaking sound has been detected in the home."
     
     try:
         await broadcast({"status": "processing"})
         await asyncio.sleep(0.2)
-        await broadcast({"status": "text_chunk", "chunk": question})
+        await broadcast({"status": "text_chunk", "chunk": announcement})
 
-        audio_bytes = await text_to_speech(question)
+        audio_bytes = await text_to_speech(announcement)
         if audio_bytes:
             audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
             await broadcast({"status": "audio_chunk", "audio": audio_base64})
             
         await broadcast({"status": "stream_finished"})
-        
-        logger.info("Waiting for AI to finish speaking before opening microphone...")
-        await asyncio.sleep(8.0) 
-        await broadcast({"status": "force_mic_open", "duration": 10})
-    except: pass
-
-    for _ in range(15):
-        await asyncio.sleep(1.0)
-        if AcousticState.active_tasks.get("system_glass") == "CANCELLED":
-            logger.info("GLASS BREAK EMERGENCY ABORTED BY USER.")
-            AcousticState.active_tasks.pop("system_glass", None)
-            try:
-                ack_msg = "Alarm cancelled. I am glad everything is okay."
-                await broadcast({"status": "processing"})
-                await asyncio.sleep(0.2)
-                await broadcast({"status": "text_chunk", "chunk": ack_msg})
-                
-                audio_bytes = await text_to_speech(ack_msg)
-                if audio_bytes:
-                    audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
-                    await broadcast({"status": "audio_chunk", "audio": audio_b64})
-                await broadcast({"status": "stream_finished"})
-            except: pass
-            return
-
-    logger.critical("NO RESPONSE TO GLASS BREAK! EXECUTING EMERGENCY LOCKDOWN!")
-
-    with Session(engine) as session:
-        new_log = SystemLog(
-            level="CRITICAL",
-            source="Acoustic_Sensor",
-            message=f"GLASS BREAK EMERGENCY: System detected glass breakage (Confidence {confidence:.0%}) and received no response. Lockdown initiated."
-            )
-        session.add(new_log)
-        session.commit()
-
-    AcousticState.active_tasks.pop("system_glass", None)
-    await execute_emergency_lockdown("System (Audio Sensor)", settings)
-
+    except Exception as e:
+        logger.error(f"Glass break announcement error: {e}")
 
 async def announce_baby_cry(confidence: float):
     """Information announcement for baby crying."""

@@ -9,7 +9,7 @@ from database.settings import engine
 from database.models import SecuritySettings
 
 from api.routers.vision_router import execute_emergency_lockdown
-from api.routers.acoustic_router import ask_and_wait_for_glass, announce_baby_cry
+from api.routers.acoustic_router import announce_glass_break, announce_baby_cry
 from api.services.notification_service import notifier
 
 try:
@@ -149,7 +149,7 @@ class AcousticService:
                 if scores[cls] > 0.40:  
                     logger.critical(f"[Acoustic] GLASS BREAK DETECTED! (Confidence: {scores[cls]:.2%})")
                     self.last_alert_time = current_time
-                    asyncio.create_task(ask_and_wait_for_glass(float(scores[cls]), settings))
+                    asyncio.create_task(announce_glass_break(float(scores[cls])))
                     return
 
         if baby_enabled:

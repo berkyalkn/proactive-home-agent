@@ -138,7 +138,7 @@ async def cloud_agent_node(state: MessagesState):
     return {"messages": [response]}
 
 
-tool_node = ToolNode(tools_list)
+tool_node = ToolNode(tools_list, handle_tool_errors=True)
 
 workflow = StateGraph(MessagesState)
 

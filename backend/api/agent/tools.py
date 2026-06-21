@@ -2,6 +2,7 @@ from langchain_core.tools import tool
 import api.drivers.mqtt_service as mqtt_service
 from api.services.presence_service import presence_service
 from api.services.behavior_service import behavior_service
+from api.services.notification_service import notifier
 from api.routers.devices_router import (
     control_device, DeviceControl, get_all_devices,
     set_brightness, BrightnessControl, set_color, ColorControl
@@ -346,9 +347,15 @@ async def trigger_emergency_alert(reason: str):
     
     target_phone = os.getenv("EMERGENCY_PHONE_NUMBER")
     
-    asyncio.create_task(notifier.send_telegram_alert(alert_msg))
-    asyncio.create_task(notifier.send_sms(target_phone, alert_msg))
-    asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
+    try:
+        asyncio.create_task(notifier.send_telegram_alert(alert_msg))
+        if target_phone:
+            asyncio.create_task(notifier.send_sms(target_phone, alert_msg))
+            asyncio.create_task(notifier.make_voice_call(target_phone, tts_voice))
+        else:
+            logger.warning("EMERGENCY_PHONE_NUMBER not set — skipping SMS and voice call.")
+    except Exception as e:
+        logger.error(f"Failed to dispatch emergency notifications: {e}")
     
     return f"EMERGENCY PROTOCOL ACTIVATED. The emergency contact has been called and messaged regarding: {reason}."
 

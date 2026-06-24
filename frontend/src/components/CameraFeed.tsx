@@ -65,7 +65,7 @@ export function CameraFeed({ roomId, deviceId }: CameraFeedProps) {
         <div ref={containerRef} className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
 
         <iframe
-          src="http://100.105.136.5:1984/stream.html?src=living_room_sd&mode=webrtc,mse"
+          src="http://100.105.136.5:1984/stream.html?src=living_room_sd&mode=mse"
           className="w-full h-full object-cover"
           style={{ border: 'none', pointerEvents: 'none' }} 
           allow="autoplay; fullscreen"
